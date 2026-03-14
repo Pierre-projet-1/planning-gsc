@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GSC Planning - JSONbin Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .active-tab { border-bottom: 4px solid #1d4ed8; color: #1d4ed8; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+
+    <script>
+        // --- CONFIGURATION ---
+        const BIN_ID = "69b528beaa77b81da9e33a14"; 
+        const API_KEY = "$2a$10$KM0Bk26gr5ZNVIpvSKT-SIOs57V3dBxtizW1IjdbER1L/yjh24vaEq"; 
+        const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+        let currentWeek = 1;
+        let data = { tournees: [], personnel: [], planning: {} };
+
+        // --- CHARGEMENT DES DONNÉES ---
+        async function loadData() {
+            try {
+                const res = await fetch(`${URL}/latest`, {
+                    headers: { "X-Master-Key": API_KEY }
+                });
+                const json = await res.json();
+                data = json.record;
+                renderAll();
+            } catch (e) { alert("Erreur de chargement ! Vérifiez votre clé API."); }
+        }
+
+        // --- ENREGISTREMENT DES DONNÉES ---
+        async function pushData() {
+            document.getElementById('sync-indicator').innerText = "🔄 Synchro...";
+            try {
+                await fetch(URL, {
+                    method: 'PUT',
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Master-Key": API_KEY
+                    },
+                    body: JSON.stringify(data)
+                });
+                document.getElementById('sync-indicator').innerText = "✅ À jour";
+            } catch (e) { document.getElementById('sync-indicator').innerText = "❌ Erreur"; }
+        }
+
+        // --- LOGIQUE INTERFACE ---
+        function renderAll() {
+            renderPlanning();
+            renderParams();
+        }
+
+        function saveCell(tournee, jour, type, val) {
+            const weekKey = `W${currentWeek}`;
+            if(!data.planning[weekKey]) data.planning[weekKey] = {};
+            if(!data.planning[weekKey][tournee]) data.planning[weekKey][tournee] = {};
+            if(!data.planning[weekKey][tournee][jour]) data.planning[weekKey][tournee][jour] = {};
+            
+            data.planning[weekKey][tournee][jour][type] = val;
+            pushData(); // Sauvegarde automatique
+        }
+
+        function addItem(key) {
+            const input = document.getElementById(`new-${key}`);
+            if(input.value.trim()) {
+                data[key].push(input.value.trim());
+                input.value = '';
+                pushData();
+                renderAll();
+            }
+        }
+
+        // --- RENDU (Planning & Params) ---
+        function renderPlanning() {
+            const body = document.getElementById('planning-body');
+            const weekKey = `W${currentWeek}`;
+            body.innerHTML = data.tournees.map(t => `
+                <tr class="border-b">
+                    <td class="p-3 font-bold bg-white sticky left-0 border-r">${t}</td>
+                    ${['Lun', 'Mar', 'Mer', 'Jeu', 'Ven'].map(d => {
+                        const cell = data.planning[weekKey]?.[t]?.[d] || {c:'', e:''};
+                        return `
+                        <td class="p-1 border-r min-w-[140px]">
+                            <select onchange="saveCell('${t}','${d}','c',this.value)" class="w-full text-xs p-1 rounded bg-blue-50 mb-1">
+                                <option value="">Conducteur</option>
+                                ${data.personnel.map(p => `<option ${cell.c===p?'selected':''}>${p}</option>`).join('')}
+                            </select>
+                            <select onchange="saveCell('${t}','${d}','e',this.value)" class="w-full text-xs p-1 rounded bg-emerald-50">
+                                <option value="">Équipier</option>
+                                ${data.personnel.map(p => `<option ${cell.e===p?'selected':''}>${p}</option>`).join('')}
+                            </select>
+                        </td>`;
+                    }).join('')}
+                </tr>
+            `).join('');
+            document.getElementById('weekLabel').innerText = `Semaine ${currentWeek}`;
+        }
+
+        function renderParams() {
+            ['tournees', 'personnel'].forEach(key => {
+                const list = document.getElementById(`list-${key}`);
+                list.innerHTML = data[key].map((item, i) => `
+                    <li class="flex justify-between bg-slate-100 p-2 rounded mb-1 text-sm">
+                        ${item}
+                        <button onclick="data['${key}'].splice(${i},1); pushData(); renderAll()" class="text-red-500">✕</button>
+                    </li>
+                `).join('');
+            });
+        }
+
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`section-${tabId}`).classList.remove('hidden');
+        }
+
+        window.onload = loadData;
+    </script>
+
+    <header class="bg-blue-900 text-white p-4 flex justify-between items-center sticky top-0 z-50 shadow-lg">
+        <h1 class="font-black text-lg">GSC - LIVE PLANNING</h1>
+        <div id="sync-indicator" class="text-[10px] font-bold uppercase opacity-70">Initialisation...</div>
+        <nav class="flex gap-4 text-sm font-bold">
+            <button onclick="showTab('planning')">Planning</button>
+            <button onclick="showTab('params')">Configuration</button>
+        </nav>
+    </header>
+
+    <main class="p-4 max-w-7xl mx-auto">
+        <section id="section-planning" class="tab-content">
+            <div class="flex gap-4 items-center mb-6">
+                <button onclick="currentWeek--; renderPlanning()" class="bg-white p-2 rounded shadow">◀</button>
+                <span id="weekLabel" class="text-xl font-bold">Semaine 1</span>
+                <button onclick="currentWeek++; renderPlanning()" class="bg-white p-2 rounded shadow">▶</button>
+            </div>
+            <div class="bg-white rounded-xl shadow overflow-x-auto border border-slate-200">
+                <table class="w-full">
+                    <thead class="bg-slate-50 border-b">
+                        <tr><th class="p-3 text-left w-48 sticky left-0 bg-slate-50">Tournée</th><th>Lun</th><th>Mar</th><th>Mer</th><th>Jeu</th><th>Ven</th></tr>
+                    </thead>
+                    <tbody id="planning-body"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="section-params" class="tab-content hidden">
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-xl shadow">
+                    <h2 class="font-bold mb-4">Tournées</h2>
+                    <div class="flex gap-2 mb-4"><input type="text" id="new-tournees" class="border flex-1 p-2 rounded"><button onclick="addItem('tournees')" class="bg-blue-600 text-white px-4 rounded">+</button></div>
+                    <ul id="list-tournees"></ul>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow">
+                    <h2 class="font-bold mb-4">Personnel</h2>
+                    <div class="flex gap-2 mb-4"><input type="text" id="new-personnel" class="border flex-1 p-2 rounded"><button onclick="addItem('personnel')" class="bg-blue-600 text-white px-4 rounded">+</button></div>
+                    <ul id="list-personnel"></ul>
+                </div>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
