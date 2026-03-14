@@ -1,331 +1,264 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Calendar, Users, Settings, Plus, Trash2, 
-  ChevronLeft, ChevronRight, Clock, 
-  Truck, AlertCircle, Info, Filter 
-} from 'lucide-react';
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GSC - Planning Professionnel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .flux-om { background-color: #e2e8f0; color: #475569; } /* Gris */
+        .flux-cs { background-color: #fef08a; color: #854d0e; } /* Jaune */
+        .en-conge { background-color: #fca5a5 !important; color: #b91c1c !important; font-weight: bold; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen font-sans">
 
-const App = () => {
-  // --- CONFIGURATION JSONBIN ---
-  const BIN_ID = "69b528beaa77b81da9e33a14"; 
-  const API_KEY = "$2a$10$KM0Bk26gr5ZNVIpvSKTSIOs57V3dBxtizW1IjdbER1L/yjh24vaEq"; 
-  const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+    <script>
+        // --- CONFIGURATION JSONBIN ---
+        const BIN_ID = "69b528beaa77b81da9e33a14"; 
+        const API_KEY = "$2a$10$KM0Bk26gr5ZNVIpvSKTSIOs57V3dBxtizW1IjdbER1L/yjh24vaEq"; 
+        const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
-  // --- ÉTATS ---
-  const [activeTab, setActiveTab] = useState('planning');
-  const [currentWeek, setCurrentWeek] = useState(() => {
-    const now = new Date();
-    const onejan = new Date(now.getFullYear(), 0, 1);
-    return Math.ceil((((now.getTime() - onejan.getTime()) / 86400000) + onejan.getDay() + 1) / 7);
-  });
-  const [currentYear, setCurrentYear] = useState(2026);
-  
-  const [data, setData] = useState({
-    agents: [],
-    camions: [],
-    tournees: [],
-    planning: {},
-    conges: {}
-  });
-  const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
+        let state = {
+            annee: new Date().getFullYear(),
+            semaine: 1,
+            moisConges: new Date().getMonth(),
+            data: {
+                agents: [],
+                camions: [],
+                tournees: [], // {nom, flux, type: 'paire'|'impaire'|'fixe'}
+                planning: {}, // '2026_W1'
+                conges: {}    // '2026_M8': [noms]
+            }
+        };
 
-  // --- CHARGEMENT ---
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const res = await fetch(`${URL}/latest`, {
-          headers: { "X-Master-Key": API_KEY }
-        });
-        const json = await res.json();
-        setData(json.record);
-        setLoading(false);
-      } catch (e) {
-        console.error("Erreur de chargement", e);
-      }
-    };
-    loadData();
-  }, []);
+        // --- CHARGEMENT / SAUVEGARDE ---
+        async function load() {
+            const res = await fetch(`${URL}/latest`, { headers: { "X-Master-Key": API_KEY } });
+            const json = await res.json();
+            state.data = json.record;
+            renderAll();
+        }
 
-  // --- SAUVEGARDE ---
-  const pushData = async (newData) => {
-    setSyncing(true);
-    try {
-      await fetch(URL, {
-        method: 'PUT',
-        headers: {
-          "Content-Type": "application/json",
-          "X-Master-Key": API_KEY
-        },
-        body: JSON.stringify(newData)
-      });
-      setSyncing(false);
-    } catch (e) {
-      console.error("Erreur de synchro", e);
-      setSyncing(false);
-    }
-  };
+        async function sync() {
+            document.getElementById('status').innerText = "⏳ Sauvegarde...";
+            await fetch(URL, {
+                method: 'PUT',
+                headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
+                body: JSON.stringify(state.data)
+            });
+            document.getElementById('status').innerText = "✅ Synchronisé";
+        }
 
-  // --- LOGIQUE MÉTIER ---
-  const getDates = (w, y) => {
-    let simple = new Date(y, 0, 1 + (w - 1) * 7);
-    let dow = simple.getDay();
-    let ISOweekStart = simple;
-    if (dow <= 4) ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
-    else ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
-    let daysArr = [];
-    for (let i = 0; i < 5; i++) {
-      let d = new Date(ISOweekStart);
-      d.setDate(d.getDate() + i);
-      daysArr.push({ 
-        name: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'][i], 
-        formatted: d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
-        monthIdx: d.getMonth()
-      });
-    }
-    return daysArr;
-  };
-
-  const currentDays = getDates(currentWeek, currentYear);
-  const isWeekEven = currentWeek % 2 === 0;
-
-  const updatePlanning = (tourneeNom, dayName, field, value) => {
-    const weekKey = `${currentYear}_W${currentWeek}`;
-    const newData = { ...data };
-    if (!newData.planning[weekKey]) newData.planning[weekKey] = {};
-    if (!newData.planning[weekKey][tourneeNom]) newData.planning[weekKey][tourneeNom] = {};
-    if (!newData.planning[weekKey][tourneeNom][dayName]) newData.planning[weekKey][tourneeNom][dayName] = {};
-    
-    newData.planning[weekKey][tourneeNom][dayName][field] = value;
-    setData(newData);
-    pushData(newData);
-  };
-
-  const toggleConge = (name, monthIdx) => {
-    const newData = { ...data };
-    if (!newData.conges[monthIdx]) newData.conges[monthIdx] = [];
-    if (newData.conges[monthIdx].includes(name)) {
-      newData.conges[monthIdx] = newData.conges[monthIdx].filter(n => n !== name);
-    } else {
-      newData.conges[monthIdx].push(name);
-    }
-    setData(newData);
-    pushData(newData);
-  };
-
-  if (loading) return <div className="p-20 text-center font-bold">Chargement du planning GSC...</div>;
-
-  return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900">
-      {/* HEADER */}
-      <header className="bg-white border-b sticky top-0 z-30 shadow-sm px-6 h-16 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="bg-blue-600 p-2 rounded-lg"><Truck className="text-white w-5 h-5"/></div>
-          <h1 className="text-lg font-black tracking-tighter">GRAND SUD COLLECTE</h1>
-        </div>
-        <nav className="flex bg-slate-100 p-1 rounded-xl">
-          {['planning', 'conges', 'config'].map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} 
-              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === tab ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-              {tab.toUpperCase()}
-            </button>
-          ))}
-        </nav>
-      </header>
-
-      <main className="max-w-[1600px] mx-auto p-6">
-        
-        {/* ONGLET PLANNING */}
-        {activeTab === 'planning' && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between bg-white p-4 rounded-2xl border shadow-sm">
-              <div className="flex items-center space-x-4">
-                <button onClick={() => setCurrentWeek(w => Math.max(1, w - 1))} className="p-2 border rounded-full hover:bg-slate-50"><ChevronLeft/></button>
-                <div className="text-center min-w-[160px]">
-                  <span className="text-[10px] font-bold text-blue-600 uppercase">Semaine {currentWeek} ({isWeekEven ? 'Paire' : 'Impaire'})</span>
-                  <div className="flex items-center justify-center font-black text-xl">
-                    <span>2026</span>
-                  </div>
-                </div>
-                <button onClick={() => setCurrentWeek(w => Math.min(52, w + 1))} className="p-2 border rounded-full hover:bg-slate-50"><ChevronRight/></button>
-              </div>
-              <div className="flex items-center gap-3">
-                {syncing ? <span className="text-[10px] text-orange-500 animate-pulse font-bold uppercase">Enregistrement...</span> : <span className="text-[10px] text-emerald-500 font-bold uppercase">✅ Synchronisé</span>}
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="p-4 border-r w-48 text-[10px] uppercase tracking-widest font-bold text-slate-400">Tournée / Flux</th>
-                    {currentDays.map(d => (
-                      <th key={d.name} className="p-4 border-r text-center">
-                        <span className="block text-blue-600 font-bold text-xs">{d.name}</span>
-                        <span className="text-[10px] text-slate-400">{d.formatted}</span>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {data.tournees
-                    .filter(t => t.frequence === 'toutes' || (isWeekEven && t.frequence === 'paire') || (!isWeekEven && t.frequence === 'impaire'))
-                    .map(t => (
-                    <tr key={t.nom} className="hover:bg-slate-50/50 transition-colors">
-                      <td className={`p-4 border-r font-bold text-sm ${t.flux === 'CS' ? 'bg-yellow-50/50' : 'bg-slate-50/30'}`}>
-                        {t.nom}
-                        <span className={`block w-fit mt-1 px-1.5 py-0.5 rounded text-[9px] ${t.flux === 'CS' ? 'bg-yellow-200 text-yellow-800' : 'bg-slate-200 text-slate-500'}`}>
-                          {t.flux || 'OM'}
-                        </span>
-                      </td>
-                      {currentDays.map(d => {
-                        const cell = data.planning[`${currentYear}_W${currentWeek}`]?.[t.nom]?.[d.name] || {};
-                        const isC1Conge = data.conges[d.monthIdx]?.includes(cell.ch);
-                        const isR1Conge = data.conges[d.monthIdx]?.includes(cell.r1);
-                        const isR2Conge = data.conges[d.monthIdx]?.includes(cell.r2);
-
-                        return (
-                        <td key={d.name} className="p-2 border-r min-w-[150px]">
-                          <div className="space-y-1">
-                            <select value={cell.ch || ''} onChange={(e) => updatePlanning(t.nom, d.name, 'ch', e.target.value)} 
-                                    className={`w-full text-[10px] p-1 border rounded shadow-sm ${isC1Conge ? 'bg-red-500 text-white font-bold' : 'bg-white'}`}>
-                              <option value="">Conducteur</option>
-                              {data.agents.map(a => <option key={a}>{a}</option>)}
-                            </select>
-                            <div className="flex gap-1">
-                              <select value={cell.r1 || ''} onChange={(e) => updatePlanning(t.nom, d.name, 'r1', e.target.value)} 
-                                      className={`w-1/2 text-[10px] p-1 border rounded ${isR1Conge ? 'bg-red-500 text-white font-bold' : 'bg-white'}`}>
-                                <option value="">R1</option>
-                                {data.agents.map(a => <option key={a}>{a}</option>)}
-                              </select>
-                              <select value={cell.r2 || ''} onChange={(e) => updatePlanning(t.nom, d.name, 'r2', e.target.value)} 
-                                      className={`w-1/2 text-[10px] p-1 border rounded ${isR2Conge ? 'bg-red-500 text-white font-bold' : 'bg-white'}`}>
-                                <option value="">R2</option>
-                                {data.agents.map(a => <option key={a}>{a}</option>)}
-                              </select>
-                            </div>
-                            <select value={cell.camion || ''} onChange={(e) => updatePlanning(t.nom, d.name, 'camion', e.target.value)} className="w-full text-[10px] p-1 border rounded bg-slate-50/50">
-                              <option value="">Camion</option>
-                              {data.camions.map(v => <option key={v}>{v}</option>)}
-                            </select>
-                            <input type="text" placeholder="Vidage/Infos..." value={cell.info || ''} onChange={(e) => updatePlanning(t.nom, d.name, 'info', e.target.value)} 
-                                   className="w-full text-[9px] border-none bg-transparent text-slate-400 italic text-center focus:ring-0"/>
-                          </div>
-                        </td>
-                      )})}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* ONGLET CONFIG */}
-        {activeTab === 'config' && (
-          <div className="grid md:grid-cols-3 gap-8">
-            <ConfigCard title="Agents" items={data.agents} onAdd={(v) => {
-              const newData = {...data, agents: [...data.agents, v]};
-              setData(newData); pushData(newData);
-            }} onDelete={(i) => {
-              const newData = {...data, agents: data.agents.filter((_, idx) => idx !== i)};
-              setData(newData); pushData(newData);
-            }} />
+        // --- OUTILS DATES ---
+        function getDatesOfWeek(w, y) {
+            let simple = new Date(y, 0, 1 + (w - 1) * 7);
+            let dow = simple.getDay();
+            let ISOweekStart = simple;
+            if (dow <= 4) ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
+            else ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
             
-            <ConfigCard title="Camions" items={data.camions} onAdd={(v) => {
-              const newData = {...data, camions: [...data.camions, v]};
-              setData(newData); pushData(newData);
-            }} onDelete={(i) => {
-              const newData = {...data, camions: data.camions.filter((_, idx) => idx !== i)};
-              setData(newData); pushData(newData);
-            }} />
+            let days = [];
+            for (let i = 0; i < 5; i++) {
+                let d = new Date(ISOweekStart);
+                d.setDate(d.getDate() + i);
+                days.push(d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }));
+            }
+            return days;
+        }
 
-            <div className="bg-white p-6 rounded-2xl border shadow-sm">
-              <h2 className="font-bold text-xs uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2"><Settings className="w-4 h-4"/> Tournées</h2>
-              <div className="space-y-3">
-                <input id="t-nom" type="text" placeholder="Nom de la tournée" className="w-full border rounded-xl px-4 py-2 text-sm"/>
-                <div className="flex gap-2">
-                  <select id="t-flux" className="flex-1 border rounded-xl px-2 py-2 text-xs">
-                    <option value="OM">OM (Gris)</option>
-                    <option value="CS">CS (Jaune)</option>
-                  </select>
-                  <select id="t-freq" className="flex-1 border rounded-xl px-2 py-2 text-xs">
-                    <option value="toutes">Toutes sem.</option>
-                    <option value="paire">Sem. Paires</option>
-                    <option value="impaire">Sem. Impaires</option>
-                  </select>
-                </div>
-                <button onClick={() => {
-                  const n = document.getElementById('t-nom').value;
-                  const f = document.getElementById('t-flux').value;
-                  const fr = document.getElementById('t-freq').value;
-                  if(n) {
-                    const newData = {...data, tournees: [...data.tournees, {nom: n, flux: f, frequence: fr}]};
-                    setData(newData); pushData(newData);
-                    document.getElementById('t-nom').value = '';
-                  }
-                }} className="w-full bg-blue-600 text-white rounded-xl py-2 font-bold text-sm">Ajouter Tournée</button>
-              </div>
-              <div className="mt-6 space-y-2">
-                {data.tournees.map((t, i) => (
-                  <div key={i} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-xs font-bold">{t.nom} ({t.frequence})</span>
-                    <button onClick={() => {
-                      const newData = {...data, tournees: data.tournees.filter((_, idx) => idx !== i)};
-                      setData(newData); pushData(newData);
-                    }} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4"/></button>
-                  </div>
-                ))}
-              </div>
+        // --- RENDU PLANNING ---
+        function renderPlanning() {
+            const isPaire = state.semaine % 2 === 0;
+            const weekKey = `${state.annee}_W${state.semaine}`;
+            const congeKey = `${state.annee}_M${new Date(state.annee, 0, 1 + (state.semaine - 1) * 7).getMonth()}`;
+            const agentsEnConges = state.data.conges[congeKey] || [];
+            
+            const dates = getDatesOfWeek(state.semaine, state.annee);
+            const header = document.getElementById('plan-header');
+            header.innerHTML = `<th class="p-2 border">Tournée / Flux</th>` + dates.map(d => `<th class="p-2 border text-center text-xs">${d}</th>`).join('');
+
+            const body = document.getElementById('plan-body');
+            // Filtrer les tournées selon paire/impaire
+            const tourneesAffichees = state.data.tournees.filter(t => t.type === 'fixe' || (isPaire && t.type === 'paire') || (!isPaire && t.type === 'impaire'));
+
+            body.innerHTML = tourneesAffichees.map(t => {
+                return `<tr>
+                    <td class="p-2 border font-bold bg-white">
+                        ${t.nom} <br> 
+                        <span class="px-2 py-0.5 rounded text-[10px] ${t.flux === 'OM' ? 'flux-om' : 'flux-cs'}">${t.flux}</span>
+                    </td>
+                    ${[0,1,2,3,4].map(dayIdx => {
+                        const cell = state.data.planning[weekKey]?.[t.nom]?.[dayIdx] || {};
+                        const checkC = (name) => agentsEnConges.includes(name) ? 'en-conge' : '';
+                        return `<td class="p-1 border bg-white min-w-[120px]">
+                            <select onchange="updatePlan('${t.nom}',${dayIdx},'ch',this.value)" class="w-full text-[10px] mb-1 p-1 border rounded ${checkC(cell.ch)}">
+                                <option value="">Chauffeur</option>
+                                ${state.data.agents.map(a => `<option ${cell.ch===a?'selected':''}>${a}</option>`).join('')}
+                            </select>
+                            <select onchange="updatePlan('${t.nom}',${dayIdx},'r1',this.value)" class="w-full text-[10px] mb-1 p-1 border rounded ${checkC(cell.r1)}">
+                                <option value="">Ripeur 1</option>
+                                ${state.data.agents.map(a => `<option ${cell.r1===a?'selected':''}>${a}</option>`).join('')}
+                            </select>
+                            <input type="text" placeholder="Obs/Vidage" onchange="updatePlan('${t.nom}',${dayIdx},'obs',this.value)" value="${cell.obs||''}" class="w-full text-[9px] p-1 border-none bg-slate-50">
+                        </td>`
+                    }).join('')}
+                </tr>`;
+            }).join('');
+        }
+
+        function updatePlan(tName, day, field, val) {
+            const key = `${state.annee}_W${state.semaine}`;
+            if(!state.data.planning[key]) state.data.planning[key] = {};
+            if(!state.data.planning[key][tName]) state.data.planning[key][tName] = {};
+            if(!state.data.planning[key][tName][day]) state.data.planning[key][tName][day] = {};
+            state.data.planning[key][tName][day][field] = val;
+            sync();
+            renderPlanning();
+        }
+
+        // --- GESTION PARAMÈTRES ---
+        function addParam(type) {
+            const val = document.getElementById(`in-${type}`).value;
+            if(!val) return;
+            if(type === 'tournees') {
+                const flux = document.getElementById('in-flux').value;
+                const freq = document.getElementById('in-freq').value;
+                state.data.tournees.push({nom: val, flux: flux, type: freq});
+            } else {
+                state.data[type].push(val);
+            }
+            sync(); renderAll();
+        }
+
+        function removeParam(type, index) {
+            state.data[type].splice(index, 1);
+            sync(); renderAll();
+        }
+
+        // --- NAVIGATION ---
+        function showTab(id) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        function renderAll() {
+            renderPlanning();
+            // Rendu listes paramètres
+            ['agents', 'camions', 'tournees'].forEach(type => {
+                const list = document.getElementById(`list-${type}`);
+                list.innerHTML = state.data[type].map((item, i) => `
+                    <li class="flex justify-between text-sm p-2 bg-white mb-1 rounded border">
+                        ${typeof item === 'string' ? item : item.nom + ' (' + item.type + ')'}
+                        <button onclick="removeParam('${type}', ${i})" class="text-red-500 font-bold">✕</button>
+                    </li>
+                `).join('');
+            });
+        }
+
+        window.onload = load;
+    </script>
+
+    <header class="bg-blue-900 text-white p-4 shadow-xl sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="font-black text-xl tracking-tighter">GRAND SUD COLLECTE</h1>
+                <div id="status" class="text-[10px] uppercase opacity-60 font-bold">Connexion...</div>
             </div>
-          </div>
-        )}
+            <nav class="flex gap-6 font-bold text-sm uppercase">
+                <button onclick="showTab('tab-plan')">Planning</button>
+                <button onclick="showTab('tab-conges')">Congés</button>
+                <button onclick="showTab('tab-params')">Paramètres</button>
+            </nav>
+        </div>
+    </header>
 
-        {/* ONGLET CONGES */}
-        {activeTab === 'conges' && (
-          <div className="bg-white p-8 rounded-2xl border shadow-sm">
-            <h2 className="text-xl font-black mb-6 flex items-center gap-3"><Calendar className="text-red-500"/> Gestion des Absences Mensuelles</h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              {['Jan','Fév','Mar','Avr','Mai','Jui','Jul','Aoû','Sep','Oct','Nov','Déc'].map((m, idx) => (
-                <div key={m} className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                  <h3 className="font-bold text-xs uppercase text-slate-400 mb-3 pb-2 border-b">{m} 2026</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {data.agents.map(a => (
-                      <button key={a} onClick={() => toggleConge(a, idx)}
-                        className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${data.conges[idx]?.includes(a) ? 'bg-red-500 text-white border-red-600 shadow-md' : 'bg-white text-slate-500'}`}>
-                        {a}
-                      </button>
-                    ))}
-                  </div>
+    <main class="max-w-7xl mx-auto p-4">
+        
+        <section id="tab-plan" class="tab-content active">
+            <div class="flex flex-wrap gap-4 mb-6 bg-white p-4 rounded-xl shadow-sm items-center">
+                <div class="flex items-center gap-2">
+                    <label class="text-xs font-bold text-slate-400">ANNÉE</label>
+                    <input type="number" value="2026" onchange="state.annee=this.value; renderPlanning()" class="border rounded p-1 w-20">
                 </div>
-              ))}
+                <div class="flex items-center gap-2">
+                    <label class="text-xs font-bold text-slate-400">SEMAINE</label>
+                    <button onclick="state.semaine--; renderPlanning()" class="px-2 bg-slate-100 rounded">◀</button>
+                    <span class="font-bold w-8 text-center" id="week-num">1</span>
+                    <button onclick="state.semaine++; renderPlanning()" class="px-2 bg-slate-100 rounded">▶</button>
+                </div>
+                <div class="ml-auto text-xs font-bold px-3 py-1 bg-slate-100 rounded-full">
+                    Semaine <span id="pair-type">...</span>
+                </div>
             </div>
-          </div>
-        )}
-      </main>
-    </div>
-  );
-};
 
-const ConfigCard = ({ title, items, onAdd, onDelete }) => {
-  const [val, setVal] = useState('');
-  return (
-    <div className="bg-white p-6 rounded-2xl border shadow-sm">
-      <h2 className="font-bold text-xs uppercase tracking-widest text-slate-400 mb-6">{title}</h2>
-      <div className="flex gap-2 mb-6">
-        <input type="text" value={val} onChange={e => setVal(e.target.value)} className="flex-1 border rounded-xl px-4 py-2 text-sm" placeholder={`Ajouter ${title.toLowerCase()}...`}/>
-        <button onClick={() => { if(val) { onAdd(val); setVal(''); }}} className="bg-blue-600 text-white p-2 rounded-xl"><Plus/></button>
-      </div>
-      <div className="space-y-2">
-        {items.map((item, i) => (
-          <div key={i} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100 group">
-            <span className="text-xs font-bold text-slate-700">{item}</span>
-            <button onClick={() => onDelete(i)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-4 h-4"/></button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
+            <div class="overflow-x-auto shadow-2xl rounded-xl border border-slate-200">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-widest">
+                        <tr id="plan-header"></tr>
+                    </thead>
+                    <tbody id="plan-body" class="text-xs"></tbody>
+                </table>
+            </div>
+        </section>
 
-export default App;
+        <section id="tab-params" class="tab-content">
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="bg-white p-4 rounded-xl shadow">
+                    <h3 class="font-bold mb-4 text-blue-800 uppercase text-xs">Agents</h3>
+                    <div class="flex gap-1 mb-4">
+                        <input type="text" id="in-agents" class="border p-2 rounded text-sm flex-1">
+                        <button onclick="addParam('agents')" class="bg-blue-600 text-white px-3 rounded">+</button>
+                    </div>
+                    <ul id="list-agents"></ul>
+                </div>
+                <div class="bg-white p-4 rounded-xl shadow">
+                    <h3 class="font-bold mb-4 text-blue-800 uppercase text-xs">Camions</h3>
+                    <div class="flex gap-1 mb-4">
+                        <input type="text" id="in-camions" class="border p-2 rounded text-sm flex-1">
+                        <button onclick="addParam('camions')" class="bg-blue-600 text-white px-3 rounded">+</button>
+                    </div>
+                    <ul id="list-camions"></ul>
+                </div>
+                <div class="bg-white p-4 rounded-xl shadow">
+                    <h3 class="font-bold mb-4 text-blue-800 uppercase text-xs">Prédispositions Tournées</h3>
+                    <input type="text" id="in-tournees" placeholder="Nom" class="border p-2 rounded text-sm w-full mb-1">
+                    <div class="flex gap-1 mb-2">
+                        <select id="in-flux" class="border p-2 rounded text-sm flex-1">
+                            <option value="OM">OM (Gris)</option>
+                            <option value="CS">CS (Jaune)</option>
+                        </select>
+                        <select id="in-freq" class="border p-2 rounded text-sm flex-1">
+                            <option value="fixe">Toutes sem.</option>
+                            <option value="paire">Sem. Paires</option>
+                            <option value="impaire">Sem. Impaires</option>
+                        </select>
+                    </div>
+                    <button onclick="addParam('tournees')" class="bg-blue-600 text-white p-2 rounded w-full">Ajouter Tournée</button>
+                    <ul id="list-tournees" class="mt-4"></ul>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-conges" class="tab-content">
+            <div class="bg-white p-6 rounded-xl shadow-sm border text-center">
+                <h2 class="font-bold text-xl mb-4">Gestion des Congés</h2>
+                <p class="text-slate-500 mb-6">Sélectionnez les agents absents pour le mois en cours.</p>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="conge-grid">
+                    </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // Mise à jour spécifique pour les semaines paires/impaires dans l'UI
+        setInterval(() => {
+            document.getElementById('week-num').innerText = state.semaine;
+            document.getElementById('pair-type').innerText = (state.semaine % 2 === 0) ? "PAIRE" : "IMPAIRE";
+        }, 100);
+    </script>
+</body>
+</html>
