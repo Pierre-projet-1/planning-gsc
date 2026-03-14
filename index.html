@@ -3,244 +3,323 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GSC Planning - Pro</title>
+    <title>GSC Logistique Pro</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .custom-scroll::-webkit-scrollbar { height: 6px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .bg-om { background-color: #f1f5f9; color: #475569; }
+        .bg-cs { background-color: #fef9c3; color: #854d0e; }
+    </style>
 </head>
-<body class="bg-slate-50">
+<body class="bg-slate-50 text-slate-900">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
-        // Import des icônes Lucide
+        const { useState, useEffect, useMemo } = React;
         const { 
-            Calendar, Users, Settings, Plus, Trash2, 
-            ChevronLeft, ChevronRight, Clock, 
-            Truck, AlertCircle, Info, Filter 
+            Calendar, Users, Settings, Plus, Minus, Trash2, 
+            ChevronLeft, ChevronRight, Truck, Copy, ClipboardCheck, AlertTriangle
         } = lucide;
 
         const App = () => {
-            // --- CONFIGURATION JSONBIN ---
+            // --- CONFIGURATION ---
             const BIN_ID = "69b528beaa77b81da9e33a14";
             const API_KEY = "$2a$10$KM0Bk26gr5ZNVIpvSKTSIOs57V3dBxtizW1IjdbER1L/yjh24vaEq";
             const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
-            const [activeTab, setActiveTab] = useState('planning');
-            const [currentWeek, setCurrentWeek] = useState(() => {
-                const now = new Date();
-                const onejan = new Date(now.getFullYear(), 0, 1);
-                return Math.ceil((((now.getTime() - onejan.getTime()) / 86400000) + onejan.getDay() + 1) / 7);
+            // --- ÉTATS ---
+            const [data, setData] = useState({
+                agents: [],
+                camions: [],
+                predispositions: { paires: [], impaires: [] },
+                planning: {}, // Clé: YYYY-Www
+                conges: {}    // Clé: YYYY-MM-DD
             });
-            const [currentYear, setCurrentYear] = useState(2026);
-            const [data, setData] = useState({ agents: [], camions: [], tournees: [], planning: {}, conges: {} });
             const [loading, setLoading] = useState(true);
-            const [syncing, setSyncing] = useState(false);
+            const [activeTab, setActiveTab] = useState('planning');
+            const [currentWeek, setCurrentWeek] = useState(36);
+            const [currentYear, setCurrentYear] = useState(2025);
+            const [clipboard, setClipboard] = useState(null);
 
+            // --- CHARGEMENT / SAUVEGARDE ---
             useEffect(() => {
-                const loadData = async () => {
-                    try {
-                        const res = await fetch(`${URL}/latest`, { headers: { "X-Master-Key": API_KEY } });
-                        const json = await res.json();
-                        setData(json.record);
-                        setLoading(false);
-                    } catch (e) { console.error("Erreur chargement", e); }
-                };
-                loadData();
+                fetch(`${URL}/latest`, { headers: { "X-Master-Key": API_KEY } })
+                    .then(res => res.json())
+                    .then(json => { setData(json.record); setLoading(false); })
+                    .catch(err => console.error("Erreur:", err));
             }, []);
 
-            const pushData = async (newData) => {
-                setSyncing(true);
-                try {
-                    await fetch(URL, {
-                        method: 'PUT',
-                        headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
-                        body: JSON.stringify(newData)
-                    });
-                    setSyncing(false);
-                } catch (e) { setSyncing(false); }
+            const save = (newData) => {
+                setData(newData);
+                fetch(URL, {
+                    method: 'PUT',
+                    headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
+                    body: JSON.stringify(newData)
+                });
             };
 
-            const getDates = (w, y) => {
-                let simple = new Date(y, 0, 1 + (w - 1) * 7);
-                let ISOweekStart = simple;
-                let dow = simple.getDay();
-                if (dow <= 4) ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
-                else ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
-                let daysArr = [];
-                for (let i = 0; i < 5; i++) {
-                    let d = new Date(ISOweekStart);
-                    d.setDate(d.getDate() + i);
-                    daysArr.push({ 
-                        name: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'][i], 
-                        formatted: d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
-                        monthIdx: d.getMonth()
-                    });
+            // --- LOGIQUE DATES ---
+            const getWeekInfo = useMemo(() => {
+                let d = new Date(currentYear, 0, 1 + (currentWeek - 1) * 7);
+                let day = d.getDay();
+                let diff = d.getDate() - day + (day === 0 ? -6 : 1);
+                let monday = new Date(d.setDate(diff));
+                
+                let days = [];
+                for(let i=0; i<5; i++) {
+                    let next = new Date(monday);
+                    next.setDate(monday.getDate() + i);
+                    days.push(next);
                 }
-                return daysArr;
+                const monthName = monday.toLocaleDateString('fr-FR', { month: 'long' });
+                return { days, monthName, isEven: currentWeek % 2 === 0 };
+            }, [currentWeek, currentYear]);
+
+            const formatDateKey = (date) => date.toISOString().split('T')[0];
+
+            // --- CALCUL DU PERSONNEL DISPONIBLE ---
+            const getDisponible = (date, currentCrewIds) => {
+                const dateKey = formatDateKey(date);
+                const absents = data.conges[dateKey] || [];
+                const weekKey = `${currentYear}-W${currentWeek}`;
+                const dailyPlanning = data.planning[weekKey] || {};
+                
+                // Agents déjà pris ce jour là dans d'autres tournées
+                const occupes = [];
+                Object.values(dailyPlanning).forEach(tournee => {
+                    const dayData = tournee[dateKey] || {};
+                    if(dayData.ch) occupes.push(dayData.ch);
+                    if(dayData.r1) occupes.push(dayData.r1);
+                    if(dayData.r2) occupes.push(dayData.r2);
+                });
+
+                return data.agents.filter(a => !absents.includes(a) && !occupes.includes(a));
             };
 
-            const currentDays = getDates(currentWeek, currentYear);
-            const isWeekEven = currentWeek % 2 === 0;
-
-            const updatePlanning = (tourneeNom, dayName, field, value) => {
-                const weekKey = `${currentYear}_W${currentWeek}`;
-                const newData = { ...data };
+            // --- ACTIONS PLANNING ---
+            const updateCell = (tourneeIdx, date, field, value) => {
+                const weekKey = `${currentYear}-W${currentWeek}`;
+                const dateKey = formatDateKey(date);
+                let newData = { ...data };
                 if (!newData.planning[weekKey]) newData.planning[weekKey] = {};
-                if (!newData.planning[weekKey][tourneeNom]) newData.planning[weekKey][tourneeNom] = {};
-                if (!newData.planning[weekKey][tourneeNom][dayName]) newData.planning[weekKey][tourneeNom][dayName] = {};
-                newData.planning[weekKey][tourneeNom][dayName][field] = value;
-                setData(newData);
-                pushData(newData);
+                if (!newData.planning[weekKey][tourneeIdx]) newData.planning[weekKey][tourneeIdx] = {};
+                if (!newData.planning[weekKey][tourneeIdx][dateKey]) newData.planning[weekKey][tourneeIdx][dateKey] = {};
+                
+                newData.planning[weekKey][tourneeIdx][dateKey][field] = value;
+                save(newData);
             };
 
-            const toggleConge = (name, monthIdx) => {
-                const newData = { ...data };
-                if (!newData.conges[monthIdx]) newData.conges[monthIdx] = [];
-                if (newData.conges[monthIdx].includes(name)) newData.conges[monthIdx] = newData.conges[monthIdx].filter(n => n !== name);
-                else newData.conges[monthIdx].push(name);
-                setData(newData);
-                pushData(newData);
+            const copyWeek = () => {
+                const weekKey = `${currentYear}-W${currentWeek}`;
+                setClipboard(data.planning[weekKey]);
             };
 
-            if (loading) return <div className="flex h-screen items-center justify-center font-bold text-blue-600">Chargement du planning GSC...</div>;
+            const pasteWeek = () => {
+                if(!clipboard) return;
+                const weekKey = `${currentYear}-W${currentWeek}`;
+                let newData = { ...data };
+                newData.planning[weekKey] = JSON.parse(JSON.stringify(clipboard));
+                save(newData);
+            };
+
+            if (loading) return <div className="p-20 text-center animate-pulse">Chargement GSC...</div>;
 
             return (
-                <div className="min-h-screen pb-10 text-slate-900">
-                    <header className="bg-white border-b sticky top-0 z-30 shadow-sm px-6 h-16 flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                            <Truck className="text-blue-600" />
-                            <h1 className="text-lg font-black">GRAND SUD COLLECTE</h1>
+                <div className="min-h-screen">
+                    {/* NAV BAR */}
+                    <header className="bg-slate-900 text-white p-4 sticky top-0 z-50 flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                            <Truck className="text-blue-400"/>
+                            <h1 className="font-black tracking-tight">GSC LOGISTIQUE</h1>
                         </div>
-                        <nav className="flex bg-slate-100 p-1 rounded-xl">
-                            {['planning', 'conges', 'config'].map(tab => (
-                                <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === tab ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                                    {tab.toUpperCase()}
-                                </button>
+                        <nav className="flex gap-4">
+                            {['planning', 'conges', 'config'].map(t => (
+                                <button key={t} onClick={() => setActiveTab(t)} className={`text-xs font-bold uppercase ${activeTab === t ? 'text-blue-400' : 'text-slate-400'}`}>{t}</button>
                             ))}
                         </nav>
                     </header>
 
-                    <main className="max-w-[1400px] mx-auto p-6">
+                    <main className="p-4 max-w-[1600px] mx-auto">
+                        
+                        {/* TAB PLANNING */}
                         {activeTab === 'planning' && (
-                            <div className="space-y-6">
-                                <div className="flex items-center justify-between bg-white p-4 rounded-2xl border shadow-sm">
-                                    <div className="flex items-center space-x-4">
-                                        <button onClick={() => setCurrentWeek(w => Math.max(1, w - 1))} className="p-2 border rounded-full"><ChevronLeft/></button>
+                            <div className="space-y-4">
+                                <div className="bg-white p-4 rounded-xl shadow-sm border flex justify-between items-center">
+                                    <div className="flex items-center gap-4">
+                                        <button onClick={() => setCurrentWeek(w => w - 1)}><ChevronLeft/></button>
                                         <div className="text-center">
-                                            <span className="text-[10px] font-bold text-blue-600 uppercase block">Semaine {currentWeek} ({isWeekEven ? 'Paire' : 'Impaire'})</span>
-                                            <span className="text-xl font-black">2026</span>
+                                            <h2 className="text-lg font-bold">Planning semaine n°{currentWeek} - {getWeekInfo.monthName} {currentYear}</h2>
+                                            <span className="text-[10px] text-blue-500 font-bold uppercase">Semaine {getWeekInfo.isEven ? 'Paire' : 'Impaire'}</span>
                                         </div>
-                                        <button onClick={() => setCurrentWeek(w => Math.min(52, w + 1))} className="p-2 border rounded-full"><ChevronRight/></button>
+                                        <button onClick={() => setCurrentWeek(w => w + 1)}><ChevronRight/></button>
                                     </div>
-                                    <div className="text-[10px] font-bold">{syncing ? "Enregistrement..." : "✅ Synchronisé"}</div>
+                                    <div className="flex gap-2">
+                                        <button onClick={copyWeek} className="flex items-center gap-2 bg-slate-100 px-3 py-1 rounded text-xs font-bold"><Copy size={14}/> Copier Equipages</button>
+                                        <button onClick={pasteWeek} className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1 rounded text-xs font-bold"><ClipboardCheck size={14}/> Coller</button>
+                                    </div>
                                 </div>
 
-                                <div className="bg-white rounded-2xl border shadow-sm overflow-x-auto">
-                                    <table className="w-full text-left">
+                                <div className="overflow-x-auto bg-white rounded-xl shadow-sm border custom-scroll">
+                                    <table className="w-full text-[11px] text-left border-collapse">
                                         <thead>
                                             <tr className="bg-slate-50 border-b">
-                                                <th className="p-4 border-r w-48 text-[10px] font-bold text-slate-400">Tournée / Flux</th>
-                                                {currentDays.map(d => (
-                                                    <th key={d.name} className="p-4 border-r text-center">
-                                                        <span className="block text-blue-600 font-bold text-xs">{d.name}</span>
-                                                        <span className="text-[10px] text-slate-400">{d.formatted}</span>
-                                                    </th>
-                                                ))}
+                                                <th className="p-3 border-r">Jour</th>
+                                                <th className="p-3 border-r">Tournée</th>
+                                                <th className="p-3 border-r">Flux</th>
+                                                <th className="p-3 border-r">Camion</th>
+                                                <th className="p-3 border-r">Chauffeur</th>
+                                                <th className="p-3 border-r">Ripeur 1</th>
+                                                <th className="p-3 border-r">Ripeur 2</th>
+                                                <th className="p-3 border-r">Vidage</th>
+                                                <th className="p-3 border-r">Information</th>
+                                                <th className="p-3 border-r">Autres</th>
+                                                <th className="p-3">Personnel Disponible</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {data.tournees
-                                              .filter(t => t.frequence === 'toutes' || (isWeekEven && t.frequence === 'paire') || (!isWeekEven && t.frequence === 'impaire'))
-                                              .map(t => (
-                                                <tr key={t.nom} className="border-b">
-                                                    <td className={`p-4 border-r font-bold text-sm ${t.flux === 'CS' ? 'bg-yellow-50' : 'bg-slate-50'}`}>
-                                                        {t.nom}
-                                                        <span className="block text-[9px] text-slate-400 uppercase">{t.flux || 'OM'}</span>
-                                                    </td>
-                                                    {currentDays.map(d => {
-                                                        const cell = data.planning[`${currentYear}_W${currentWeek}`]?.[t.nom]?.[d.name] || {};
-                                                        const isC1Conge = data.conges[d.monthIdx]?.includes(cell.ch);
-                                                        return (
-                                                            <td key={d.name} className="p-2 border-r min-w-[150px]">
-                                                                <div className="space-y-1">
-                                                                    <select value={cell.ch || ''} onChange={(e) => updatePlanning(t.nom, d.name, 'ch', e.target.value)} className={`w-full text-[10px] p-1 border rounded ${isC1Conge ? 'bg-red-500 text-white' : ''}`}>
-                                                                        <option value="">Conducteur</option>
-                                                                        {data.agents.map(a => <option key={a}>{a}</option>)}
-                                                                    </select>
-                                                                    <div className="flex gap-1">
-                                                                        <select value={cell.r1 || ''} onChange={(e) => updatePlanning(t.nom, d.name, 'r1', e.target.value)} className="w-1/2 text-[10px] p-1 border rounded">
-                                                                            <option value="">R1</option>
-                                                                            {data.agents.map(a => <option key={a}>{a}</option>)}
-                                                                        </select>
-                                                                        <select value={cell.r2 || ''} onChange={(e) => updatePlanning(t.nom, d.name, 'r2', e.target.value)} className="w-1/2 text-[10px] p-1 border rounded">
-                                                                            <option value="">R2</option>
-                                                                            {data.agents.map(a => <option key={a}>{a}</option>)}
-                                                                        </select>
-                                                                    </div>
-                                                                    <select value={cell.camion || ''} onChange={(e) => updatePlanning(t.nom, d.name, 'camion', e.target.value)} className="w-full text-[10px] p-1 border rounded bg-slate-50">
-                                                                        <option value="">Camion</option>
-                                                                        {data.camions.map(v => <option key={v}>{v}</option>)}
-                                                                    </select>
-                                                                    <input type="text" placeholder="Vidage..." value={cell.info || ''} onChange={(e) => updatePlanning(t.nom, d.name, 'info', e.target.value)} className="w-full text-[9px] border-none text-center bg-transparent"/>
-                                                                </div>
+                                            {getWeekInfo.days.map((day, dIdx) => {
+                                                const predispo = getWeekInfo.isEven ? data.predispositions.paires : data.predispositions.impaires;
+                                                const dateKey = formatDateKey(day);
+                                                
+                                                return predispo.map((tournee, tIdx) => {
+                                                    const cell = data.planning[`${currentYear}-W${currentWeek}`]?.[tIdx]?.[dateKey] || {};
+                                                    const checkConge = (name) => (data.conges[dateKey] || []).includes(name) ? 'bg-red-500 text-white' : '';
+                                                    const dispo = getDisponible(day);
+
+                                                    return (
+                                                        <tr key={`${dIdx}-${tIdx}`} className="border-b hover:bg-slate-50 transition-colors">
+                                                            {tIdx === 0 && <td rowSpan={predispo.length} className="p-3 border-r font-bold bg-white sticky left-0 uppercase">{day.toLocaleDateString('fr-FR', {weekday: 'long', day: 'numeric', month: 'short'})}</td>}
+                                                            <td className="p-3 border-r font-medium">{tournee.nom}</td>
+                                                            <td className={`p-3 border-r font-bold ${tournee.flux === 'CS' ? 'bg-cs' : 'bg-om'}`}>{tournee.flux}</td>
+                                                            <td className="p-1 border-r">
+                                                                <select value={cell.camion || ''} onChange={e => updateCell(tIdx, day, 'camion', e.target.value)} className="w-full bg-transparent border-none focus:ring-0">
+                                                                    <option value="">-</option>
+                                                                    {data.camions.map(c => <option key={c}>{c}</option>)}
+                                                                </select>
                                                             </td>
-                                                        );
-                                                    })}
-                                                </tr>
-                                            ))}
+                                                            <td className={`p-1 border-r ${checkConge(cell.ch)}`}>
+                                                                <select value={cell.ch || ''} onChange={e => updateCell(tIdx, day, 'ch', e.target.value)} className="w-full bg-transparent border-none focus:ring-0">
+                                                                    <option value="">-</option>
+                                                                    {data.agents.map(a => <option key={a}>{a}</option>)}
+                                                                </select>
+                                                            </td>
+                                                            <td className={`p-1 border-r ${checkConge(cell.r1)}`}>
+                                                                <select value={cell.r1 || ''} onChange={e => updateCell(tIdx, day, 'r1', e.target.value)} className="w-full bg-transparent border-none focus:ring-0">
+                                                                    <option value="">-</option>
+                                                                    {data.agents.map(a => <option key={a}>{a}</option>)}
+                                                                </select>
+                                                            </td>
+                                                            <td className={`p-1 border-r ${checkConge(cell.r2)}`}>
+                                                                <select value={cell.r2 || ''} onChange={e => updateCell(tIdx, day, 'r2', e.target.value)} className="w-full bg-transparent border-none focus:ring-0">
+                                                                    <option value="">-</option>
+                                                                    {data.agents.map(a => <option key={a}>{a}</option>)}
+                                                                </select>
+                                                            </td>
+                                                            <td className="p-1 border-r">
+                                                                <select value={cell.vidage || ''} onChange={e => updateCell(tIdx, day, 'vidage', e.target.value)} className="w-full bg-transparent border-none focus:ring-0">
+                                                                    <option value="Dépôt">Dépôt</option>
+                                                                    <option value="DRIMM">DRIMM</option>
+                                                                </select>
+                                                            </td>
+                                                            <td className="p-1 border-r"><input type="text" value={cell.info || ''} onChange={e => updateCell(tIdx, day, 'info', e.target.value)} className="w-full border-none bg-transparent"/></td>
+                                                            <td className="p-1 border-r"><input type="text" value={cell.autres || ''} onChange={e => updateCell(tIdx, day, 'autres', e.target.value)} className="w-full border-none bg-transparent"/></td>
+                                                            {tIdx === 0 && (
+                                                                <td rowSpan={predispo.length} className="p-3 bg-white align-top text-[9px] text-slate-400">
+                                                                    <div className="flex flex-wrap gap-1">
+                                                                        {dispo.map(a => <span key={a} className="bg-slate-100 px-1 rounded">{a}</span>)}
+                                                                    </div>
+                                                                </td>
+                                                            )}
+                                                        </tr>
+                                                    );
+                                                });
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
                             </div>
                         )}
 
-                        {activeTab === 'config' && (
-                            <div className="grid md:grid-cols-3 gap-8">
-                                <ConfigCard title="Agents" items={data.agents} onAdd={(v) => { const newData = {...data, agents: [...data.agents, v]}; setData(newData); pushData(newData); }} onDelete={(i) => { const newData = {...data, agents: data.agents.filter((_, idx) => idx !== i)}; setData(newData); pushData(newData); }} />
-                                <ConfigCard title="Camions" items={data.camions} onAdd={(v) => { const newData = {...data, camions: [...data.camions, v]}; setData(newData); pushData(newData); }} onDelete={(i) => { const newData = {...data, camions: data.camions.filter((_, idx) => idx !== i)}; setData(newData); pushData(newData); }} />
-                                <div className="bg-white p-6 rounded-2xl border shadow-sm">
-                                    <h2 className="font-bold text-xs uppercase text-slate-400 mb-4">Tournées</h2>
-                                    <input id="t-nom" type="text" placeholder="Nom..." className="w-full border rounded-xl px-4 py-2 text-sm mb-2"/>
-                                    <div className="flex gap-2 mb-2">
-                                        <select id="t-flux" className="flex-1 border rounded-lg p-2 text-xs"><option value="OM">OM</option><option value="CS">CS</option></select>
-                                        <select id="t-freq" className="flex-1 border rounded-lg p-2 text-xs"><option value="toutes">Toutes</option><option value="paire">Paire</option><option value="impaire">Impaire</option></select>
-                                    </div>
-                                    <button onClick={() => {
-                                        const n = document.getElementById('t-nom').value;
-                                        if(n) {
-                                            const newData = {...data, tournees: [...data.tournees, {nom: n, flux: document.getElementById('t-flux').value, frequence: document.getElementById('t-freq').value}]};
-                                            setData(newData); pushData(newData); document.getElementById('t-nom').value = '';
-                                        }
-                                    }} className="w-full bg-blue-600 text-white rounded-xl py-2 font-bold text-sm">Ajouter</button>
-                                    <div className="mt-4 space-y-2">
-                                        {data.tournees.map((t, i) => (
-                                            <div key={i} className="flex justify-between items-center p-2 bg-slate-50 rounded-lg text-xs">
-                                                <span>{t.nom} ({t.frequence})</span>
-                                                <button onClick={() => { const newData = {...data, tournees: data.tournees.filter((_, idx) => idx !== i)}; setData(newData); pushData(newData); }}><Trash2 className="w-4 h-4 text-red-400"/></button>
+                        {/* TAB CONGES */}
+                        {activeTab === 'conges' && (
+                            <div className="bg-white p-6 rounded-xl shadow-sm border max-w-md mx-auto">
+                                <h2 className="font-bold text-center mb-6">Planning Congés Journalier</h2>
+                                <div className="grid grid-cols-7 gap-2 text-center text-[10px] font-bold text-slate-400 mb-2">
+                                    <span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span>
+                                </div>
+                                <div className="grid grid-cols-7 gap-1">
+                                    {[...Array(31)].map((_, i) => {
+                                        const d = new Date(currentYear, 8, i + 1); // Septembre pour l'exemple
+                                        const k = formatDateKey(d);
+                                        const isAbs = data.conges[k] || [];
+                                        return (
+                                            <div key={i} className="border p-2 rounded relative group">
+                                                <span className="text-[10px] block mb-1">{i+1}</span>
+                                                <div className="flex flex-col gap-1">
+                                                    {data.agents.map(a => (
+                                                        <button 
+                                                            key={a} 
+                                                            onClick={() => {
+                                                                let newData = {...data};
+                                                                if(!newData.conges[k]) newData.conges[k] = [];
+                                                                if(newData.conges[k].includes(a)) newData.conges[k] = newData.conges[k].filter(x => x !== a);
+                                                                else newData.conges[k].push(a);
+                                                                save(newData);
+                                                            }}
+                                                            className={`text-[8px] truncate rounded px-1 ${isAbs.includes(a) ? 'bg-red-500 text-white' : 'bg-slate-100 text-slate-400'}`}
+                                                        >
+                                                            {a}
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        ))}
-                                    </div>
+                                        )
+                                    })}
                                 </div>
                             </div>
                         )}
 
-                        {activeTab === 'conges' && (
-                            <div className="bg-white p-8 rounded-2xl border shadow-sm">
-                                <h2 className="text-xl font-black mb-6">Gestion des Congés 2026</h2>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    {['Jan','Fév','Mar','Avr','Mai','Jui','Jul','Aoû','Sep','Oct','Nov','Déc'].map((m, idx) => (
-                                        <div key={m} className="bg-slate-50 p-4 rounded-xl border">
-                                            <h3 className="font-bold text-xs mb-3 border-b">{m}</h3>
-                                            <div className="flex flex-wrap gap-1">
-                                                {data.agents.map(a => (
-                                                    <button key={a} onClick={() => toggleConge(a, idx)} className={`px-2 py-1 rounded text-[9px] font-bold ${data.conges[idx]?.includes(a) ? 'bg-red-500 text-white' : 'bg-white border'}`}>{a}</button>
-                                                ))}
-                                            </div>
+                        {/* TAB CONFIGURATION */}
+                        {activeTab === 'config' && (
+                            <div className="grid md:grid-cols-3 gap-6">
+                                <ListManager title="Agents" items={data.agents} onSave={(list) => save({...data, agents: list})}/>
+                                <ListManager title="Camions" items={data.camions} onSave={(list) => save({...data, camions: list})}/>
+                                <div className="bg-white p-6 rounded-xl shadow-sm border">
+                                    <h2 className="font-bold text-xs uppercase text-slate-400 mb-4 flex items-center justify-between">
+                                        Prédispositions 
+                                        <div className="flex gap-2">
+                                            <button onClick={() => {
+                                                let newData = {...data};
+                                                newData.predispositions.paires.push({nom: 'Nouvelle', flux: 'OM'});
+                                                save(newData);
+                                            }} className="bg-slate-100 p-1 rounded"><Plus size={14}/></button>
                                         </div>
-                                    ))}
+                                    </h2>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <h3 className="text-[10px] font-bold mb-2">SEMAINES PAIRES</h3>
+                                            {data.predispositions.paires.map((p, i) => (
+                                                <div key={i} className="flex gap-1 mb-1">
+                                                    <input type="text" value={p.nom} onChange={e => {
+                                                        let n = {...data}; n.predispositions.paires[i].nom = e.target.value; save(n);
+                                                    }} className="text-[10px] border rounded p-1 flex-1"/>
+                                                    <select value={p.flux} onChange={e => {
+                                                        let n = {...data}; n.predispositions.paires[i].flux = e.target.value; save(n);
+                                                    }} className="text-[10px] border rounded">
+                                                        <option value="OM">OM</option><option value="CS">CS</option>
+                                                    </select>
+                                                    <button onClick={() => {
+                                                        let n = {...data}; n.predispositions.paires.splice(i,1); save(n);
+                                                    }} className="text-red-400"><Minus size={14}/></button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -249,20 +328,20 @@
             );
         };
 
-        const ConfigCard = ({ title, items, onAdd, onDelete }) => {
-            const [val, setVal] = useState('');
+        const ListManager = ({ title, items, onSave }) => {
+            const [input, setInput] = useState('');
             return (
-                <div className="bg-white p-6 rounded-2xl border shadow-sm">
+                <div className="bg-white p-6 rounded-xl shadow-sm border">
                     <h2 className="font-bold text-xs uppercase text-slate-400 mb-4">{title}</h2>
                     <div className="flex gap-2 mb-4">
-                        <input type="text" value={val} onChange={e => setVal(e.target.value)} className="flex-1 border rounded-xl px-4 py-2 text-sm" placeholder="Ajouter..."/>
-                        <button onClick={() => { if(val) { onAdd(val); setVal(''); }}} className="bg-blue-600 text-white p-2 rounded-xl"><Plus/></button>
+                        <input type="text" value={input} onChange={e => setInput(e.target.value)} className="flex-1 border rounded-lg px-3 py-1 text-sm"/>
+                        <button onClick={() => { if(input) { onSave([...items, input]); setInput(''); }}} className="bg-blue-600 text-white p-2 rounded-lg"><Plus size={16}/></button>
                     </div>
-                    <div className="space-y-2">
-                        {items.map((item, i) => (
-                            <div key={i} className="flex justify-between items-center p-2 bg-slate-50 rounded-lg text-xs">
-                                <span>{item}</span>
-                                <button onClick={() => onDelete(i)}><Trash2 className="w-4 h-4 text-red-300 hover:text-red-500"/></button>
+                    <div className="space-y-1">
+                        {items.map((it, i) => (
+                            <div key={i} className="flex justify-between items-center p-2 bg-slate-50 rounded text-xs font-bold">
+                                {it}
+                                <button onClick={() => onSave(items.filter((_, idx) => idx !== i))} className="text-red-400"><Minus size={16}/></button>
                             </div>
                         ))}
                     </div>
