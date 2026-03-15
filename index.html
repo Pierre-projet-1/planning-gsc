@@ -21,35 +21,47 @@
         const API_KEY = "$2a$10$KM0Bk26gr5ZNVIpvSKTSIOs57V3dBxtizW1IjdbER1L/yjh24vaEq"; 
         const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
+        // Initialisation avec des valeurs par défaut pour éviter les bugs si JSONBin est vide
         let state = {
-            annee: new Date().getFullYear(),
+            annee: 2026,
             semaine: 1,
-            moisConges: new Date().getMonth(),
             data: {
                 agents: [],
                 camions: [],
-                tournees: [], // {nom, flux, type: 'paire'|'impaire'|'fixe'}
-                planning: {}, // '2026_W1'
-                conges: {}    // '2026_M8': [noms]
+                tournees: [],
+                planning: {},
+                conges: {}
             }
         };
 
         // --- CHARGEMENT / SAUVEGARDE ---
         async function load() {
-            const res = await fetch(`${URL}/latest`, { headers: { "X-Master-Key": API_KEY } });
-            const json = await res.json();
-            state.data = json.record;
-            renderAll();
+            document.getElementById('status').innerText = "⏳ Chargement...";
+            try {
+                const res = await fetch(`${URL}/latest`, { headers: { "X-Master-Key": API_KEY } });
+                const json = await res.json();
+                // On fusionne les données reçues avec notre structure par défaut
+                state.data = { ...state.data, ...json.record };
+                document.getElementById('status').innerText = "✅ Connecté";
+                renderAll();
+            } catch (err) {
+                document.getElementById('status').innerText = "❌ Erreur de connexion";
+                console.error(err);
+            }
         }
 
         async function sync() {
             document.getElementById('status').innerText = "⏳ Sauvegarde...";
-            await fetch(URL, {
-                method: 'PUT',
-                headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
-                body: JSON.stringify(state.data)
-            });
-            document.getElementById('status').innerText = "✅ Synchronisé";
+            try {
+                await fetch(URL, {
+                    method: 'PUT',
+                    headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
+                    body: JSON.stringify(state.data)
+                });
+                document.getElementById('status').innerText = "✅ Synchronisé";
+            } catch (err) {
+                document.getElementById('status').innerText = "❌ Erreur sauvegarde";
+            }
         }
 
         // --- OUTILS DATES ---
@@ -73,16 +85,24 @@
         function renderPlanning() {
             const isPaire = state.semaine % 2 === 0;
             const weekKey = `${state.annee}_W${state.semaine}`;
-            const congeKey = `${state.annee}_M${new Date(state.annee, 0, 1 + (state.semaine - 1) * 7).getMonth()}`;
-            const agentsEnConges = state.data.conges[congeKey] || [];
             
             const dates = getDatesOfWeek(state.semaine, state.annee);
             const header = document.getElementById('plan-header');
-            header.innerHTML = `<th class="p-2 border">Tournée / Flux</th>` + dates.map(d => `<th class="p-2 border text-center text-xs">${d}</th>`).join('');
+            if (header) {
+                header.innerHTML = `<th class="p-2 border">Tournée / Flux</th>` + dates.map(d => `<th class="p-2 border text-center text-xs">${d}</th>`).join('');
+            }
 
             const body = document.getElementById('plan-body');
-            // Filtrer les tournées selon paire/impaire
-            const tourneesAffichees = state.data.tournees.filter(t => t.type === 'fixe' || (isPaire && t.type === 'paire') || (!isPaire && t.type === 'impaire'));
+            if (!body) return;
+
+            // Sécurité : si tournees n'existe pas encore
+            const tournees = state.data.tournees || [];
+            const tourneesAffichees = tournees.filter(t => t.type === 'fixe' || (isPaire && t.type === 'paire') || (!isPaire && t.type === 'impaire'));
+
+            if (tourneesAffichees.length === 0) {
+                body.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400 italic">Aucune tournée configurée pour cette semaine. Allez dans "Paramètres".</td></tr>`;
+                return;
+            }
 
             body.innerHTML = tourneesAffichees.map(t => {
                 return `<tr>
@@ -92,13 +112,12 @@
                     </td>
                     ${[0,1,2,3,4].map(dayIdx => {
                         const cell = state.data.planning[weekKey]?.[t.nom]?.[dayIdx] || {};
-                        const checkC = (name) => agentsEnConges.includes(name) ? 'en-conge' : '';
                         return `<td class="p-1 border bg-white min-w-[120px]">
-                            <select onchange="updatePlan('${t.nom}',${dayIdx},'ch',this.value)" class="w-full text-[10px] mb-1 p-1 border rounded ${checkC(cell.ch)}">
+                            <select onchange="updatePlan('${t.nom}',${dayIdx},'ch',this.value)" class="w-full text-[10px] mb-1 p-1 border rounded">
                                 <option value="">Chauffeur</option>
                                 ${state.data.agents.map(a => `<option ${cell.ch===a?'selected':''}>${a}</option>`).join('')}
                             </select>
-                            <select onchange="updatePlan('${t.nom}',${dayIdx},'r1',this.value)" class="w-full text-[10px] mb-1 p-1 border rounded ${checkC(cell.r1)}">
+                            <select onchange="updatePlan('${t.nom}',${dayIdx},'r1',this.value)" class="w-full text-[10px] mb-1 p-1 border rounded">
                                 <option value="">Ripeur 1</option>
                                 ${state.data.agents.map(a => `<option ${cell.r1===a?'selected':''}>${a}</option>`).join('')}
                             </select>
@@ -121,38 +140,60 @@
 
         // --- GESTION PARAMÈTRES ---
         function addParam(type) {
-            const val = document.getElementById(`in-${type}`).value;
+            const input = document.getElementById(`in-${type}`);
+            const val = input.value.trim();
+            
             if(!val) return;
+
             if(type === 'tournees') {
                 const flux = document.getElementById('in-flux').value;
                 const freq = document.getElementById('in-freq').value;
                 state.data.tournees.push({nom: val, flux: flux, type: freq});
             } else {
+                // Pour agents et camions
+                if (!state.data[type]) state.data[type] = [];
                 state.data[type].push(val);
             }
-            sync(); renderAll();
+
+            input.value = ""; // On vide le champ
+            sync(); 
+            renderAll(); // On rafraîchit tout
         }
 
         function removeParam(type, index) {
             state.data[type].splice(index, 1);
-            sync(); renderAll();
+            sync(); 
+            renderAll();
         }
 
         // --- NAVIGATION ---
         function showTab(id) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.getElementById(id).classList.add('active');
+            renderAll();
         }
 
         function renderAll() {
+            // On met à jour l'affichage de la semaine et de l'année
+            const weekNumEl = document.getElementById('week-num');
+            if (weekNumEl) weekNumEl.innerText = state.semaine;
+            
+            const pairTypeEl = document.getElementById('pair-type');
+            if (pairTypeEl) pairTypeEl.innerText = (state.semaine % 2 === 0) ? "PAIRE" : "IMPAIRE";
+
+            // Rendu des différentes parties
             renderPlanning();
-            // Rendu listes paramètres
+            
+            // Rendu listes paramètres (Agents, Camions, Tournées)
             ['agents', 'camions', 'tournees'].forEach(type => {
                 const list = document.getElementById(`list-${type}`);
-                list.innerHTML = state.data[type].map((item, i) => `
-                    <li class="flex justify-between text-sm p-2 bg-white mb-1 rounded border">
-                        ${typeof item === 'string' ? item : item.nom + ' (' + item.type + ')'}
-                        <button onclick="removeParam('${type}', ${i})" class="text-red-500 font-bold">✕</button>
+                if (!list) return;
+
+                const items = state.data[type] || [];
+                list.innerHTML = items.map((item, i) => `
+                    <li class="flex justify-between items-center text-sm p-2 bg-white mb-1 rounded border">
+                        <span>${typeof item === 'string' ? item : '<b>' + item.nom + '</b> <small class="opacity-50">(' + item.type + ')</small>'}</span>
+                        <button onclick="removeParam('${type}', ${i})" class="text-red-500 font-bold px-2">✕</button>
                     </li>
                 `).join('');
             });
@@ -181,13 +222,13 @@
             <div class="flex flex-wrap gap-4 mb-6 bg-white p-4 rounded-xl shadow-sm items-center">
                 <div class="flex items-center gap-2">
                     <label class="text-xs font-bold text-slate-400">ANNÉE</label>
-                    <input type="number" value="2026" onchange="state.annee=this.value; renderPlanning()" class="border rounded p-1 w-20">
+                    <input type="number" id="in-annee" value="2026" onchange="state.annee=parseInt(this.value); renderPlanning()" class="border rounded p-1 w-20">
                 </div>
                 <div class="flex items-center gap-2">
                     <label class="text-xs font-bold text-slate-400">SEMAINE</label>
-                    <button onclick="state.semaine--; renderPlanning()" class="px-2 bg-slate-100 rounded">◀</button>
+                    <button onclick="state.semaine--; renderAll()" class="px-2 bg-slate-100 rounded">◀</button>
                     <span class="font-bold w-8 text-center" id="week-num">1</span>
-                    <button onclick="state.semaine++; renderPlanning()" class="px-2 bg-slate-100 rounded">▶</button>
+                    <button onclick="state.semaine++; renderAll()" class="px-2 bg-slate-100 rounded">▶</button>
                 </div>
                 <div class="ml-auto text-xs font-bold px-3 py-1 bg-slate-100 rounded-full">
                     Semaine <span id="pair-type">...</span>
@@ -209,56 +250,51 @@
                 <div class="bg-white p-4 rounded-xl shadow">
                     <h3 class="font-bold mb-4 text-blue-800 uppercase text-xs">Agents</h3>
                     <div class="flex gap-1 mb-4">
-                        <input type="text" id="in-agents" class="border p-2 rounded text-sm flex-1">
-                        <button onclick="addParam('agents')" class="bg-blue-600 text-white px-3 rounded">+</button>
+                        <input type="text" id="in-agents" placeholder="Nom de l'agent" class="border p-2 rounded text-sm flex-1">
+                        <button onclick="addParam('agents')" class="bg-blue-600 text-white px-3 rounded font-bold hover:bg-blue-700">+</button>
                     </div>
                     <ul id="list-agents"></ul>
                 </div>
+                
                 <div class="bg-white p-4 rounded-xl shadow">
                     <h3 class="font-bold mb-4 text-blue-800 uppercase text-xs">Camions</h3>
                     <div class="flex gap-1 mb-4">
-                        <input type="text" id="in-camions" class="border p-2 rounded text-sm flex-1">
-                        <button onclick="addParam('camions')" class="bg-blue-600 text-white px-3 rounded">+</button>
+                        <input type="text" id="in-camions" placeholder="N° Camion" class="border p-2 rounded text-sm flex-1">
+                        <button onclick="addParam('camions')" class="bg-blue-600 text-white px-3 rounded font-bold hover:bg-blue-700">+</button>
                     </div>
                     <ul id="list-camions"></ul>
                 </div>
+
                 <div class="bg-white p-4 rounded-xl shadow">
                     <h3 class="font-bold mb-4 text-blue-800 uppercase text-xs">Prédispositions Tournées</h3>
-                    <input type="text" id="in-tournees" placeholder="Nom" class="border p-2 rounded text-sm w-full mb-1">
-                    <div class="flex gap-1 mb-2">
-                        <select id="in-flux" class="border p-2 rounded text-sm flex-1">
-                            <option value="OM">OM (Gris)</option>
-                            <option value="CS">CS (Jaune)</option>
-                        </select>
-                        <select id="in-freq" class="border p-2 rounded text-sm flex-1">
-                            <option value="fixe">Toutes sem.</option>
-                            <option value="paire">Sem. Paires</option>
-                            <option value="impaire">Sem. Impaires</option>
-                        </select>
+                    <div class="space-y-2">
+                        <input type="text" id="in-tournees" placeholder="Nom de la tournée" class="border p-2 rounded text-sm w-full">
+                        <div class="flex gap-1">
+                            <select id="in-flux" class="border p-2 rounded text-sm flex-1">
+                                <option value="OM">OM (Gris)</option>
+                                <option value="CS">CS (Jaune)</option>
+                            </select>
+                            <select id="in-freq" class="border p-2 rounded text-sm flex-1">
+                                <option value="fixe">Toutes sem.</option>
+                                <option value="paire">Sem. Paires</option>
+                                <option value="impaire">Sem. Impaires</option>
+                            </select>
+                        </div>
+                        <button onclick="addParam('tournees')" class="bg-blue-600 text-white p-2 rounded w-full font-bold hover:bg-blue-700">Ajouter Tournée</button>
                     </div>
-                    <button onclick="addParam('tournees')" class="bg-blue-600 text-white p-2 rounded w-full">Ajouter Tournée</button>
-                    <ul id="list-tournees" class="mt-4"></ul>
+                    <ul id="list-tournees" class="mt-4 border-t pt-4"></ul>
                 </div>
             </div>
         </section>
 
         <section id="tab-conges" class="tab-content">
             <div class="bg-white p-6 rounded-xl shadow-sm border text-center">
-                <h2 class="font-bold text-xl mb-4">Gestion des Congés</h2>
-                <p class="text-slate-500 mb-6">Sélectionnez les agents absents pour le mois en cours.</p>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="conge-grid">
-                    </div>
+                <h2 class="font-bold text-xl mb-4 text-slate-700">Gestion des Congés</h2>
+                <p class="text-slate-500 italic">Cette section sera développée à la prochaine étape.</p>
             </div>
         </section>
 
     </main>
 
-    <script>
-        // Mise à jour spécifique pour les semaines paires/impaires dans l'UI
-        setInterval(() => {
-            document.getElementById('week-num').innerText = state.semaine;
-            document.getElementById('pair-type').innerText = (state.semaine % 2 === 0) ? "PAIRE" : "IMPAIRE";
-        }, 100);
-    </script>
 </body>
 </html>
