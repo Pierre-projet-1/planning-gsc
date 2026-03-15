@@ -10,7 +10,6 @@
         .tab-content.active { display: block; }
         .flux-om { background-color: #e2e8f0; color: #475569; border-left: 4px solid #475569; }
         .flux-cs { background-color: #fef08a; color: #854d0e; border-left: 4px solid #854d0e; }
-        /* Style forçage Alerte Rouge Congé */
         .is-conge { background-color: #ef4444 !important; color: white !important; font-weight: 900 !important; border: 2px solid #7f1d1d !important; }
         .is-double { background-color: #ffedd5 !important; color: #9a3412; font-weight: bold; border: 2px solid #f97316 !important; }
         th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; padding: 12px 8px; }
@@ -103,6 +102,15 @@
             }
         }
 
+        function changeSemaine(delta) {
+            let nouvelle = state.semaine + delta;
+            if (nouvelle < 1) nouvelle = 52;
+            if (nouvelle > 52) nouvelle = 1;
+            state.semaine = nouvelle;
+            document.getElementById('week-selector').value = nouvelle;
+            renderPlanning();
+        }
+
         function getDatesOfWeek(w, y) {
             let simple = new Date(y, 0, 1 + (w - 1) * 7);
             let dow = simple.getDay();
@@ -117,7 +125,7 @@
                 const month = String(d.getMonth() + 1).padStart(2, '0');
                 const day = String(d.getDate()).padStart(2, '0');
                 const localISO = `${year}-${month}-${day}`;
-                days.push({ texte: d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }), iso: localISO });
+                days.push({ texte: d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }), iso: localISO, court: `${day}/${month}/${String(year).slice(-2)}` });
             }
             return days;
         }
@@ -127,11 +135,11 @@
             const weekKey = `${state.annee}_W${state.semaine}`;
             const dates = getDatesOfWeek(state.semaine, state.annee);
             
-            // Mise à jour de l'affichage uniforme central
+            document.getElementById('header-range').innerText = `${dates[0].court} au ${dates[4].court}`;
             document.getElementById('header-semaine').innerText = state.semaine;
             const dateRef = new Date(dates[0].iso);
             document.getElementById('header-mois-annee').innerText = dateRef.toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
-            document.getElementById('header-flux-type').innerText = isPaire ? "PAIRE" : "IMPAIRE";
+            document.getElementById('header-flux-type').innerText = isPaire ? "Semaine Paire" : "Semaine Impaire";
 
             const body = document.getElementById('plan-body');
             body.innerHTML = "";
@@ -139,7 +147,6 @@
 
             dates.forEach((dateObj, dayIdx) => {
                 const tourDuJour = state.data.tournees.filter(t => t.type === (isPaire?'paire':'impaire') && t.jour == (dayIdx+1));
-                
                 let counts = {};
                 tourDuJour.forEach(t => {
                     const c = state.data.planning[weekKey]?.[`${t.nom}_${dayIdx}`] || {};
@@ -149,13 +156,11 @@
                 tourDuJour.forEach(t => {
                     const rowKey = `${t.nom}_${dayIdx}`;
                     const cell = state.data.planning[weekKey]?.[rowKey] || {};
+                    const vidageVal = cell.vidage || t.vidageDefault || "-";
                     
                     const checkClass = (n) => {
                         if (!n) return "";
-                        // VERIFICATION CRUCIALE : On vérifie si l'agent n est en congé à la date dateObj.iso
-                        if (state.data.conges[n] && state.data.conges[n].includes(dateObj.iso)) {
-                            return 'is-conge';
-                        }
+                        if (state.data.conges[n] && state.data.conges[n].includes(dateObj.iso)) return 'is-conge';
                         if (counts[n] > 1) return 'is-double';
                         return "";
                     };
@@ -170,7 +175,11 @@
                         <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','ch',this.value)" class="w-full p-1 border rounded ${checkClass(cell.ch)}"><option value="">-</option>${state.data.agents.map(a => `<option ${cell.ch===a?'selected':''}>${a}</option>`).join('')}</select></td>
                         <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r1',this.value)" class="w-full p-1 border rounded ${checkClass(cell.r1)}"><option value="">-</option>${state.data.agents.map(a => `<option ${cell.r1===a?'selected':''}>${a}</option>`).join('')}</select></td>
                         <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r2',this.value)" class="w-full p-1 border rounded ${checkClass(cell.r2)}"><option value="">-</option>${state.data.agents.map(a => `<option ${cell.r2===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','vidage',this.value)" class="w-full p-1 border rounded font-bold"><option value="">-</option><option ${cell.vidage==='Dépôt'?'selected':''}>Dépôt</option><option ${cell.vidage==='DRIMM'?'selected':''}>DRIMM</option></select></td>
+                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','vidage',this.value)" class="w-full p-1 border rounded font-bold">
+                            <option value="">-</option>
+                            <option ${vidageVal==='Dépôt'?'selected':''}>Dépôt</option>
+                            <option ${vidageVal==='DRIMM'?'selected':''}>DRIMM</option>
+                        </select></td>
                         <td><input type="text" ${isLocked?'disabled':''} value="${cell.info||''}" onchange="updatePlan('${rowKey}','info',this.value)" class="w-full p-1 border rounded"></td>
                         <td><input type="text" ${isLocked?'disabled':''} value="${cell.autres||''}" onchange="updatePlan('${rowKey}','autres',this.value)" class="w-full p-1 border rounded"></td>
                         <td class="text-[9px] text-emerald-600 font-bold bg-emerald-50/30">${state.data.agents.filter(a => !counts[a] && !(state.data.conges[a] && state.data.conges[a].includes(dateObj.iso))).join(', ')}</td>
@@ -243,14 +252,22 @@
 
         function updateUserRole(i, r) { state.data.users[i].role = r; sync(); alert("Rôle mis à jour !"); }
         function removeUser(i) { if(state.data.users[i].email === currentUser.email) return; state.data.users.splice(i, 1); renderUsers(); sync(); }
+        
         function addUser() {
             state.data.users.push({ prenom: document.getElementById('new-u-prenom').value, nom: document.getElementById('new-u-nom').value, email: document.getElementById('new-u-email').value, pass: document.getElementById('new-u-pass').value, role: document.getElementById('new-u-role').value });
             renderUsers(); sync();
         }
 
         function addParam(t) {
-            if(t==='tournees') state.data.tournees.push({ nom: document.getElementById('in-tournees').value, flux: document.getElementById('in-flux').value, type: document.getElementById('in-freq').value, jour: document.getElementById('in-jour').value });
-            else state.data[t].push(document.getElementById(`in-${t}`).value);
+            if(t==='tournees') {
+                state.data.tournees.push({ 
+                    nom: document.getElementById('in-tournees').value, 
+                    flux: document.getElementById('in-flux').value, 
+                    type: document.getElementById('in-freq').value, 
+                    jour: document.getElementById('in-jour').value,
+                    vidageDefault: document.getElementById('in-vidage').value
+                });
+            } else state.data[t].push(document.getElementById(`in-${t}`).value);
             renderAll(); sync();
         }
 
@@ -261,7 +278,7 @@
                 document.getElementById(`list-${t}`).innerHTML = state.data[t].map((item, i) => `
                     <li class="flex justify-between text-xs p-2 bg-slate-50 mb-1 rounded border">${item} <button onclick="state.data['${t}'].splice(${i},1);renderAll();sync();" class="text-red-500 admin-only">✕</button></li>`).join('');
             });
-            const lT = (type) => state.data.tournees.map((t, i) => (t.type === type) ? `<div class="flex justify-between p-2 mb-1 bg-white border text-[11px] rounded shadow-sm"><span><b>${JOURS_NOM[t.jour-1]}</b> : ${t.nom}</span><button onclick="state.data.tournees.splice(${i},1);renderAll();sync();" class="text-red-400 admin-only">✕</button></div>` : '').join('');
+            const lT = (type) => state.data.tournees.map((t, i) => (t.type === type) ? `<div class="flex justify-between p-2 mb-1 bg-white border text-[11px] rounded shadow-sm"><span><b>${JOURS_NOM[t.jour-1]}</b> : ${t.nom} (${t.vidageDefault||'Aucun'})</span><button onclick="state.data.tournees.splice(${i},1);renderAll();sync();" class="text-red-400 admin-only">✕</button></div>` : '').join('');
             document.getElementById('list-tournees-impaires').innerHTML = lT('impaire');
             document.getElementById('list-tournees-paires').innerHTML = lT('paire');
         }
@@ -295,18 +312,22 @@
     <main class="max-w-[1600px] mx-auto p-6">
         <section id="tab-plan" class="tab-content active">
             <div class="bg-white p-6 rounded-2xl border shadow-md flex items-center justify-between mb-8">
-                <div class="w-1/4">
+                <div class="w-1/4 flex flex-col gap-1">
                     <select id="week-selector" onchange="state.semaine=parseInt(this.value); renderPlanning();" 
                         class="p-3 bg-slate-50 rounded-xl font-black text-slate-700 uppercase text-sm border-2 border-slate-200 focus:border-blue-500 outline-none w-48 shadow-sm cursor-pointer"></select>
+                    <span id="header-range" class="text-[10px] font-bold text-slate-400 ml-1">...</span>
                 </div>
 
                 <div class="flex-1 flex flex-col items-center justify-center border-x-2 border-slate-100 px-8">
-                    <div class="flex items-baseline gap-4">
-                        <span class="text-6xl font-black text-slate-900 tracking-tighter">S<span id="header-semaine">00</span></span>
-                        <div class="flex flex-col">
-                            <span id="header-mois-annee" class="text-xl font-black text-slate-400 uppercase tracking-widest leading-none">...</span>
-                            <span class="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em] mt-1">SEMAINE <span id="header-flux-type">...</span></span>
+                    <div class="flex items-center gap-6">
+                        <button onclick="changeSemaine(-1)" class="text-3xl hover:text-blue-600 transition-colors">◀</button>
+                        <div class="flex flex-col items-center">
+                            <span class="text-3xl font-black text-slate-900 tracking-tighter uppercase">
+                                S<span id="header-semaine">00</span> <span id="header-mois-annee">...</span>
+                            </span>
+                            <span id="header-flux-type" class="text-[11px] font-black text-blue-600 uppercase tracking-[0.3em] mt-1">...</span>
                         </div>
+                        <button onclick="changeSemaine(1)" class="text-3xl hover:text-blue-600 transition-colors">▶</button>
                     </div>
                 </div>
 
@@ -329,10 +350,6 @@
                     <tbody id="plan-body"></tbody>
                 </table>
             </div>
-            <div class="mt-6 flex gap-8 text-[10px] font-black uppercase tracking-widest justify-center bg-white p-4 rounded-xl border">
-                <div class="flex items-center gap-3 text-red-600"><span class="w-5 h-5 bg-red-600 border-2 border-red-800 rounded-lg"></span> Agent en congé</div>
-                <div class="flex items-center gap-3 text-orange-600"><span class="w-5 h-5 bg-orange-100 border-2 border-orange-500 rounded-lg"></span> Doublon (déjà pris)</div>
-            </div>
         </section>
 
         <section id="tab-conges" class="tab-content">
@@ -349,14 +366,29 @@
             </div>
         </section>
 
-        <section id="tab-profil" class="tab-content">
-            <div class="max-w-md mx-auto bg-white p-8 rounded-2xl border">
-                <h2 class="font-black text-xl mb-6 uppercase">Mon Profil</h2>
-                <div class="space-y-4">
-                    <input type="text" id="prof-prenom" placeholder="Prénom" class="w-full border p-2 rounded-lg">
-                    <input type="text" id="prof-nom" placeholder="Nom" class="w-full border p-2 rounded-lg">
-                    <input type="password" id="prof-pass" placeholder="Nouveau mot de passe" class="w-full border p-2 rounded-lg">
-                    <button onclick="currentUser.prenom=document.getElementById('prof-prenom').value; currentUser.nom=document.getElementById('prof-nom').value; if(document.getElementById('prof-pass').value) currentUser.pass=document.getElementById('prof-pass').value; sync(); alert('Profil mis à jour !'); renderAll();" class="w-full bg-slate-900 text-white p-3 rounded-lg font-black uppercase text-xs">Sauvegarder</button>
+        <section id="tab-params" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="bg-white p-6 border rounded-2xl shadow-sm">
+                    <h3 class="font-black text-xs uppercase mb-4 text-blue-700">Agents & Camions</h3>
+                    <div class="flex gap-2 mb-4"><input id="in-agents" placeholder="Nom Agent" class="flex-1 border p-2 rounded text-sm"><button onclick="addParam('agents')" class="bg-blue-600 text-white px-4 rounded-xl">+</button></div>
+                    <ul id="list-agents" class="mb-6"></ul>
+                    <div class="flex gap-2 mb-4"><input id="in-camions" placeholder="N° Camion" class="flex-1 border p-2 rounded text-sm"><button onclick="addParam('camions')" class="bg-blue-600 text-white px-4 rounded-xl">+</button></div>
+                    <ul id="list-camions"></ul>
+                </div>
+                <div class="lg:col-span-2 bg-white p-6 border rounded-2xl shadow-sm">
+                    <h3 class="font-black text-xs uppercase mb-4 text-blue-700">Création des Tournées</h3>
+                    <div class="grid grid-cols-6 gap-3 mb-6 bg-slate-50 p-6 rounded-2xl">
+                        <div class="col-span-2"><label class="text-[9px] font-black uppercase text-slate-400">Nom de la Tournée</label><input id="in-tournees" class="w-full border p-2 rounded text-sm"></div>
+                        <div><label class="text-[9px] font-black uppercase text-slate-400">Flux</label><select id="in-flux" class="w-full border p-2 rounded text-sm"><option value="OM">OM</option><option value="CS">CS</option></select></div>
+                        <div><label class="text-[9px] font-black uppercase text-slate-400">Jour</label><select id="in-jour" class="w-full border p-2 rounded text-sm"><option value="1">Lundi</option><option value="2">Mardi</option><option value="3">Mercredi</option><option value="4">Jeudi</option><option value="5">Vendredi</option></select></div>
+                        <div><label class="text-[9px] font-black uppercase text-slate-400">Paire / Impaire</label><select id="in-freq" class="w-full border p-2 rounded text-sm"><option value="impaire">Impaire</option><option value="paire">Paire</option></select></div>
+                        <div><label class="text-[9px] font-black uppercase text-slate-400">Vidage</label><select id="in-vidage" class="w-full border p-2 rounded text-sm"><option value="Dépôt">Dépôt</option><option value="DRIMM">DRIMM</option></select></div>
+                        <div class="col-span-6"><button onclick="addParam('tournees')" class="w-full bg-blue-900 text-white p-3 rounded-xl font-bold uppercase text-xs">Enregistrer la tournée</button></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><h4 class="text-[10px] font-black uppercase text-indigo-500 mb-2">Tournées Impaire</h4><div id="list-tournees-impaires"></div></div>
+                        <div><h4 class="text-[10px] font-black uppercase text-emerald-500 mb-2">Tournées Paire</h4><div id="list-tournees-paires"></div></div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -377,28 +409,14 @@
             </div>
         </section>
 
-        <section id="tab-params" class="tab-content">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div class="bg-white p-6 border rounded-2xl shadow-sm">
-                    <h3 class="font-black text-xs uppercase mb-4 text-blue-700">Agents & Camions</h3>
-                    <div class="flex gap-2 mb-4"><input id="in-agents" class="flex-1 border p-2 rounded text-sm"><button onclick="addParam('agents')" class="bg-blue-600 text-white px-4 rounded-xl">+</button></div>
-                    <ul id="list-agents" class="mb-6"></ul>
-                    <div class="flex gap-2 mb-4"><input id="in-camions" class="flex-1 border p-2 rounded text-sm"><button onclick="addParam('camions')" class="bg-blue-600 text-white px-4 rounded-xl">+</button></div>
-                    <ul id="list-camions"></ul>
-                </div>
-                <div class="lg:col-span-2 bg-white p-6 border rounded-2xl shadow-sm">
-                    <h3 class="font-black text-xs uppercase mb-4 text-blue-700">Tournées</h3>
-                    <div class="grid grid-cols-4 gap-2 mb-4 bg-slate-50 p-4 rounded-xl">
-                        <input id="in-tournees" placeholder="Nom" class="border p-2 rounded text-sm col-span-2">
-                        <select id="in-flux" class="border p-2 rounded text-sm"><option value="OM">OM</option><option value="CS">CS</option></select>
-                        <select id="in-jour" class="border p-2 rounded text-sm"><option value="1">Lun</option><option value="2">Mar</option><option value="3">Mer</option><option value="4">Jeu</option><option value="5">Ven</option></select>
-                        <select id="in-freq" class="border p-2 rounded text-sm col-span-2"><option value="impaire">Impaire</option><option value="paire">Paire</option></select>
-                        <button onclick="addParam('tournees')" class="bg-blue-900 text-white p-2 rounded-xl font-bold col-span-2 uppercase text-[10px]">Ajouter</button>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div><h4 class="text-[9px] font-black uppercase text-indigo-500 mb-2">Impair</h4><div id="list-tournees-impaires"></div></div>
-                        <div><h4 class="text-[9px] font-black uppercase text-emerald-500 mb-2">Pair</h4><div id="list-tournees-paires"></div></div>
-                    </div>
+        <section id="tab-profil" class="tab-content">
+            <div class="max-w-md mx-auto bg-white p-8 rounded-2xl border">
+                <h2 class="font-black text-xl mb-6 uppercase">Mon Profil</h2>
+                <div class="space-y-4">
+                    <input type="text" id="prof-prenom" placeholder="Prénom" class="w-full border p-2 rounded-lg">
+                    <input type="text" id="prof-nom" placeholder="Nom" class="w-full border p-2 rounded-lg">
+                    <input type="password" id="prof-pass" placeholder="Nouveau mot de passe" class="w-full border p-2 rounded-lg">
+                    <button onclick="currentUser.prenom=document.getElementById('prof-prenom').value; currentUser.nom=document.getElementById('prof-nom').value; if(document.getElementById('prof-pass').value) currentUser.pass=document.getElementById('prof-pass').value; sync(); alert('Profil mis à jour !'); renderAll();" class="w-full bg-slate-900 text-white p-3 rounded-lg font-black uppercase text-xs">Sauvegarder</button>
                 </div>
             </div>
         </section>
