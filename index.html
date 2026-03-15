@@ -10,7 +10,7 @@
         .tab-content.active { display: block; }
         .flux-om { background-color: #e2e8f0; color: #475569; border-left: 4px solid #475569; }
         .flux-cs { background-color: #fef08a; color: #854d0e; border-left: 4px solid #854d0e; }
-        .is-conge { background-color: #fecaca !important; color: #b91c1c; font-weight: bold; border: 2px solid #ef4444 !important; }
+        .is-conge { background-color: #ef4444 !important; color: white !important; font-weight: 800; border: 2px solid #b91c1c !important; }
         .is-double { background-color: #ffedd5 !important; color: #9a3412; font-weight: bold; border: 2px solid #f97316 !important; }
         th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; padding: 12px 8px; }
         td { font-size: 11px; padding: 6px; border: 1px solid #e2e8f0; }
@@ -58,6 +58,7 @@
                 if (json.record) state.data = json.record;
                 document.getElementById('status').innerText = "✅ Connecté";
                 initWeekSelector();
+                renderAll();
             } catch (err) { document.getElementById('status').innerText = "❌ Erreur"; }
         }
 
@@ -111,7 +112,10 @@
             for (let i = 0; i < 5; i++) {
                 let d = new Date(ISOweekStart);
                 d.setDate(d.getDate() + i);
-                days.push({ texte: d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }), iso: d.toISOString().split('T')[0] });
+                // On s'assure que la date est au format YYYY-MM-DD local, sans décalage de fuseau
+                const offset = d.getTimezoneOffset() * 60000;
+                const localISODate = (new Date(d.getTime() - offset)).toISOString().split('T')[0];
+                days.push({ texte: d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }), iso: localISODate });
             }
             return days;
         }
@@ -121,11 +125,10 @@
             const weekKey = `${state.annee}_W${state.semaine}`;
             const dates = getDatesOfWeek(state.semaine, state.annee);
             
-            // Mise à jour de l'affichage central
             const centralDate = new Date(dates[0].iso);
-            document.getElementById('big-week-num').innerText = state.semaine;
-            document.getElementById('big-month-year').innerText = centralDate.toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
-            document.getElementById('pair-type-display').innerText = isPaire ? "PAIRE" : "IMPAIRE";
+            document.getElementById('header-semaine').innerText = state.semaine;
+            document.getElementById('header-mois-annee').innerText = centralDate.toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
+            document.getElementById('header-flux-type').innerText = isPaire ? "PAIRE" : "IMPAIRE";
 
             const body = document.getElementById('plan-body');
             body.innerHTML = "";
@@ -146,16 +149,11 @@
                     
                     const checkClass = (n) => {
                         if (!n) return "";
-                        // Vérification stricte des congés par date ISO
-                        if (state.data.conges[n] && state.data.conges[n].includes(dateObj.iso)) return 'is-conge';
+                        const congesAgent = state.data.conges[n] || [];
+                        if (congesAgent.includes(dateObj.iso)) return 'is-conge';
                         if (counts[n] > 1) return 'is-double';
                         return "";
                     };
-
-                    const dispos = state.data.agents.filter(a => 
-                        !counts[a] && 
-                        !(state.data.conges[a] && state.data.conges[a].includes(dateObj.iso))
-                    );
 
                     const tr = document.createElement('tr');
                     tr.className = "bg-white";
@@ -164,13 +162,13 @@
                         <td class="font-black text-blue-900 uppercase">${t.nom}</td>
                         <td class="text-center"><span class="px-2 py-1 rounded text-[9px] font-bold ${t.flux==='OM'?'flux-om':'flux-cs'}">${t.flux}</span></td>
                         <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','camion',this.value)" class="w-full p-1 border rounded"><option value="">-</option>${state.data.camions.map(c => `<option ${cell.camion===c?'selected':''}>${c}</option>`).join('')}</select></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','ch',this.value)" class="w-full p-1 border rounded ${checkClass(cell.ch)}"><option value="">-</option>${state.data.agents.filter(a => !(state.data.conges[a] && state.data.conges[a].includes(dateObj.iso)) || cell.ch === a).map(a => `<option ${cell.ch===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r1',this.value)" class="w-full p-1 border rounded ${checkClass(cell.r1)}"><option value="">-</option>${state.data.agents.filter(a => !(state.data.conges[a] && state.data.conges[a].includes(dateObj.iso)) || cell.r1 === a).map(a => `<option ${cell.r1===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r2',this.value)" class="w-full p-1 border rounded ${checkClass(cell.r2)}"><option value="">-</option>${state.data.agents.filter(a => !(state.data.conges[a] && state.data.conges[a].includes(dateObj.iso)) || cell.r2 === a).map(a => `<option ${cell.r2===a?'selected':''}>${a}</option>`).join('')}</select></td>
+                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','ch',this.value)" class="w-full p-1 border rounded ${checkClass(cell.ch)}"><option value="">-</option>${state.data.agents.filter(a => !(state.data.conges[a] || []).includes(dateObj.iso) || cell.ch === a).map(a => `<option ${cell.ch===a?'selected':''}>${a}</option>`).join('')}</select></td>
+                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r1',this.value)" class="w-full p-1 border rounded ${checkClass(cell.r1)}"><option value="">-</option>${state.data.agents.filter(a => !(state.data.conges[a] || []).includes(dateObj.iso) || cell.r1 === a).map(a => `<option ${cell.r1===a?'selected':''}>${a}</option>`).join('')}</select></td>
+                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r2',this.value)" class="w-full p-1 border rounded ${checkClass(cell.r2)}"><option value="">-</option>${state.data.agents.filter(a => !(state.data.conges[a] || []).includes(dateObj.iso) || cell.r2 === a).map(a => `<option ${cell.r2===a?'selected':''}>${a}</option>`).join('')}</select></td>
                         <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','vidage',this.value)" class="w-full p-1 border rounded font-bold"><option value="">-</option><option ${cell.vidage==='Dépôt'?'selected':''}>Dépôt</option><option ${cell.vidage==='DRIMM'?'selected':''}>DRIMM</option></select></td>
                         <td><input type="text" ${isLocked?'disabled':''} value="${cell.info||''}" onchange="updatePlan('${rowKey}','info',this.value)" class="w-full p-1 border rounded"></td>
                         <td><input type="text" ${isLocked?'disabled':''} value="${cell.autres||''}" onchange="updatePlan('${rowKey}','autres',this.value)" class="w-full p-1 border rounded"></td>
-                        <td class="text-[9px] text-emerald-600 font-bold bg-emerald-50/30">${dispos.join(', ')}</td>
+                        <td class="text-[9px] text-emerald-600 font-bold bg-emerald-50/30">${state.data.agents.filter(a => !counts[a] && !(state.data.conges[a] || []).includes(dateObj.iso)).join(', ')}</td>
                     `;
                     body.appendChild(tr);
                 });
@@ -220,7 +218,7 @@
             const i = state.data.conges[a].indexOf(d);
             if(i>-1) state.data.conges[a].splice(i,1); else state.data.conges[a].push(d);
             renderConges(); 
-            renderPlanning(); // Re-calcul immédiat des alertes planning
+            renderPlanning(); 
             sync();
         }
 
@@ -240,7 +238,6 @@
 
         function updateUserRole(i, r) { state.data.users[i].role = r; sync(); alert("Rôle mis à jour !"); }
         function removeUser(i) { if(state.data.users[i].email === currentUser.email) return; state.data.users.splice(i, 1); renderUsers(); sync(); }
-        
         function addUser() {
             state.data.users.push({ prenom: document.getElementById('new-u-prenom').value, nom: document.getElementById('new-u-nom').value, email: document.getElementById('new-u-email').value, pass: document.getElementById('new-u-pass').value, role: document.getElementById('new-u-role').value });
             renderUsers(); sync();
@@ -255,7 +252,6 @@
         function renderAll() {
             if(!currentUser) return;
             renderPlanning(); renderConges(); renderUsers();
-            
             ['agents', 'camions'].forEach(t => {
                 document.getElementById(`list-${t}`).innerHTML = state.data[t].map((item, i) => `
                     <li class="flex justify-between text-xs p-2 bg-slate-50 mb-1 rounded border">${item} <button onclick="state.data['${t}'].splice(${i},1);renderAll();sync();" class="text-red-500 admin-only">✕</button></li>`).join('');
@@ -293,19 +289,25 @@
 
     <main class="max-w-[1600px] mx-auto p-6">
         <section id="tab-plan" class="tab-content active">
-            <div class="flex items-center justify-between mb-8 bg-white p-6 rounded-2xl border shadow-md">
-                <div class="flex-1">
-                    <select id="week-selector" onchange="state.semaine=parseInt(this.value); renderPlanning();" class="p-3 bg-slate-100 rounded-xl font-black text-slate-700 uppercase text-sm border-2 border-slate-200 focus:border-blue-500 outline-none cursor-pointer"></select>
+            <div class="bg-white p-6 rounded-2xl border shadow-md flex items-center justify-between mb-8">
+                <div class="w-1/4">
+                    <select id="week-selector" onchange="state.semaine=parseInt(this.value); renderPlanning();" 
+                        class="p-3 bg-slate-50 rounded-xl font-black text-slate-700 uppercase text-sm border-2 border-slate-200 focus:border-blue-500 outline-none w-48 shadow-sm cursor-pointer"></select>
                 </div>
 
-                <div class="flex-1 text-center">
-                    <div class="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mb-1">Semaine <span id="pair-type-display" class="text-blue-600">...</span></div>
-                    <h2 class="text-5xl font-black text-slate-900 uppercase tracking-tighter">S<span id="big-week-num">--</span></h2>
-                    <p id="big-month-year" class="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">...</p>
+                <div class="flex-1 flex flex-col items-center justify-center border-x-2 border-slate-100 px-8">
+                    <div class="flex items-baseline gap-4">
+                        <span class="text-6xl font-black text-slate-900 tracking-tighter">S<span id="header-semaine">00</span></span>
+                        <div class="flex flex-col">
+                            <span id="header-mois-annee" class="text-xl font-black text-slate-400 uppercase tracking-widest leading-none">...</span>
+                            <span class="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em] mt-1">SEMAINE <span id="header-flux-type">...</span></span>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="flex-1 text-right">
-                    <input type="number" value="2026" onchange="state.annee=parseInt(this.value); renderPlanning()" class="border-2 border-slate-100 rounded-xl p-3 w-28 text-center font-black text-lg focus:border-blue-500 outline-none shadow-sm">
+                <div class="w-1/4 flex justify-end">
+                    <input type="number" value="2026" onchange="state.annee=parseInt(this.value); renderPlanning()" 
+                        class="border-2 border-slate-100 bg-slate-50 rounded-xl p-3 w-32 text-center font-black text-2xl text-slate-700 focus:border-blue-500 outline-none shadow-sm">
                 </div>
             </div>
             
@@ -322,9 +324,9 @@
                     <tbody id="plan-body"></tbody>
                 </table>
             </div>
-            <div class="mt-6 flex gap-8 text-[10px] font-black uppercase tracking-widest justify-center">
-                <div class="flex items-center gap-3 text-red-600"><span class="w-5 h-5 bg-red-200 border-2 border-red-500 rounded-lg"></span> Agent en congé (Alerte)</div>
-                <div class="flex items-center gap-3 text-orange-600"><span class="w-5 h-5 bg-orange-100 border-2 border-orange-500 rounded-lg"></span> Doublon (Déjà affecté)</div>
+            <div class="mt-6 flex gap-8 text-[10px] font-black uppercase tracking-widest justify-center bg-white p-4 rounded-xl border">
+                <div class="flex items-center gap-3 text-red-600"><span class="w-5 h-5 bg-red-500 border-2 border-red-700 rounded-lg"></span> Agent en congé</div>
+                <div class="flex items-center gap-3 text-orange-600"><span class="w-5 h-5 bg-orange-100 border-2 border-orange-500 rounded-lg"></span> Doublon (2 tournées)</div>
             </div>
         </section>
 
