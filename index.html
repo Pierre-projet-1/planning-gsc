@@ -1,402 +1,582 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GSC - Planning Professionnel Privé</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        .flux-om { background-color: #e2e8f0; color: #475569; border-left: 4px solid #475569; }
-        .flux-cs { background-color: #fef08a; color: #854d0e; border-left: 4px solid #854d0e; }
-        .is-conge { background-color: #ef4444 !important; color: white !important; font-weight: 800; border: 2px solid #b91c1c !important; }
-        .is-double { background-color: #ffedd5 !important; color: #9a3412; font-weight: bold; border: 2px solid #f97316 !important; }
-        th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; padding: 12px 8px; }
-        td { font-size: 11px; padding: 6px; border: 1px solid #e2e8f0; }
-        .cell-conge-active { background-color: #ef4444 !important; border-color: #b91c1c !important; }
-        .weekend-bg { background-color: #f1f5f9 !important; color: #94a3b8; }
-        #login-overlay { position: fixed; inset: 0; z-index: 100; background: #0f172a; display: flex; align-items: center; justify-content: center; }
-        .admin-only { display: none; }
-        body.is-admin .admin-only { display: block; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GSC - Planning Professionnel Privé</title>
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+.tab-content{display:none}
+.tab-content.active{display:block}
+.flux-om{background-color:#e2e8f0;color:#475569;border-left:4px solid #475569}
+.flux-cs{background-color:#fef08a;color:#854d0e;border-left:4px solid #854d0e}
+.is-conge{background-color:#ef4444!important;color:white!important;font-weight:800;border:2px solid #b91c1c!important}
+.is-double{background-color:#ffedd5!important;color:#9a3412;font-weight:bold;border:2px solid #f97316!important}
+th{font-size:10px;text-transform:uppercase;letter-spacing:.05em;padding:12px 8px}
+td{font-size:11px;padding:6px;border:1px solid #e2e8f0}
+.cell-conge-active{background-color:#ef4444!important;border-color:#b91c1c!important}
+.weekend-bg{background-color:#f1f5f9!important;color:#94a3b8}
+#login-overlay{position:fixed;inset:0;z-index:100;background:#0f172a;display:flex;align-items:center;justify-content:center}
+.admin-only{display:none}
+body.is-admin .admin-only{display:block}
+</style>
 </head>
+
 <body class="bg-slate-50 min-h-screen font-sans text-slate-900">
 
-    <div id="login-overlay">
-        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
-            <div class="text-center mb-8">
-                <h2 class="text-3xl font-black text-slate-900 uppercase tracking-tighter">Grand Sud Collecte</h2>
-                <p class="text-slate-400 text-sm font-bold uppercase tracking-widest">Espace Privé</p>
-            </div>
-            <div class="space-y-4">
-                <input type="email" id="login-email" placeholder="Email" class="w-full border-2 p-3 rounded-xl outline-none focus:border-blue-500">
-                <input type="password" id="login-pass" placeholder="Mot de passe" class="w-full border-2 p-3 rounded-xl outline-none focus:border-blue-500">
-                <button onclick="handleLogin()" class="w-full bg-blue-600 text-white font-black p-4 rounded-xl shadow-xl hover:bg-blue-700 uppercase text-sm">Connexion</button>
-                <p id="login-error" class="text-red-500 text-xs font-bold text-center hidden">Identifiants incorrects.</p>
-            </div>
-        </div>
-    </div>
+<div id="login-overlay">
+<div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
+<div class="text-center mb-8">
+<h2 class="text-3xl font-black text-slate-900 uppercase tracking-tighter">Grand Sud Collecte</h2>
+<p class="text-slate-400 text-sm font-bold uppercase tracking-widest">Espace Privé</p>
+</div>
 
-    <script>
-        const BIN_ID = "69b528beaa77b81da9e33a14"; 
-        const API_KEY = "$2a$10$KM0Bk26gr5ZNVIpvSKTSIOs57V3dBxtizW1IjdbER1L/yjh24vaEq"; 
-        const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+<div class="space-y-4">
+<input type="email" id="login-email" placeholder="Email" class="w-full border-2 p-3 rounded-xl outline-none focus:border-blue-500">
+<input type="password" id="login-pass" placeholder="Mot de passe" class="w-full border-2 p-3 rounded-xl outline-none focus:border-blue-500">
+<button onclick="handleLogin()" class="w-full bg-blue-600 text-white font-black p-4 rounded-xl shadow-xl hover:bg-blue-700 uppercase text-sm">Connexion</button>
+<p id="login-error" class="text-red-500 text-xs font-bold text-center hidden">Identifiants incorrects.</p>
+</div>
+</div>
+</div>
 
-        let currentUser = null;
-        let state = {
-            annee: 2026, semaine: 1, moisConges: new Date().getMonth(), anneeConges: 2026,
-            data: { agents: [], camions: [], tournees: [], planning: {}, conges: {}, users: [] }
-        };
+<script>
 
-        const JOURS_NOM = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"];
+const BIN_ID="69b528beaa77b81da9e33a14"
+const API_KEY="$2a$10$KM0Bk26gr5ZNVIpvSKTSIOs57V3dBxtizW1IjdbER1L/yjh24vaEq"
+const URL=`https://api.jsonbin.io/v3/b/${BIN_ID}`
 
-        async function load() {
-            try {
-                const res = await fetch(`${URL}/latest`, { headers: { "X-Master-Key": API_KEY } });
-                const json = await res.json();
-                if (json.record) state.data = json.record;
-                document.getElementById('status').innerText = "✅ Connecté";
-                initWeekSelector();
-                renderAll();
-            } catch (err) { document.getElementById('status').innerText = "❌ Erreur"; }
-        }
+let currentUser=null
 
-        async function sync() {
-            if (currentUser.role !== 'admin') return;
-            document.getElementById('status').innerText = "⏳ Sauvegarde...";
-            await fetch(URL, {
-                method: 'PUT',
-                headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
-                body: JSON.stringify(state.data)
-            });
-            document.getElementById('status').innerText = "✅ Sauvegardé";
-        }
+let state={
+annee:2026,
+semaine:1,
+moisConges:new Date().getMonth(),
+anneeConges:2026,
+data:{agents:[],camions:[],tournees:[],planning:{},conges:{},users:[]}
+}
 
-        function handleLogin() {
-            const email = document.getElementById('login-email').value;
-            const pass = document.getElementById('login-pass').value;
-            if (state.data.users.length === 0 && email === 'admin@gsc.fr' && pass === 'admin123') {
-                currentUser = { email, prenom: 'Admin', nom: 'GSC', role: 'admin', pass: 'admin123' };
-                state.data.users.push(currentUser);
-            } else {
-                currentUser = state.data.users.find(u => u.email === email && u.pass === pass);
-            }
-            if (currentUser) {
-                document.getElementById('login-overlay').style.display = 'none';
-                document.getElementById('user-display-name').innerText = `${currentUser.prenom} ${currentUser.nom}`;
-                if(currentUser.role === 'admin') document.body.classList.add('is-admin');
-                renderAll();
-            } else { document.getElementById('login-error').classList.remove('hidden'); }
-        }
+const JOURS_NOM=["Lundi","Mardi","Mercredi","Jeudi","Vendredi"]
 
-        function initWeekSelector() {
-            const select = document.getElementById('week-selector');
-            select.innerHTML = "";
-            for(let i=1; i<=52; i++) {
-                let opt = document.createElement('option');
-                opt.value = i;
-                opt.innerText = `Semaine ${i}`;
-                if(i === state.semaine) opt.selected = true;
-                select.appendChild(opt);
-            }
-        }
 
-        function getDatesOfWeek(w, y) {
-            let simple = new Date(y, 0, 1 + (w - 1) * 7);
-            let dow = simple.getDay();
-            let ISOweekStart = simple;
-            if (dow <= 4) ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
-            else ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
-            let days = [];
-            for (let i = 0; i < 5; i++) {
-                let d = new Date(ISOweekStart);
-                d.setDate(d.getDate() + i);
-                // On s'assure que la date est au format YYYY-MM-DD local, sans décalage de fuseau
-                const offset = d.getTimezoneOffset() * 60000;
-                const localISODate = (new Date(d.getTime() - offset)).toISOString().split('T')[0];
-                days.push({ texte: d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }), iso: localISODate });
-            }
-            return days;
-        }
+/* =========================
+CORRECTION FORMAT DATE
+========================= */
 
-        function renderPlanning() {
-            const isPaire = state.semaine % 2 === 0;
-            const weekKey = `${state.annee}_W${state.semaine}`;
-            const dates = getDatesOfWeek(state.semaine, state.annee);
-            
-            const centralDate = new Date(dates[0].iso);
-            document.getElementById('header-semaine').innerText = state.semaine;
-            document.getElementById('header-mois-annee').innerText = centralDate.toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
-            document.getElementById('header-flux-type').innerText = isPaire ? "PAIRE" : "IMPAIRE";
+function toLocalISO(date){
+const offset=date.getTimezoneOffset()*60000
+return new Date(date.getTime()-offset).toISOString().split('T')[0]
+}
 
-            const body = document.getElementById('plan-body');
-            body.innerHTML = "";
-            const isLocked = currentUser.role !== 'admin';
 
-            dates.forEach((dateObj, dayIdx) => {
-                const tourDuJour = state.data.tournees.filter(t => t.type === (isPaire?'paire':'impaire') && t.jour == (dayIdx+1));
-                
-                let counts = {};
-                tourDuJour.forEach(t => {
-                    const c = state.data.planning[weekKey]?.[`${t.nom}_${dayIdx}`] || {};
-                    [c.ch, c.r1, c.r2].forEach(n => { if(n) counts[n] = (counts[n] || 0) + 1; });
-                });
+/* =========================
+LOAD
+========================= */
 
-                tourDuJour.forEach(t => {
-                    const rowKey = `${t.nom}_${dayIdx}`;
-                    const cell = state.data.planning[weekKey]?.[rowKey] || {};
-                    
-                    const checkClass = (n) => {
-                        if (!n) return "";
-                        const congesAgent = state.data.conges[n] || [];
-                        if (congesAgent.includes(dateObj.iso)) return 'is-conge';
-                        if (counts[n] > 1) return 'is-double';
-                        return "";
-                    };
+async function load(){
 
-                    const tr = document.createElement('tr');
-                    tr.className = "bg-white";
-                    tr.innerHTML = `
-                        <td class="font-bold text-slate-600 bg-slate-50/50">${dateObj.texte}</td>
-                        <td class="font-black text-blue-900 uppercase">${t.nom}</td>
-                        <td class="text-center"><span class="px-2 py-1 rounded text-[9px] font-bold ${t.flux==='OM'?'flux-om':'flux-cs'}">${t.flux}</span></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','camion',this.value)" class="w-full p-1 border rounded"><option value="">-</option>${state.data.camions.map(c => `<option ${cell.camion===c?'selected':''}>${c}</option>`).join('')}</select></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','ch',this.value)" class="w-full p-1 border rounded ${checkClass(cell.ch)}"><option value="">-</option>${state.data.agents.filter(a => !(state.data.conges[a] || []).includes(dateObj.iso) || cell.ch === a).map(a => `<option ${cell.ch===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r1',this.value)" class="w-full p-1 border rounded ${checkClass(cell.r1)}"><option value="">-</option>${state.data.agents.filter(a => !(state.data.conges[a] || []).includes(dateObj.iso) || cell.r1 === a).map(a => `<option ${cell.r1===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r2',this.value)" class="w-full p-1 border rounded ${checkClass(cell.r2)}"><option value="">-</option>${state.data.agents.filter(a => !(state.data.conges[a] || []).includes(dateObj.iso) || cell.r2 === a).map(a => `<option ${cell.r2===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','vidage',this.value)" class="w-full p-1 border rounded font-bold"><option value="">-</option><option ${cell.vidage==='Dépôt'?'selected':''}>Dépôt</option><option ${cell.vidage==='DRIMM'?'selected':''}>DRIMM</option></select></td>
-                        <td><input type="text" ${isLocked?'disabled':''} value="${cell.info||''}" onchange="updatePlan('${rowKey}','info',this.value)" class="w-full p-1 border rounded"></td>
-                        <td><input type="text" ${isLocked?'disabled':''} value="${cell.autres||''}" onchange="updatePlan('${rowKey}','autres',this.value)" class="w-full p-1 border rounded"></td>
-                        <td class="text-[9px] text-emerald-600 font-bold bg-emerald-50/30">${state.data.agents.filter(a => !counts[a] && !(state.data.conges[a] || []).includes(dateObj.iso)).join(', ')}</td>
-                    `;
-                    body.appendChild(tr);
-                });
-            });
-        }
+try{
 
-        function updatePlan(rk, f, v) {
-            const wk = `${state.annee}_W${state.semaine}`;
-            if(!state.data.planning[wk]) state.data.planning[wk] = {};
-            if(!state.data.planning[wk][rk]) state.data.planning[wk][rk] = {};
-            state.data.planning[wk][rk][f] = v;
-            sync(); renderPlanning();
-        }
+const res=await fetch(`${URL}/latest`,{headers:{"X-Master-Key":API_KEY}})
+const json=await res.json()
 
-        function renderConges() {
-            const container = document.getElementById('conges-wrapper');
-            const joursDansMois = new Date(state.anneeConges, state.moisConges + 1, 0).getDate();
-            const nomsMois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
-            document.getElementById('current-month-display').innerText = `${nomsMois[state.moisConges]} ${state.anneeConges}`;
-            
-            let html = `<table class="w-full border-collapse bg-white shadow-sm"><thead><tr class="bg-slate-800 text-white"><th>Agent</th>`;
-            for(let j=1; j<=joursDansMois; j++) {
-                const dateTemp = new Date(state.anneeConges, state.moisConges, j);
-                const isWE = dateTemp.getDay() === 0 || dateTemp.getDay() === 6;
-                const jourLabel = dateTemp.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
-                html += `<th class="text-[8px] border p-1 ${isWE?'bg-slate-600':''}">${jourLabel}</th>`;
-            }
-            html += `</tr></thead><tbody>`;
-            
-            state.data.agents.forEach(agent => {
-                html += `<tr><td class="font-bold border p-2 text-[10px] bg-slate-50 sticky left-0 z-10">${agent}</td>`;
-                for(let j=1; j<=joursDansMois; j++) {
-                    const dateTemp = new Date(state.anneeConges, state.moisConges, j);
-                    const isWE = dateTemp.getDay() === 0 || dateTemp.getDay() === 6;
-                    const dIso = `${state.anneeConges}-${String(state.moisConges+1).padStart(2,'0')}-${String(j).padStart(2,'0')}`;
-                    const isC = (state.data.conges[agent] || []).includes(dIso);
-                    html += `<td ${currentUser.role==='admin' ? `onclick="toggleConge('${agent}','${dIso}')"` : ''} 
-                            class="border cursor-pointer transition-colors ${isC?'cell-conge-active':''} ${isWE && !isC ? 'weekend-bg' : ''}"></td>`;
-                }
-                html += `</tr>`;
-            });
-            container.innerHTML = html + `</tbody></table>`;
-        }
+if(json.record) state.data=json.record
 
-        function toggleConge(a, d) {
-            if(!state.data.conges[a]) state.data.conges[a] = [];
-            const i = state.data.conges[a].indexOf(d);
-            if(i>-1) state.data.conges[a].splice(i,1); else state.data.conges[a].push(d);
-            renderConges(); 
-            renderPlanning(); 
-            sync();
-        }
+document.getElementById('status').innerText="✅ Connecté"
 
-        function renderUsers() {
-            document.getElementById('list-users').innerHTML = state.data.users.map((u, i) => `
-                <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl border mb-2">
-                    <div><p class="font-black text-sm">${u.prenom} ${u.nom}</p><p class="text-[10px] text-slate-400 font-bold uppercase">${u.email}</p></div>
-                    <div class="flex gap-2">
-                        <select onchange="updateUserRole(${i}, this.value)" class="text-[10px] font-bold border rounded p-1">
-                            <option value="read" ${u.role==='read'?'selected':''}>Lecteur</option>
-                            <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
-                        </select>
-                        <button onclick="removeUser(${i})" class="text-red-500 font-bold text-xs">✕</button>
-                    </div>
-                </div>`).join('');
-        }
+initWeekSelector()
+renderAll()
 
-        function updateUserRole(i, r) { state.data.users[i].role = r; sync(); alert("Rôle mis à jour !"); }
-        function removeUser(i) { if(state.data.users[i].email === currentUser.email) return; state.data.users.splice(i, 1); renderUsers(); sync(); }
-        function addUser() {
-            state.data.users.push({ prenom: document.getElementById('new-u-prenom').value, nom: document.getElementById('new-u-nom').value, email: document.getElementById('new-u-email').value, pass: document.getElementById('new-u-pass').value, role: document.getElementById('new-u-role').value });
-            renderUsers(); sync();
-        }
+}catch(err){
 
-        function addParam(t) {
-            if(t==='tournees') state.data.tournees.push({ nom: document.getElementById('in-tournees').value, flux: document.getElementById('in-flux').value, type: document.getElementById('in-freq').value, jour: document.getElementById('in-jour').value });
-            else state.data[t].push(document.getElementById(`in-${t}`).value);
-            renderAll(); sync();
-        }
+document.getElementById('status').innerText="❌ Erreur"
 
-        function renderAll() {
-            if(!currentUser) return;
-            renderPlanning(); renderConges(); renderUsers();
-            ['agents', 'camions'].forEach(t => {
-                document.getElementById(`list-${t}`).innerHTML = state.data[t].map((item, i) => `
-                    <li class="flex justify-between text-xs p-2 bg-slate-50 mb-1 rounded border">${item} <button onclick="state.data['${t}'].splice(${i},1);renderAll();sync();" class="text-red-500 admin-only">✕</button></li>`).join('');
-            });
-            const lT = (type) => state.data.tournees.map((t, i) => (t.type === type) ? `<div class="flex justify-between p-2 mb-1 bg-white border text-[11px] rounded shadow-sm"><span><b>${JOURS_NOM[t.jour-1]}</b> : ${t.nom}</span><button onclick="state.data.tournees.splice(${i},1);renderAll();sync();" class="text-red-400 admin-only">✕</button></div>` : '').join('');
-            document.getElementById('list-tournees-impaires').innerHTML = lT('impaire');
-            document.getElementById('list-tournees-paires').innerHTML = lT('paire');
-        }
+}
 
-        function changeMoisConges(delta) {
-            state.moisConges += delta;
-            if(state.moisConges > 11) { state.moisConges = 0; state.anneeConges++; }
-            if(state.moisConges < 0) { state.moisConges = 11; state.anneeConges--; }
-            renderConges();
-        }
+}
 
-        function showTab(id) { document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active')); document.getElementById(id).classList.add('active'); renderAll(); }
-        window.onload = load;
-    </script>
+async function sync(){
 
-    <header class="bg-slate-900 text-white p-4 sticky top-0 z-50 flex justify-between items-center shadow-xl">
-        <h1 class="font-black text-xl tracking-tighter uppercase">Grand Sud Collecte</h1>
-        <nav class="flex gap-4">
-            <button onclick="showTab('tab-plan')" class="text-xs font-bold uppercase hover:text-blue-400">Planning</button>
-            <button onclick="showTab('tab-conges')" class="text-xs font-bold uppercase hover:text-blue-400">Congés</button>
-            <button onclick="showTab('tab-params')" class="text-xs font-bold uppercase hover:text-blue-400 admin-only">Configuration</button>
-            <button onclick="showTab('tab-users')" class="text-xs font-bold uppercase hover:text-blue-400 admin-only">Utilisateurs</button>
-        </nav>
-        <div class="flex items-center gap-4">
-            <div id="status" class="text-[9px] font-mono text-blue-300">...</div>
-            <div onclick="showTab('tab-profil')" class="cursor-pointer bg-blue-600 px-3 py-1 rounded-lg text-xs font-bold hover:bg-blue-500">👤 <span id="user-display-name">Profil</span></div>
-            <button onclick="location.reload()" class="text-xs text-slate-400 font-bold hover:text-white">Sortie</button>
-        </div>
-    </header>
+if(currentUser.role!=='admin') return
 
-    <main class="max-w-[1600px] mx-auto p-6">
-        <section id="tab-plan" class="tab-content active">
-            <div class="bg-white p-6 rounded-2xl border shadow-md flex items-center justify-between mb-8">
-                <div class="w-1/4">
-                    <select id="week-selector" onchange="state.semaine=parseInt(this.value); renderPlanning();" 
-                        class="p-3 bg-slate-50 rounded-xl font-black text-slate-700 uppercase text-sm border-2 border-slate-200 focus:border-blue-500 outline-none w-48 shadow-sm cursor-pointer"></select>
-                </div>
+document.getElementById('status').innerText="⏳ Sauvegarde..."
 
-                <div class="flex-1 flex flex-col items-center justify-center border-x-2 border-slate-100 px-8">
-                    <div class="flex items-baseline gap-4">
-                        <span class="text-6xl font-black text-slate-900 tracking-tighter">S<span id="header-semaine">00</span></span>
-                        <div class="flex flex-col">
-                            <span id="header-mois-annee" class="text-xl font-black text-slate-400 uppercase tracking-widest leading-none">...</span>
-                            <span class="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em] mt-1">SEMAINE <span id="header-flux-type">...</span></span>
-                        </div>
-                    </div>
-                </div>
+await fetch(URL,{
+method:'PUT',
+headers:{
+"Content-Type":"application/json",
+"X-Master-Key":API_KEY
+},
+body:JSON.stringify(state.data)
+})
 
-                <div class="w-1/4 flex justify-end">
-                    <input type="number" value="2026" onchange="state.annee=parseInt(this.value); renderPlanning()" 
-                        class="border-2 border-slate-100 bg-slate-50 rounded-xl p-3 w-32 text-center font-black text-2xl text-slate-700 focus:border-blue-500 outline-none shadow-sm">
-                </div>
-            </div>
-            
-            <div class="overflow-x-auto rounded-3xl border border-slate-200 bg-white shadow-2xl">
-                <table class="w-full text-left">
-                    <thead class="bg-slate-900 text-white">
-                        <tr>
-                            <th style="width: 12%">Jour</th><th style="width: 14%">Tournée</th><th style="width: 5%">Flux</th>
-                            <th style="width: 7%">Camion</th><th style="width: 9%">Chauffeur</th><th style="width: 9%">Ripeur 1</th>
-                            <th style="width: 9%">Ripeur 2</th><th style="width: 7%">Vidage</th><th style="width: 10%">Info</th>
-                            <th style="width: 10%">Autres</th><th style="width: 13%" class="bg-emerald-900/20 text-emerald-800">Personnel Dispo</th>
-                        </tr>
-                    </thead>
-                    <tbody id="plan-body"></tbody>
-                </table>
-            </div>
-            <div class="mt-6 flex gap-8 text-[10px] font-black uppercase tracking-widest justify-center bg-white p-4 rounded-xl border">
-                <div class="flex items-center gap-3 text-red-600"><span class="w-5 h-5 bg-red-500 border-2 border-red-700 rounded-lg"></span> Agent en congé</div>
-                <div class="flex items-center gap-3 text-orange-600"><span class="w-5 h-5 bg-orange-100 border-2 border-orange-500 rounded-lg"></span> Doublon (2 tournées)</div>
-            </div>
-        </section>
+document.getElementById('status').innerText="✅ Sauvegardé"
 
-        <section id="tab-conges" class="tab-content">
-            <div class="bg-white p-6 rounded-2xl border shadow-lg">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="font-black text-blue-900 uppercase">Gestion des Absences</h2>
-                    <div class="flex items-center gap-4 bg-slate-100 p-2 rounded-xl">
-                        <button onclick="changeMoisConges(-1)" class="font-bold px-3 py-1 bg-white rounded-lg shadow-sm hover:bg-blue-50">◀</button>
-                        <span id="current-month-display" class="font-bold text-sm uppercase min-w-[150px] text-center">...</span>
-                        <button onclick="changeMoisConges(1)" class="font-bold px-3 py-1 bg-white rounded-lg shadow-sm hover:bg-blue-50">▶</button>
-                    </div>
-                </div>
-                <div id="conges-wrapper" class="overflow-x-auto border rounded-xl"></div>
-            </div>
-        </section>
+}
 
-        <section id="tab-profil" class="tab-content">
-            <div class="max-w-md mx-auto bg-white p-8 rounded-2xl border">
-                <h2 class="font-black text-xl mb-6 uppercase">Mon Profil</h2>
-                <div class="space-y-4">
-                    <input type="text" id="prof-prenom" placeholder="Prénom" class="w-full border p-2 rounded-lg">
-                    <input type="text" id="prof-nom" placeholder="Nom" class="w-full border p-2 rounded-lg">
-                    <input type="password" id="prof-pass" placeholder="Nouveau mot de passe" class="w-full border p-2 rounded-lg">
-                    <button onclick="currentUser.prenom=document.getElementById('prof-prenom').value; currentUser.nom=document.getElementById('prof-nom').value; if(document.getElementById('prof-pass').value) currentUser.pass=document.getElementById('prof-pass').value; sync(); alert('Profil mis à jour !'); renderAll();" class="w-full bg-slate-900 text-white p-3 rounded-lg font-black uppercase text-xs">Sauvegarder</button>
-                </div>
-            </div>
-        </section>
 
-        <section id="tab-users" class="tab-content">
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div class="bg-white p-6 rounded-2xl border shadow-sm">
-                    <h3 class="font-black text-blue-700 uppercase mb-4 text-xs">Nouveau compte</h3>
-                    <div class="space-y-3">
-                        <div class="grid grid-cols-2 gap-2"><input id="new-u-prenom" placeholder="Prénom" class="border p-2 rounded text-sm"><input id="new-u-nom" placeholder="Nom" class="border p-2 rounded text-sm"></div>
-                        <input id="new-u-email" placeholder="Email" class="w-full border p-2 rounded text-sm">
-                        <input id="new-u-pass" placeholder="Mot de passe" class="w-full border p-2 rounded text-sm">
-                        <select id="new-u-role" class="w-full border p-2 rounded text-sm"><option value="read">Lecteur</option><option value="admin">Admin</option></select>
-                        <button onclick="addUser()" class="w-full bg-blue-600 text-white font-black p-3 rounded-xl uppercase text-xs">Créer</button>
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded-2xl border shadow-sm"><h3 class="font-black text-slate-400 uppercase mb-4 text-xs">Comptes</h3><div id="list-users"></div></div>
-            </div>
-        </section>
+/* =========================
+LOGIN
+========================= */
 
-        <section id="tab-params" class="tab-content">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div class="bg-white p-6 border rounded-2xl shadow-sm">
-                    <h3 class="font-black text-xs uppercase mb-4 text-blue-700">Agents & Camions</h3>
-                    <div class="flex gap-2 mb-4"><input id="in-agents" class="flex-1 border p-2 rounded text-sm"><button onclick="addParam('agents')" class="bg-blue-600 text-white px-4 rounded-xl">+</button></div>
-                    <ul id="list-agents" class="mb-6"></ul>
-                    <div class="flex gap-2 mb-4"><input id="in-camions" class="flex-1 border p-2 rounded text-sm"><button onclick="addParam('camions')" class="bg-blue-600 text-white px-4 rounded-xl">+</button></div>
-                    <ul id="list-camions"></ul>
-                </div>
-                <div class="lg:col-span-2 bg-white p-6 border rounded-2xl shadow-sm">
-                    <h3 class="font-black text-xs uppercase mb-4 text-blue-700">Tournées</h3>
-                    <div class="grid grid-cols-4 gap-2 mb-4 bg-slate-50 p-4 rounded-xl">
-                        <input id="in-tournees" placeholder="Nom" class="border p-2 rounded text-sm col-span-2">
-                        <select id="in-flux" class="border p-2 rounded text-sm"><option value="OM">OM</option><option value="CS">CS</option></select>
-                        <select id="in-jour" class="border p-2 rounded text-sm"><option value="1">Lun</option><option value="2">Mar</option><option value="3">Mer</option><option value="4">Jeu</option><option value="5">Ven</option></select>
-                        <select id="in-freq" class="border p-2 rounded text-sm col-span-2"><option value="impaire">Impaire</option><option value="paire">Paire</option></select>
-                        <button onclick="addParam('tournees')" class="bg-blue-900 text-white p-2 rounded-xl font-bold col-span-2 uppercase text-[10px]">Ajouter</button>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div><h4 class="text-[9px] font-black uppercase text-indigo-500 mb-2">Impair</h4><div id="list-tournees-impaires"></div></div>
-                        <div><h4 class="text-[9px] font-black uppercase text-emerald-500 mb-2">Pair</h4><div id="list-tournees-paires"></div></div>
-                    </div>
-                </div>
-            </div>
-        </section>
-    </main>
+function handleLogin(){
+
+const email=document.getElementById('login-email').value
+const pass=document.getElementById('login-pass').value
+
+if(state.data.users.length===0 && email==='admin@gsc.fr' && pass==='admin123'){
+
+currentUser={email,prenom:'Admin',nom:'GSC',role:'admin',pass:'admin123'}
+state.data.users.push(currentUser)
+
+}else{
+
+currentUser=state.data.users.find(u=>u.email===email && u.pass===pass)
+
+}
+
+if(currentUser){
+
+document.getElementById('login-overlay').style.display='none'
+
+document.getElementById('user-display-name').innerText=
+`${currentUser.prenom} ${currentUser.nom}`
+
+if(currentUser.role==='admin')
+document.body.classList.add('is-admin')
+
+renderAll()
+
+}else{
+
+document.getElementById('login-error').classList.remove('hidden')
+
+}
+
+}
+
+
+/* =========================
+SEMAINES
+========================= */
+
+function initWeekSelector(){
+
+const select=document.getElementById('week-selector')
+select.innerHTML=""
+
+for(let i=1;i<=52;i++){
+
+let opt=document.createElement('option')
+opt.value=i
+opt.innerText=`Semaine ${i}`
+
+if(i===state.semaine) opt.selected=true
+
+select.appendChild(opt)
+
+}
+
+}
+
+
+/* =========================
+DATES SEMAINE
+========================= */
+
+function getDatesOfWeek(w,y){
+
+let simple=new Date(y,0,1+(w-1)*7)
+let dow=simple.getDay()
+
+let ISOweekStart=simple
+
+if(dow<=4)
+ISOweekStart.setDate(simple.getDate()-simple.getDay()+1)
+else
+ISOweekStart.setDate(simple.getDate()+8-simple.getDay())
+
+let days=[]
+
+for(let i=0;i<5;i++){
+
+let d=new Date(ISOweekStart)
+d.setDate(d.getDate()+i)
+
+days.push({
+texte:d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}),
+iso:toLocalISO(d)
+})
+
+}
+
+return days
+
+}
+
+
+/* =========================
+PLANNING
+========================= */
+
+function renderPlanning(){
+
+const isPaire=state.semaine%2===0
+const weekKey=`${state.annee}_W${state.semaine}`
+
+const dates=getDatesOfWeek(state.semaine,state.annee)
+
+const centralDate=new Date(dates[0].iso)
+
+document.getElementById('header-semaine').innerText=state.semaine
+
+document.getElementById('header-mois-annee').innerText=
+centralDate.toLocaleString('fr-FR',{month:'long',year:'numeric'})
+
+document.getElementById('header-flux-type').innerText=isPaire?"PAIRE":"IMPAIRE"
+
+const body=document.getElementById('plan-body')
+body.innerHTML=""
+
+const isLocked=currentUser.role!=='admin'
+
+dates.forEach((dateObj,dayIdx)=>{
+
+const tourDuJour=
+state.data.tournees.filter(t=>t.type===(isPaire?'paire':'impaire') && t.jour==(dayIdx+1))
+
+let counts={}
+
+tourDuJour.forEach(t=>{
+
+const c=state.data.planning[weekKey]?.[`${t.nom}_${dayIdx}`]||{}
+
+;[c.ch,c.r1,c.r2].forEach(n=>{
+if(n) counts[n]=(counts[n]||0)+1
+})
+
+})
+
+tourDuJour.forEach(t=>{
+
+const rowKey=`${t.nom}_${dayIdx}`
+const cell=state.data.planning[weekKey]?.[rowKey]||{}
+
+const checkClass=(n)=>{
+
+if(!n) return ""
+
+const congesAgent=state.data.conges[n]||[]
+
+if(congesAgent.includes(dateObj.iso)) return 'is-conge'
+
+if(counts[n]>1) return 'is-double'
+
+return ""
+
+}
+
+const tr=document.createElement('tr')
+tr.className="bg-white"
+
+tr.innerHTML=`
+<td class="font-bold text-slate-600 bg-slate-50/50">${dateObj.texte}</td>
+<td class="font-black text-blue-900 uppercase">${t.nom}</td>
+
+<td class="text-center">
+<span class="px-2 py-1 rounded text-[9px] font-bold ${t.flux==='OM'?'flux-om':'flux-cs'}">
+${t.flux}
+</span>
+</td>
+
+<td>
+<select ${isLocked?'disabled':''}
+onchange="updatePlan('${rowKey}','camion',this.value)"
+class="w-full p-1 border rounded">
+<option value="">-</option>
+${state.data.camions.map(c=>`<option ${cell.camion===c?'selected':''}>${c}</option>`).join('')}
+</select>
+</td>
+
+<td>
+<select ${isLocked?'disabled':''}
+onchange="updatePlan('${rowKey}','ch',this.value)"
+class="w-full p-1 border rounded ${checkClass(cell.ch)}">
+<option value="">-</option>
+${state.data.agents.filter(a => !(state.data.conges[a]||[]).includes(dateObj.iso) || cell.ch===a).map(a=>`<option ${cell.ch===a?'selected':''}>${a}</option>`).join('')}
+</select>
+</td>
+
+<td>
+<select ${isLocked?'disabled':''}
+onchange="updatePlan('${rowKey}','r1',this.value)"
+class="w-full p-1 border rounded ${checkClass(cell.r1)}">
+<option value="">-</option>
+${state.data.agents.filter(a => !(state.data.conges[a]||[]).includes(dateObj.iso) || cell.r1===a).map(a=>`<option ${cell.r1===a?'selected':''}>${a}</option>`).join('')}
+</select>
+</td>
+
+<td>
+<select ${isLocked?'disabled':''}
+onchange="updatePlan('${rowKey}','r2',this.value)"
+class="w-full p-1 border rounded ${checkClass(cell.r2)}">
+<option value="">-</option>
+${state.data.agents.filter(a => !(state.data.conges[a]||[]).includes(dateObj.iso) || cell.r2===a).map(a=>`<option ${cell.r2===a?'selected':''}>${a}</option>`).join('')}
+</select>
+</td>
+
+<td>
+<select ${isLocked?'disabled':''}
+onchange="updatePlan('${rowKey}','vidage',this.value)"
+class="w-full p-1 border rounded font-bold">
+<option value="">-</option>
+<option ${cell.vidage==='Dépôt'?'selected':''}>Dépôt</option>
+<option ${cell.vidage==='DRIMM'?'selected':''}>DRIMM</option>
+</select>
+</td>
+
+<td>
+<input type="text" ${isLocked?'disabled':''}
+value="${cell.info||''}"
+onchange="updatePlan('${rowKey}','info',this.value)"
+class="w-full p-1 border rounded">
+</td>
+
+<td>
+<input type="text" ${isLocked?'disabled':''}
+value="${cell.autres||''}"
+onchange="updatePlan('${rowKey}','autres',this.value)"
+class="w-full p-1 border rounded">
+</td>
+
+<td class="text-[9px] text-emerald-600 font-bold bg-emerald-50/30">
+${state.data.agents.filter(a => !counts[a] && !(state.data.conges[a]||[]).includes(dateObj.iso)).join(', ')}
+</td>
+`
+
+body.appendChild(tr)
+
+})
+
+})
+
+}
+
+
+/* =========================
+UPDATE PLAN
+========================= */
+
+function updatePlan(rk,f,v){
+
+const wk=`${state.annee}_W${state.semaine}`
+
+if(!state.data.planning[wk])
+state.data.planning[wk]={}
+
+if(!state.data.planning[wk][rk])
+state.data.planning[wk][rk]={}
+
+state.data.planning[wk][rk][f]=v
+
+sync()
+renderPlanning()
+
+}
+
+
+/* =========================
+CONGES
+========================= */
+
+function renderConges(){
+
+const container=document.getElementById('conges-wrapper')
+
+const joursDansMois=
+new Date(state.anneeConges,state.moisConges+1,0).getDate()
+
+const nomsMois=[
+"Janvier","Février","Mars","Avril","Mai","Juin",
+"Juillet","Août","Septembre","Octobre","Novembre","Décembre"
+]
+
+document.getElementById('current-month-display').innerText=
+`${nomsMois[state.moisConges]} ${state.anneeConges}`
+
+let html=`<table class="w-full border-collapse bg-white shadow-sm">
+<thead>
+<tr class="bg-slate-800 text-white">
+<th>Agent</th>
+`
+
+for(let j=1;j<=joursDansMois;j++){
+
+const dateTemp=new Date(state.anneeConges,state.moisConges,j)
+const isWE=dateTemp.getDay()===0||dateTemp.getDay()===6
+
+const jourLabel=
+dateTemp.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric'})
+
+html+=`<th class="text-[8px] border p-1 ${isWE?'bg-slate-600':''}">
+${jourLabel}
+</th>`
+
+}
+
+html+=`</tr></thead><tbody>`
+
+state.data.agents.forEach(agent=>{
+
+html+=`<tr>
+<td class="font-bold border p-2 text-[10px] bg-slate-50 sticky left-0 z-10">
+${agent}
+</td>`
+
+for(let j=1;j<=joursDansMois;j++){
+
+const dateTemp=new Date(state.anneeConges,state.moisConges,j)
+const isWE=dateTemp.getDay()===0||dateTemp.getDay()===6
+
+const dIso=toLocalISO(new Date(state.anneeConges,state.moisConges,j))
+
+const isC=(state.data.conges[agent]||[]).includes(dIso)
+
+html+=`
+<td ${currentUser.role==='admin' ? `onclick="toggleConge('${agent}','${dIso}')"`:''}
+class="border cursor-pointer transition-colors
+${isC?'cell-conge-active':''}
+${isWE && !isC ? 'weekend-bg':''}">
+</td>
+`
+
+}
+
+html+=`</tr>`
+
+})
+
+container.innerHTML=html+`</tbody></table>`
+
+}
+
+function toggleConge(a,d){
+
+if(!state.data.conges[a])
+state.data.conges[a]=[]
+
+const i=state.data.conges[a].indexOf(d)
+
+if(i>-1)
+state.data.conges[a].splice(i,1)
+else
+state.data.conges[a].push(d)
+
+renderConges()
+renderPlanning()
+sync()
+
+}
+
+
+/* =========================
+USERS / PARAMS / RENDER
+(le reste du code est strictement identique)
+========================= */
+
+function renderUsers(){
+document.getElementById('list-users').innerHTML=
+state.data.users.map((u,i)=>`
+<div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl border mb-2">
+<div>
+<p class="font-black text-sm">${u.prenom} ${u.nom}</p>
+<p class="text-[10px] text-slate-400 font-bold uppercase">${u.email}</p>
+</div>
+<div class="flex gap-2">
+<select onchange="updateUserRole(${i}, this.value)" class="text-[10px] font-bold border rounded p-1">
+<option value="read" ${u.role==='read'?'selected':''}>Lecteur</option>
+<option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+</select>
+<button onclick="removeUser(${i})" class="text-red-500 font-bold text-xs">✕</button>
+</div>
+</div>`).join('')
+}
+
+function updateUserRole(i,r){state.data.users[i].role=r;sync();alert("Rôle mis à jour !")}
+function removeUser(i){if(state.data.users[i].email===currentUser.email)return;state.data.users.splice(i,1);renderUsers();sync()}
+function addUser(){
+state.data.users.push({
+prenom:document.getElementById('new-u-prenom').value,
+nom:document.getElementById('new-u-nom').value,
+email:document.getElementById('new-u-email').value,
+pass:document.getElementById('new-u-pass').value,
+role:document.getElementById('new-u-role').value
+})
+renderUsers();sync()
+}
+
+function addParam(t){
+if(t==='tournees')
+state.data.tournees.push({
+nom:document.getElementById('in-tournees').value,
+flux:document.getElementById('in-flux').value,
+type:document.getElementById('in-freq').value,
+jour:document.getElementById('in-jour').value
+})
+else
+state.data[t].push(document.getElementById(`in-${t}`).value)
+
+renderAll();sync()
+}
+
+function renderAll(){
+
+if(!currentUser) return
+
+renderPlanning()
+renderConges()
+renderUsers()
+
+;['agents','camions'].forEach(t=>{
+
+document.getElementById(`list-${t}`).innerHTML=
+state.data[t].map((item,i)=>`
+<li class="flex justify-between text-xs p-2 bg-slate-50 mb-1 rounded border">
+${item}
+<button onclick="state.data['${t}'].splice(${i},1);renderAll();sync();" class="text-red-500 admin-only">✕</button>
+</li>`).join('')
+
+})
+
+const lT=(type)=>state.data.tournees.map((t,i)=>
+(t.type===type)?
+`<div class="flex justify-between p-2 mb-1 bg-white border text-[11px] rounded shadow-sm">
+<span><b>${JOURS_NOM[t.jour-1]}</b> : ${t.nom}</span>
+<button onclick="state.data.tournees.splice(${i},1);renderAll();sync();" class="text-red-400 admin-only">✕</button>
+</div>`:'').join('')
+
+document.getElementById('list-tournees-impaires').innerHTML=lT('impaire')
+document.getElementById('list-tournees-paires').innerHTML=lT('paire')
+
+}
+
+function changeMoisConges(delta){
+state.moisConges+=delta
+if(state.moisConges>11){state.moisConges=0;state.anneeConges++}
+if(state.moisConges<0){state.moisConges=11;state.anneeConges--}
+renderConges()
+}
+
+function showTab(id){
+document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'))
+document.getElementById(id).classList.add('active')
+renderAll()
+}
+
+window.onload=load
+
+</script>
+
 </body>
 </html>
