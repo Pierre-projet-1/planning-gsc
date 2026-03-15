@@ -1,486 +1,322 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>GSC Logistique</title>
-
-<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script src="https://cdn.tailwindcss.com"></script>
-
-<script src="https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.min.js"></script>
-
-<style>
-.bg-om{background:#e2e8f0;color:#334155}
-.bg-cs{background:#fef08a;color:#713f12}
-.absent{background:#ef4444;color:white;font-weight:bold}
-</style>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GSC Logistique - Opérationnel</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-
-<body class="bg-slate-100">
-
-<div id="root"></div>
-
-<script type="text/babel">
-
-const {
-Calendar,
-Users,
-Settings,
-Plus,
-Minus,
-Trash2,
-ChevronLeft,
-ChevronRight,
-Truck,
-Copy,
-ClipboardCheck
-} = LucideReact
-
-function App(){
-
-const BIN_ID="69b528beaa77b81da9e33a14"
-const API_KEY="$2a$10$KM0Bk26gr5ZNVIpvSKTSIOs57V3dBxtizW1IjdbER1L/yjh24vaEq"
-const URL=`https://api.jsonbin.io/v3/b/${BIN_ID}`
-
-const [data,setData]=React.useState(null)
-const [tab,setTab]=React.useState("planning")
-const [week,setWeek]=React.useState(36)
-const [year,setYear]=React.useState(2025)
-const [clipboard,setClipboard]=React.useState(null)
-
-React.useEffect(()=>{
-
-fetch(URL+"/latest",{headers:{"X-Master-Key":API_KEY}})
-.then(r=>r.json())
-.then(j=>{
-
-if(j && j.record){
-setData(j.record)
-}
-
-})
-
-},[])
-
-function save(newData){
-
-setData(newData)
-
-fetch(URL,{
-method:"PUT",
-headers:{
-"Content-Type":"application/json",
-"X-Master-Key":API_KEY
-},
-body:JSON.stringify(newData)
-})
-
-}
-
-if(!data) return <div className="p-10 text-center">Chargement...</div>
-
-function dateKey(d){
-return d.toISOString().split("T")[0]
-}
-
-function getWeekDays(){
-
-let d=new Date(year,0,1+(week-1)*7)
-let day=d.getDay()
-let diff=d.getDate()-day+(day===0?-6:1)
-
-let monday=new Date(d.setDate(diff))
-
-let days=[]
-for(let i=0;i<5;i++){
-let n=new Date(monday)
-n.setDate(monday.getDate()+i)
-days.push(n)
-}
-
-return days
-}
-
-const days=getWeekDays()
-
-const predispo = week%2===0
-?data.predispositions.paires
-:data.predispositions.impaires
-
-function getAvailable(date){
-
-const key=dateKey(date)
-
-let abs=data.conges[key]||[]
-
-let occ=[]
-
-let wKey=`${year}-W${week}`
-
-let weekPlan=data.planning[wKey]||{}
-
-Object.values(weekPlan).forEach(t=>{
-
-let d=t[key]||{}
-
-if(d.ch) occ.push(d.ch)
-if(d.r1) occ.push(d.r1)
-if(d.r2) occ.push(d.r2)
-
-})
-
-return data.agents.filter(a=>!abs.includes(a)&&!occ.includes(a))
-
-}
-
-function updateCell(tournee,date,field,value){
-
-let wKey=`${year}-W${week}`
-let k=dateKey(date)
-
-let n={...data}
-
-if(!n.planning[wKey]) n.planning[wKey]={}
-if(!n.planning[wKey][tournee]) n.planning[wKey][tournee]={}
-if(!n.planning[wKey][tournee][k]) n.planning[wKey][tournee][k]={}
-
-n.planning[wKey][tournee][k][field]=value
-
-save(n)
-
-}
-
-function isAbsent(name,date){
-
-let k=dateKey(date)
-
-return (data.conges[k]||[]).includes(name)
-
-}
-
-return(
-
-<div>
-
-<header className="bg-slate-900 text-white p-4 flex justify-between">
-
-<div className="flex items-center gap-2">
-<Truck/>
-<b>GSC Logistique</b>
-</div>
-
-<div className="flex gap-2">
-
-<button onClick={()=>setTab("planning")}>Planning</button>
-<button onClick={()=>setTab("conges")}>Congés</button>
-<button onClick={()=>setTab("config")}>Paramètres</button>
-
-</div>
-
-</header>
-
-
-<div className="p-6 max-w-7xl mx-auto">
-
-{tab==="planning" &&(
-
-<div>
-
-<div className="flex gap-4 mb-4 items-center">
-
-<button onClick={()=>setWeek(w=>w-1)}><ChevronLeft/></button>
-
-<b>Semaine {week} - {year}</b>
-
-<button onClick={()=>setWeek(w=>w+1)}><ChevronRight/></button>
-
-<button onClick={()=>{
-setClipboard(data.planning[`${year}-W${week}`])
-alert("Copié")
-}}>
-<Copy/>
-</button>
-
-<button onClick={()=>{
-if(!clipboard) return
-
-let n={...data}
-
-n.planning[`${year}-W${week}`]=JSON.parse(JSON.stringify(clipboard))
-
-save(n)
-
-}}>
-<ClipboardCheck/>
-</button>
-
-</div>
-
-
-<table className="w-full text-xs bg-white">
-
-<thead>
-
-<tr className="border-b">
-
-<th>Jour</th>
-<th>Tournée</th>
-<th>Flux</th>
-<th>Camion</th>
-<th>Chauffeur</th>
-<th>R1</th>
-<th>R2</th>
-<th>Vidage</th>
-<th>Infos</th>
-<th>Autres</th>
-<th>Personnel dispo</th>
-
-</tr>
-
-</thead>
-
-<tbody>
-
-{days.map(day=>{
-
-let dispo=getAvailable(day)
-
-return predispo.map((t,i)=>{
-
-let cell=data.planning?.[`${year}-W${week}`]?.[i]?.[dateKey(day)]||{}
-
-return(
-
-<tr key={i+dateKey(day)} className="border-b">
-
-<td>{day.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"short"})}</td>
-
-<td>{t.nom}</td>
-
-<td className={t.flux==="CS"?"bg-cs":"bg-om"}>{t.flux}</td>
-
-<td>
-
-<select
-value={cell.camion||""}
-onChange={e=>updateCell(i,day,"camion",e.target.value)}
->
-
-<option></option>
-
-{data.camions.map(c=>
-<option key={c}>{c}</option>
-)}
-
-</select>
-
-</td>
-
-<td className={isAbsent(cell.ch,day)?"absent":""}>
-
-<select
-value={cell.ch||""}
-onChange={e=>updateCell(i,day,"ch",e.target.value)}
->
-
-<option></option>
-
-{data.agents.map(a=>
-<option key={a}>{a}</option>
-)}
-
-</select>
-
-</td>
-
-<td className={isAbsent(cell.r1,day)?"absent":""}>
-
-<select
-value={cell.r1||""}
-onChange={e=>updateCell(i,day,"r1",e.target.value)}
->
-
-<option></option>
-
-{data.agents.map(a=>
-<option key={a}>{a}</option>
-)}
-
-</select>
-
-</td>
-
-<td className={isAbsent(cell.r2,day)?"absent":""}>
-
-<select
-value={cell.r2||""}
-onChange={e=>updateCell(i,day,"r2",e.target.value)}
->
-
-<option></option>
-
-{data.agents.map(a=>
-<option key={a}>{a}</option>
-)}
-
-</select>
-
-</td>
-
-<td>
-
-<select
-value={cell.vidage||""}
-onChange={e=>updateCell(i,day,"vidage",e.target.value)}
->
-
-<option></option>
-<option>Dépôt</option>
-<option>DRIMM</option>
-
-</select>
-
-</td>
-
-<td>
-
-<input
-value={cell.info||""}
-onChange={e=>updateCell(i,day,"info",e.target.value)}
-/>
-
-</td>
-
-<td>
-
-<input
-value={cell.autres||""}
-onChange={e=>updateCell(i,day,"autres",e.target.value)}
-/>
-
-</td>
-
-<td>
-
-{dispo.join(", ")}
-
-</td>
-
-</tr>
-
-)
-
-})
-
-})}
-
-</tbody>
-
-</table>
-
-</div>
-
-)}
-
-{tab==="config" &&(
-
-<div className="grid grid-cols-2 gap-8">
-
-<ListManager
-title="Agents"
-items={data.agents}
-onSave={(l)=>save({...data,agents:l})}
-/>
-
-<ListManager
-title="Camions"
-items={data.camions}
-onSave={(l)=>save({...data,camions:l})}
-/>
-
-</div>
-
-)}
-
-{tab==="conges" &&(
-
-<div>
-
-<h2>Gestion congés</h2>
-
-<p>Cliquer sur un jour pour ajouter ou retirer un agent absent.</p>
-
-</div>
-
-)}
-
-</div>
-
-</div>
-
-)
-
-}
-
-
-function ListManager({title,items,onSave}){
-
-const [val,setVal]=React.useState("")
-
-return(
-
-<div className="bg-white p-4 rounded">
-
-<h3 className="mb-4">{title}</h3>
-
-<div className="flex gap-2 mb-4">
-
-<input
-value={val}
-onChange={e=>setVal(e.target.value)}
-className="border p-1"
-/>
-
-<button onClick={()=>{
-if(!val) return
-onSave([...items,val])
-setVal("")
-}}>
-
-<Plus/>
-
-</button>
-
-</div>
-
-{items.map((i,idx)=>(
-
-<div key={idx} className="flex justify-between">
-
-{i}
-
-<button onClick={()=>onSave(items.filter((_,x)=>x!==idx))}>
-<Minus/>
-</button>
-
-</div>
-
-))}
-
-</div>
-
-)
-
-}
-
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>)
-
-</script>
-
+<body class="bg-slate-50 text-slate-900 font-sans">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // Composant Icon pour éviter les erreurs de chargement
+        const Icon = ({ name, size = 18, className = "" }) => {
+            useEffect(() => { lucide.createIcons(); }, [name]);
+            return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
+        };
+
+        function App() {
+            const BIN_ID = "69b528beaa77b81da9e33a14";
+            const API_KEY = "$2a$10$KM0Bk26gr5ZNVIpvSKTSIOs57V3dBxtizW1IjdbER1L/yjh24vaEq";
+            const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+            const [data, setData] = useState(null);
+            const [tab, setTab] = useState("planning");
+            const [week, setWeek] = useState(36);
+            const [year, setYear] = useState(2025);
+            const [clipboard, setClipboard] = useState(null);
+            const [loading, setLoading] = useState(true);
+
+            // Chargement initial
+            useEffect(() => {
+                fetch(`${URL}/latest`, { headers: { "X-Master-Key": API_KEY } })
+                    .then(r => r.json())
+                    .then(j => {
+                        if (j.record) setData(j.record);
+                        setLoading(false);
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        setLoading(false);
+                    });
+            }, []);
+
+            const save = (newData) => {
+                setData(newData);
+                fetch(URL, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
+                    body: JSON.stringify(newData)
+                });
+            };
+
+            // Logique Dates
+            const days = useMemo(() => {
+                let d = new Date(year, 0, 1 + (week - 1) * 7);
+                let day = d.getDay();
+                let diff = d.getDate() - day + (day === 0 ? -6 : 1);
+                let monday = new Date(d.setDate(diff));
+                return Array.from({ length: 5 }, (_, i) => {
+                    let n = new Date(monday);
+                    n.setDate(monday.getDate() + i);
+                    return n;
+                });
+            }, [week, year]);
+
+            const dateKey = (d) => d.toISOString().split("T")[0];
+
+            if (loading) return <div className="p-20 text-center font-bold">Chargement du système GSC...</div>;
+            if (!data) return <div className="p-20 text-center text-red-500">Erreur : Structure JSON introuvable sur le serveur.</div>;
+
+            const predispo = (week % 2 === 0) ? (data.predispositions?.paires || []) : (data.predispositions?.impaires || []);
+
+            const getAvailable = (date) => {
+                const k = dateKey(date);
+                const absents = data.conges?.[k] || [];
+                const wKey = `${year}-W${week}`;
+                const weekPlan = data.planning?.[wKey] || {};
+                let busy = [];
+                Object.values(weekPlan).forEach(tournee => {
+                    const d = tournee[k] || {};
+                    if(d.ch) busy.push(d.ch);
+                    if(d.r1) busy.push(d.r1);
+                    if(d.r2) busy.push(d.r2);
+                });
+                return (data.agents || []).filter(a => !absents.includes(a) && !busy.includes(a));
+            };
+
+            const updateCell = (tIdx, date, field, value) => {
+                const wKey = `${year}-W${week}`;
+                const k = dateKey(date);
+                let n = { ...data };
+                if (!n.planning) n.planning = {};
+                if (!n.planning[wKey]) n.planning[wKey] = {};
+                if (!n.planning[wKey][tIdx]) n.planning[wKey][tIdx] = {};
+                if (!n.planning[wKey][tIdx][k]) n.planning[wKey][tIdx][k] = {};
+                n.planning[wKey][tIdx][k][field] = value;
+                save(n);
+            };
+
+            return (
+                <div className="min-h-screen pb-10">
+                    <header className="bg-slate-900 text-white p-4 flex justify-between items-center shadow-lg">
+                        <div className="flex items-center gap-2">
+                            <Icon name="truck" size={24} className="text-blue-400" />
+                            <h1 className="text-xl font-black tracking-tight">GSC LOGISTIQUE</h1>
+                        </div>
+                        <div className="flex bg-slate-800 rounded-lg p-1">
+                            {['planning', 'conges', 'config'].map(t => (
+                                <button key={t} onClick={() => setTab(t)} 
+                                    className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase transition ${tab === t ? 'bg-blue-600' : 'hover:bg-slate-700 text-slate-400'}`}>
+                                    {t === 'config' ? 'Paramètres' : t}
+                                </button>
+                            ))}
+                        </div>
+                    </header>
+
+                    <div className="p-6 max-w-[1600px] mx-auto">
+                        {tab === "planning" && (
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border">
+                                    <div className="flex items-center gap-4">
+                                        <button onClick={() => setWeek(w => w - 1)} className="p-2 hover:bg-slate-100 rounded-full"><Icon name="chevron-left" /></button>
+                                        <div className="text-center">
+                                            <h2 className="text-lg font-bold">Semaine {week} - {year}</h2>
+                                            <span className="text-[10px] uppercase font-bold text-blue-500">{week % 2 === 0 ? 'Cycle Pair' : 'Cycle Impair'}</span>
+                                        </div>
+                                        <button onClick={() => setWeek(w => w + 1)} className="p-2 hover:bg-slate-100 rounded-full"><Icon name="chevron-right" /></button>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => { setClipboard(data.planning[`${year}-W${week}`]); alert("Équipages copiés !"); }} 
+                                            className="flex items-center gap-2 bg-slate-100 px-4 py-2 rounded-lg text-xs font-bold hover:bg-slate-200">
+                                            <Icon name="copy" size={14}/> Copier Equipages
+                                        </button>
+                                        <button onClick={() => { if(!clipboard) return; let n = {...data}; n.planning[`${year}-W${week}`] = JSON.parse(JSON.stringify(clipboard)); save(n); }} 
+                                            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-blue-700 transition">
+                                            <Icon name="clipboard-check" size={14}/> Coller
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="overflow-x-auto rounded-xl border shadow-sm bg-white">
+                                    <table className="w-full text-left border-collapse text-[11px]">
+                                        <thead className="bg-slate-50 border-b border-slate-100">
+                                            <tr>
+                                                <th className="p-3 font-bold text-slate-500 uppercase">Jour</th>
+                                                <th className="p-3 font-bold text-slate-500 uppercase">Tournée</th>
+                                                <th className="p-3 font-bold text-slate-500 uppercase">Flux</th>
+                                                <th className="p-3 font-bold text-slate-500 uppercase">Camion</th>
+                                                <th className="p-3 font-bold text-slate-500 uppercase">Chauffeur</th>
+                                                <th className="p-3 font-bold text-slate-500 uppercase">R1</th>
+                                                <th className="p-3 font-bold text-slate-500 uppercase">R2</th>
+                                                <th className="p-3 font-bold text-slate-500 uppercase">Vidage</th>
+                                                <th className="p-3 font-bold text-slate-500 uppercase">Infos / Autres</th>
+                                                <th className="p-3 font-bold text-slate-500 uppercase">Disponibles</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {days.map((day, dIdx) => {
+                                                const k = dateKey(day);
+                                                const dispo = getAvailable(day);
+                                                return predispo.map((t, i) => {
+                                                    const cell = data.planning?.[`${year}-W${week}`]?.[i]?.[k] || {};
+                                                    const isAbs = (name) => (data.conges?.[k] || []).includes(name);
+
+                                                    return (
+                                                        <tr key={k + i} className="border-b border-slate-50 hover:bg-slate-50/50">
+                                                            {i === 0 && <td rowSpan={predispo.length} className="p-3 font-black border-r bg-slate-50/30 uppercase text-blue-600">
+                                                                {day.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric" })}
+                                                            </td>}
+                                                            <td className="p-3 font-bold">{t.nom}</td>
+                                                            <td className={`p-2 font-black text-center ${t.flux === "CS" ? "bg-yellow-100 text-yellow-800" : "bg-slate-100 text-slate-600"}`}>{t.flux}</td>
+                                                            <td className="p-1"><select value={cell.camion||""} onChange={e=>updateCell(i,day,"camion",e.target.value)} className="w-full border rounded p-1">
+                                                                <option value="">-</option>{data.camions.map(c=><option key={c}>{c}</option>)}
+                                                            </select></td>
+                                                            <td className={`p-1 ${isAbs(cell.ch) ? 'bg-red-500' : ''}`}><select value={cell.ch||""} onChange={e=>updateCell(i,day,"ch",e.target.value)} className="w-full border rounded p-1 bg-transparent">
+                                                                <option value="">-</option>{data.agents.map(a=><option key={a}>{a}</option>)}
+                                                            </select></td>
+                                                            <td className={`p-1 ${isAbs(cell.r1) ? 'bg-red-500' : ''}`}><select value={cell.r1||""} onChange={e=>updateCell(i,day,"r1",e.target.value)} className="w-full border rounded p-1 bg-transparent">
+                                                                <option value="">-</option>{data.agents.map(a=><option key={a}>{a}</option>)}
+                                                            </select></td>
+                                                            <td className={`p-1 ${isAbs(cell.r2) ? 'bg-red-500' : ''}`}><select value={cell.r2||""} onChange={e=>updateCell(i,day,"r2",e.target.value)} className="w-full border rounded p-1 bg-transparent">
+                                                                <option value="">-</option>{data.agents.map(a=><option key={a}>{a}</option>)}
+                                                            </select></td>
+                                                            <td className="p-1"><select value={cell.vidage||""} onChange={e=>updateCell(i,day,"vidage",e.target.value)} className="w-full border rounded p-1">
+                                                                <option value="">-</option><option>Dépôt</option><option>DRIMM</option>
+                                                            </select></td>
+                                                            <td className="p-1"><input value={cell.info||""} onChange={e=>updateCell(i,day,"info",e.target.value)} className="w-full border rounded p-1" placeholder="Infos..."/></td>
+                                                            {i === 0 && <td rowSpan={predispo.length} className="p-2 align-top text-[9px] text-slate-400 bg-slate-50/20">
+                                                                <div className="flex flex-wrap gap-1">{dispo.map(a => <span key={a} className="bg-white px-1 rounded border">{a}</span>)}</div>
+                                                            </td>}
+                                                        </tr>
+                                                    );
+                                                });
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {tab === "config" && (
+                            <div className="grid md:grid-cols-3 gap-6">
+                                <div className="space-y-6">
+                                    <ListManager title="Agents" items={data.agents} onSave={(l)=>save({...data, agents:l})} icon="users" />
+                                    <ListManager title="Camions" items={data.camions} onSave={(l)=>save({...data, camions:l})} icon="truck" />
+                                </div>
+                                <div className="md:col-span-2 bg-white p-6 rounded-xl shadow-sm border">
+                                    <h3 className="font-bold mb-4 flex items-center gap-2"><Icon name="settings" /> Prédispositions Tournées</h3>
+                                    <div className="grid grid-cols-2 gap-6">
+                                        {['paires', 'impaires'].map(type => (
+                                            <div key={type} className="space-y-3">
+                                                <h4 className="text-xs font-black uppercase text-blue-600 border-b pb-1">Semaines {type}</h4>
+                                                {(data.predispositions?.[type] || []).map((p, idx) => (
+                                                    <div key={idx} className="flex gap-2">
+                                                        <input value={p.nom} onChange={e => {
+                                                            let n = {...data}; n.predispositions[type][idx].nom = e.target.value; save(n);
+                                                        }} className="flex-1 border p-1 text-xs rounded" />
+                                                        <select value={p.flux} onChange={e => {
+                                                            let n = {...data}; n.predispositions[type][idx].flux = e.target.value; save(n);
+                                                        }} className="border p-1 text-xs rounded">
+                                                            <option value="OM">OM</option><option value="CS">CS</option>
+                                                        </select>
+                                                        <button onClick={() => {
+                                                            let n = {...data}; n.predispositions[type].splice(idx, 1); save(n);
+                                                        }} className="text-red-400"><Icon name="trash-2" size={14}/></button>
+                                                    </div>
+                                                ))}
+                                                <button onClick={() => {
+                                                    let n = {...data}; if(!n.predispositions) n.predispositions={paires:[],impaires:[]};
+                                                    n.predispositions[type].push({nom:"Nouvelle", flux:"OM"}); save(n);
+                                                }} className="w-full py-1 border-dashed border-2 rounded text-[10px] font-bold text-slate-400 hover:text-blue-500 hover:border-blue-500">+ Ajouter une ligne</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {tab === "conges" && (
+                            <div className="bg-white p-6 rounded-xl shadow-sm border">
+                                <h2 className="text-xl font-bold mb-4">Gestion des Congés {year}</h2>
+                                <p className="text-sm text-slate-500 mb-6">Sélectionnez un jour puis cliquez sur les agents absents.</p>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                    {Array.from({length: 12}, (_, mIdx) => (
+                                        <div key={mIdx} className="space-y-2">
+                                            <h3 className="font-bold text-xs uppercase bg-slate-100 p-2 rounded">{new Date(year, mIdx).toLocaleDateString('fr-FR', {month:'long'})}</h3>
+                                            <div className="grid grid-cols-7 gap-1">
+                                                {Array.from({length: new Date(year, mIdx+1, 0).getDate()}, (_, dIdx) => {
+                                                    const day = new Date(year, mIdx, dIdx+1);
+                                                    const k = dateKey(day);
+                                                    const absCount = (data.conges?.[k] || []).length;
+                                                    return (
+                                                        <div key={dIdx} className="group relative">
+                                                            <button className={`w-full aspect-square text-[9px] rounded font-bold border ${absCount > 0 ? 'bg-red-500 text-white' : 'bg-white'}`}>
+                                                                {dIdx+1}
+                                                            </button>
+                                                            <div className="absolute hidden group-hover:block bg-white border shadow-xl z-20 p-2 rounded min-w-[100px]">
+                                                                {data.agents.map(a => (
+                                                                    <label key={a} className="flex items-center gap-2 text-[10px] whitespace-nowrap cursor-pointer hover:bg-slate-50 p-1">
+                                                                        <input type="checkbox" checked={(data.conges?.[k] || []).includes(a)} onChange={() => {
+                                                                            let n = {...data}; if(!n.conges) n.conges={};
+                                                                            if(!n.conges[k]) n.conges[k]=[];
+                                                                            if(n.conges[k].includes(a)) n.conges[k] = n.conges[k].filter(x=>x!==a);
+                                                                            else n.conges[k].push(a);
+                                                                            save(n);
+                                                                        }} /> {a}
+                                                                    </label>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        function ListManager({ title, items = [], onSave, icon }) {
+            const [val, setVal] = useState("");
+            return (
+                <div className="bg-white p-5 rounded-xl border shadow-sm">
+                    <h3 className="font-bold mb-4 flex items-center gap-2 uppercase text-xs text-slate-500">
+                        <Icon name={icon} size={14} /> {title}
+                    </h3>
+                    <div className="flex gap-2 mb-4">
+                        <input value={val} onChange={e => setVal(e.target.value)} className="flex-1 border rounded-lg px-3 py-1.5 text-sm" placeholder="Nom..." />
+                        <button onClick={() => { if (!val) return; onSave([...items, val]); setVal(""); }} className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700">
+                            <Icon name="plus" size={16} />
+                        </button>
+                    </div>
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                        {items.map((item, idx) => (
+                            <div key={idx} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg text-sm group">
+                                <span className="font-medium">{item}</span>
+                                <button onClick={() => onSave(items.filter((_, x) => x !== idx))} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition">
+                                    <Icon name="minus" size={16} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById("root"));
+        root.render(<App />);
+    </script>
 </body>
 </html>
