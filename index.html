@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GSC - Planning Privé & Sécurisé</title>
+    <title>GSC - Planning Professionnel Privé</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .tab-content { display: none; }
@@ -17,7 +17,6 @@
         #login-overlay { position: fixed; inset: 0; z-index: 100; background: #0f172a; display: flex; align-items: center; justify-content: center; }
         .admin-only { display: none; }
         body.is-admin .admin-only { display: block; }
-        body.is-admin .admin-flex { display: flex; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen font-sans text-slate-900">
@@ -26,19 +25,13 @@
         <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
             <div class="text-center mb-8">
                 <h2 class="text-3xl font-black text-slate-900 uppercase tracking-tighter">Grand Sud Collecte</h2>
-                <p class="text-slate-400 text-sm font-bold uppercase tracking-widest">Accès Privé</p>
+                <p class="text-slate-400 text-sm font-bold uppercase tracking-widest">Espace Privé</p>
             </div>
             <div class="space-y-4">
-                <div>
-                    <label class="block text-[10px] font-black text-slate-400 mb-1">ADRESSE EMAIL</label>
-                    <input type="email" id="login-email" class="w-full border-2 p-3 rounded-xl focus:border-blue-500 outline-none transition-all">
-                </div>
-                <div>
-                    <label class="block text-[10px] font-black text-slate-400 mb-1">MOT DE PASSE</label>
-                    <input type="password" id="login-pass" class="w-full border-2 p-3 rounded-xl focus:border-blue-500 outline-none transition-all">
-                </div>
-                <button onclick="handleLogin()" class="w-full bg-blue-600 text-white font-black p-4 rounded-xl shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all uppercase tracking-widest text-sm">Se Connecter</button>
-                <p id="login-error" class="text-red-500 text-xs font-bold text-center mt-2 hidden">Email ou mot de passe incorrect.</p>
+                <input type="email" id="login-email" placeholder="Email" class="w-full border-2 p-3 rounded-xl outline-none focus:border-blue-500">
+                <input type="password" id="login-pass" placeholder="Mot de passe" class="w-full border-2 p-3 rounded-xl outline-none focus:border-blue-500">
+                <button onclick="handleLogin()" class="w-full bg-blue-600 text-white font-black p-4 rounded-xl shadow-xl hover:bg-blue-700 uppercase text-sm">Connexion</button>
+                <p id="login-error" class="text-red-500 text-xs font-bold text-center hidden">Identifiants incorrects.</p>
             </div>
         </div>
     </div>
@@ -56,76 +49,45 @@
 
         const JOURS_NOM = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"];
 
-        // --- AUTHENTIFICATION ---
-        function handleLogin() {
-            const email = document.getElementById('login-email').value;
-            const pass = document.getElementById('login-pass').value;
-
-            // Compte Admin par défaut (si la base est vide)
-            if (state.data.users.length === 0 && email === 'admin@gsc.fr' && pass === 'admin123') {
-                currentUser = { email, prenom: 'Admin', nom: 'GSC', role: 'admin', pass: 'admin123' };
-                state.data.users.push(currentUser);
-                finishLogin();
-                return;
-            }
-
-            const user = state.data.users.find(u => u.email === email && u.pass === pass);
-            if (user) {
-                currentUser = user;
-                finishLogin();
-            } else {
-                document.getElementById('login-error').classList.remove('hidden');
-            }
-        }
-
-        function finishLogin() {
-            document.getElementById('login-overlay').style.display = 'none';
-            document.getElementById('user-display-name').innerText = `${currentUser.prenom} ${currentUser.nom}`;
-            if(currentUser.role === 'admin') document.body.classList.add('is-admin');
-            renderAll();
-        }
-
-        function logout() {
-            location.reload();
-        }
-
+        // --- AUTH & SYNC ---
         async function load() {
-            document.getElementById('status').innerText = "⏳ Chargement...";
             try {
                 const res = await fetch(`${URL}/latest`, { headers: { "X-Master-Key": API_KEY } });
                 const json = await res.json();
-                if (json.record) {
-                    state.data = {
-                        agents: json.record.agents || [],
-                        camions: json.record.camions || [],
-                        tournees: json.record.tournees || [],
-                        planning: json.record.planning || {},
-                        conges: json.record.conges || {},
-                        users: json.record.users || []
-                    };
-                }
+                if (json.record) state.data = json.record;
                 document.getElementById('status').innerText = "✅ Connecté";
-            } catch (err) {
-                document.getElementById('status').innerText = "❌ Erreur";
-            }
+            } catch (err) { document.getElementById('status').innerText = "❌ Erreur"; }
         }
 
         async function sync() {
-            if (currentUser.role !== 'admin') return; 
+            if (currentUser.role !== 'admin') return;
             document.getElementById('status').innerText = "⏳ Sauvegarde...";
-            try {
-                await fetch(URL, {
-                    method: 'PUT',
-                    headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
-                    body: JSON.stringify(state.data)
-                });
-                document.getElementById('status').innerText = "✅ Sauvegardé";
-            } catch (err) {
-                document.getElementById('status').innerText = "❌ Erreur sync";
-            }
+            await fetch(URL, {
+                method: 'PUT',
+                headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
+                body: JSON.stringify(state.data)
+            });
+            document.getElementById('status').innerText = "✅ Sauvegardé";
         }
 
-        // --- LOGIQUE PLANNING (IDENTIQUE) ---
+        function handleLogin() {
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-pass').value;
+            if (state.data.users.length === 0 && email === 'admin@gsc.fr' && pass === 'admin123') {
+                currentUser = { email, prenom: 'Admin', nom: 'GSC', role: 'admin', pass: 'admin123' };
+                state.data.users.push(currentUser);
+            } else {
+                currentUser = state.data.users.find(u => u.email === email && u.pass === pass);
+            }
+            if (currentUser) {
+                document.getElementById('login-overlay').style.display = 'none';
+                document.getElementById('user-display-name').innerText = `${currentUser.prenom} ${currentUser.nom}`;
+                if(currentUser.role === 'admin') document.body.classList.add('is-admin');
+                renderAll();
+            } else { document.getElementById('login-error').classList.remove('hidden'); }
+        }
+
+        // --- PLANNING ---
         function getDatesOfWeek(w, y) {
             let simple = new Date(y, 0, 1 + (w - 1) * 7);
             let dow = simple.getDay();
@@ -143,51 +105,58 @@
 
         function renderPlanning() {
             const isPaire = state.semaine % 2 === 0;
-            const weekType = isPaire ? 'paire' : 'impaire';
             const weekKey = `${state.annee}_W${state.semaine}`;
             const dates = getDatesOfWeek(state.semaine, state.annee);
+            document.getElementById('plan-title').innerText = `Planning semaine n°${state.semaine} - ${new Date(state.annee, 0, 1 + (state.semaine-1)*7).toLocaleString('fr-FR',{month:'long'})} ${state.annee}`;
+            
             const body = document.getElementById('plan-body');
             body.innerHTML = "";
-
             const isLocked = currentUser.role !== 'admin';
 
             dates.forEach((dateObj, dayIdx) => {
-                const jourIndex = dayIdx + 1; 
-                const tourneesDuJour = state.data.tournees.filter(t => t.type === weekType && t.jour == jourIndex);
+                const tourDuJour = state.data.tournees.filter(t => t.type === (isPaire?'paire':'impaire') && t.jour == (dayIdx+1));
                 
-                tourneesDuJour.forEach(t => {
+                let occupes = [];
+                tourDuJour.forEach(t => {
+                    const cell = state.data.planning[weekKey]?.[`${t.nom}_${dayIdx}`] || {};
+                    if(cell.ch) occupes.push(cell.ch); if(cell.r1) occupes.push(cell.r1); if(cell.r2) occupes.push(cell.r2);
+                });
+
+                tourDuJour.forEach(t => {
                     const rowKey = `${t.nom}_${dayIdx}`;
                     const cell = state.data.planning[weekKey]?.[rowKey] || {};
-                    const checkAbs = (nom) => (nom && (state.data.conges[nom] || []).includes(dateObj.iso)) ? 'is-conge' : '';
+                    const checkAbs = (n) => (n && (state.data.conges[n] || []).includes(dateObj.iso)) ? 'is-conge' : '';
+                    const dispos = state.data.agents.filter(a => !occupes.includes(a) && !(state.data.conges[a] || []).includes(dateObj.iso));
 
                     const tr = document.createElement('tr');
                     tr.className = "bg-white";
                     tr.innerHTML = `
-                        <td class="font-bold text-slate-600 bg-slate-50">${dateObj.texte}</td>
+                        <td class="font-bold text-slate-600 bg-slate-50/50">${dateObj.texte}</td>
                         <td class="font-black text-blue-900 uppercase">${t.nom}</td>
                         <td class="text-center"><span class="px-2 py-1 rounded text-[9px] font-bold ${t.flux==='OM'?'flux-om':'flux-cs'}">${t.flux}</span></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','camion',this.value)" class="w-full p-1 border rounded">${state.data.camions.map(c => `<option ${cell.camion===c?'selected':''}>${c}</option>`).unshift('<option value="">-</option>') && state.data.camions.map(c => `<option ${cell.camion===c?'selected':''}>${c}</option>`).join('')}</select></td>
+                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','camion',this.value)" class="w-full p-1 border rounded"><option value="">-</option>${state.data.camions.map(c => `<option ${cell.camion===c?'selected':''}>${c}</option>`).join('')}</select></td>
                         <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','ch',this.value)" class="w-full p-1 border rounded ${checkAbs(cell.ch)}"><option value="">-</option>${state.data.agents.map(a => `<option ${cell.ch===a?'selected':''}>${a}</option>`).join('')}</select></td>
                         <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r1',this.value)" class="w-full p-1 border rounded ${checkAbs(cell.r1)}"><option value="">-</option>${state.data.agents.map(a => `<option ${cell.r1===a?'selected':''}>${a}</option>`).join('')}</select></td>
                         <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r2',this.value)" class="w-full p-1 border rounded ${checkAbs(cell.r2)}"><option value="">-</option>${state.data.agents.map(a => `<option ${cell.r2===a?'selected':''}>${a}</option>`).join('')}</select></td>
                         <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','vidage',this.value)" class="w-full p-1 border rounded font-bold"><option value="">-</option><option ${cell.vidage==='Dépôt'?'selected':''}>Dépôt</option><option ${cell.vidage==='DRIMM'?'selected':''}>DRIMM</option></select></td>
-                        <td><input type="text" ${isLocked?'disabled':''} value="${cell.info || ''}" onchange="updatePlan('${rowKey}','info',this.value)" class="w-full p-1 border rounded"></td>
-                        <td><input type="text" ${isLocked?'disabled':''} value="${cell.autres || ''}" onchange="updatePlan('${rowKey}','autres',this.value)" class="w-full p-1 border rounded"></td>
+                        <td><input type="text" ${isLocked?'disabled':''} value="${cell.info||''}" onchange="updatePlan('${rowKey}','info',this.value)" class="w-full p-1 border rounded"></td>
+                        <td><input type="text" ${isLocked?'disabled':''} value="${cell.autres||''}" onchange="updatePlan('${rowKey}','autres',this.value)" class="w-full p-1 border rounded"></td>
+                        <td class="text-[9px] text-emerald-600 font-bold bg-emerald-50/30">${dispos.join(', ')}</td>
                     `;
                     body.appendChild(tr);
                 });
             });
         }
 
-        function updatePlan(rowKey, field, val) {
-            const key = `${state.annee}_W${state.semaine}`;
-            if(!state.data.planning[key]) state.data.planning[key] = {};
-            if(!state.data.planning[key][rowKey]) state.data.planning[key][rowKey] = {};
-            state.data.planning[key][rowKey][field] = val;
-            sync(); renderPlanning(); 
+        function updatePlan(rk, f, v) {
+            const wk = `${state.annee}_W${state.semaine}`;
+            if(!state.data.planning[wk]) state.data.planning[wk] = {};
+            if(!state.data.planning[wk][rk]) state.data.planning[wk][rk] = {};
+            state.data.planning[wk][rk][f] = v;
+            sync(); renderPlanning();
         }
 
-        // --- GESTION CONGES ---
+        // --- CONGES ---
         function renderConges() {
             const container = document.getElementById('conges-wrapper');
             const joursDansMois = new Date(state.anneeConges, state.moisConges + 1, 0).getDate();
@@ -199,120 +168,66 @@
             state.data.agents.forEach(agent => {
                 html += `<tr><td class="font-bold border p-2 text-xs">${agent}</td>`;
                 for(let j=1; j<=joursDansMois; j++) {
-                    const dateIso = `${state.anneeConges}-${String(state.moisConges+1).padStart(2,'0')}-${String(j).padStart(2,'0')}`;
-                    const isConge = (state.data.conges[agent] || []).includes(dateIso);
-                    html += `<td ${currentUser.role==='admin' ? `onclick="toggleConge('${agent}', '${dateIso}')"` : ''} class="border cursor-pointer ${isConge ? 'cell-conge-active' : ''}"></td>`;
+                    const dIso = `${state.anneeConges}-${String(state.moisConges+1).padStart(2,'0')}-${String(j).padStart(2,'0')}`;
+                    const isC = (state.data.conges[agent] || []).includes(dIso);
+                    html += `<td ${currentUser.role==='admin' ? `onclick="toggleConge('${agent}','${dIso}')"` : ''} class="border cursor-pointer ${isC?'cell-conge-active':''}"></td>`;
                 }
                 html += `</tr>`;
             });
             container.innerHTML = html + `</tbody></table>`;
         }
 
-        function toggleConge(agent, dateIso) {
-            if(!state.data.conges[agent]) state.data.conges[agent] = [];
-            const idx = state.data.conges[agent].indexOf(dateIso);
-            if(idx > -1) state.data.conges[agent].splice(idx, 1);
-            else state.data.conges[agent].push(dateIso);
+        function toggleConge(a, d) {
+            if(!state.data.conges[a]) state.data.conges[a] = [];
+            const i = state.data.conges[a].indexOf(d);
+            if(i>-1) state.data.conges[a].splice(i,1); else state.data.conges[a].push(d);
             renderConges(); sync();
         }
 
-        function changeMoisConges(delta) {
-            state.moisConges += delta;
-            if(state.moisConges > 11) { state.moisConges = 0; state.anneeConges++; }
-            else if(state.moisConges < 0) { state.moisConges = 11; state.anneeConges--; }
-            renderConges();
-        }
-
-        // --- GESTION UTILISATEURS & PROFIL ---
+        // --- USERS & PARAMS ---
         function renderUsers() {
-            const list = document.getElementById('list-users');
-            list.innerHTML = state.data.users.map((u, i) => `
+            document.getElementById('list-users').innerHTML = state.data.users.map((u, i) => `
                 <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl border mb-2">
-                    <div>
-                        <p class="font-black text-sm">${u.prenom} ${u.nom}</p>
-                        <p class="text-[10px] text-slate-400 font-bold uppercase">${u.email} — ROLE: ${u.role}</p>
+                    <div><p class="font-black text-sm">${u.prenom} ${u.nom}</p><p class="text-[10px] text-slate-400 font-bold uppercase">${u.email}</p></div>
+                    <div class="flex gap-2">
+                        <select onchange="updateUserRole(${i}, this.value)" class="text-[10px] font-bold border rounded p-1">
+                            <option value="read" ${u.role==='read'?'selected':''}>Lecteur</option>
+                            <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+                        </select>
+                        <button onclick="removeUser(${i})" class="text-red-500 font-bold text-xs">✕</button>
                     </div>
-                    <button onclick="removeUser(${i})" class="text-red-500 font-bold">Supprimer</button>
-                </div>
-            `).join('');
+                </div>`).join('');
         }
 
+        function updateUserRole(i, r) { state.data.users[i].role = r; sync(); alert("Rôle mis à jour !"); }
+        function removeUser(i) { if(state.data.users[i].email === currentUser.email) return; state.data.users.splice(i, 1); renderUsers(); sync(); }
         function addUser() {
-            const u = {
-                prenom: document.getElementById('new-u-prenom').value,
-                nom: document.getElementById('new-u-nom').value,
-                email: document.getElementById('new-u-email').value,
-                pass: document.getElementById('new-u-pass').value,
-                role: document.getElementById('new-u-role').value
-            };
-            if(!u.email || !u.pass) return alert("Email/Pass requis");
-            state.data.users.push(u);
+            state.data.users.push({ prenom: document.getElementById('new-u-prenom').value, nom: document.getElementById('new-u-nom').value, email: document.getElementById('new-u-email').value, pass: document.getElementById('new-u-pass').value, role: document.getElementById('new-u-role').value });
             renderUsers(); sync();
         }
 
-        function removeUser(i) {
-            if(state.data.users[i].email === currentUser.email) return alert("Impossible de se supprimer soi-même");
-            state.data.users.splice(i, 1);
-            renderUsers(); sync();
-        }
-
-        function updateMyProfile() {
-            const newPass = document.getElementById('prof-pass').value;
-            currentUser.prenom = document.getElementById('prof-prenom').value;
-            currentUser.nom = document.getElementById('prof-nom').value;
-            if(newPass) currentUser.pass = newPass;
-            alert("Profil mis à jour !");
-            sync(); renderAll();
-        }
-
-        // --- PARAMETRES ---
-        function addParam(type) {
-            if(type === 'tournees') {
-                const nom = document.getElementById('in-tournees').value;
-                if(!nom) return;
-                state.data.tournees.push({ nom, flux: document.getElementById('in-flux').value, type: document.getElementById('in-freq').value, jour: document.getElementById('in-jour').value });
-            } else {
-                const val = document.getElementById(`in-${type}`).value;
-                if(val) state.data[type].push(val);
-            }
+        function addParam(t) {
+            if(t==='tournees') state.data.tournees.push({ nom: document.getElementById('in-tournees').value, flux: document.getElementById('in-flux').value, type: document.getElementById('in-freq').value, jour: document.getElementById('in-jour').value });
+            else state.data[t].push(document.getElementById(`in-${t}`).value);
             renderAll(); sync();
         }
-
-        function removeParam(type, idx) { state.data[type].splice(idx, 1); renderAll(); sync(); }
 
         function renderAll() {
             if(!currentUser) return;
             document.getElementById('week-num').innerText = state.semaine;
-            renderPlanning();
-            renderConges();
-            renderUsers();
+            document.getElementById('pair-type').innerText = (state.semaine%2===0)?"PAIRE":"IMPAIRE";
+            renderPlanning(); renderConges(); renderUsers();
             
-            // Populate inputs profile
-            document.getElementById('prof-prenom').value = currentUser.prenom;
-            document.getElementById('prof-nom').value = currentUser.nom;
-
-            // Listes Parametres
-            ['agents', 'camions'].forEach(type => {
-                document.getElementById(`list-${type}`).innerHTML = state.data[type].map((item, i) => `
-                    <li class="flex justify-between p-2 bg-slate-50 mb-1 rounded border text-xs">
-                        ${item} <button onclick="removeParam('${type}', ${i})" class="text-red-500 admin-only">✕</button>
-                    </li>`).join('');
+            ['agents', 'camions'].forEach(t => {
+                document.getElementById(`list-${t}`).innerHTML = state.data[t].map((item, i) => `
+                    <li class="flex justify-between text-xs p-2 bg-slate-50 mb-1 rounded border">${item} <button onclick="state.data['${t}'].splice(${i},1);renderAll();sync();" class="text-red-500 admin-only">✕</button></li>`).join('');
             });
-            const listT = (type) => state.data.tournees.map((t, i) => (t.type === type) ? `
-                <div class="flex justify-between p-2 mb-1 bg-white border text-[11px] rounded shadow-sm">
-                    <span><b>${JOURS_NOM[t.jour-1]}</b> : ${t.nom}</span>
-                    <button onclick="removeParam('tournees', ${i})" class="text-red-400 admin-only">✕</button>
-                </div>` : '').join('');
-            document.getElementById('list-tournees-impaires').innerHTML = listT('impaire');
-            document.getElementById('list-tournees-paires').innerHTML = listT('paire');
+            const lT = (type) => state.data.tournees.map((t, i) => (t.type === type) ? `<div class="flex justify-between p-2 mb-1 bg-white border text-[11px] rounded shadow-sm"><span><b>${JOURS_NOM[t.jour-1]}</b> : ${t.nom}</span><button onclick="state.data.tournees.splice(${i},1);renderAll();sync();" class="text-red-400 admin-only">✕</button></div>` : '').join('');
+            document.getElementById('list-tournees-impaires').innerHTML = lT('impaire');
+            document.getElementById('list-tournees-paires').innerHTML = lT('paire');
         }
 
-        function showTab(id) {
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
-            renderAll();
-        }
-
+        function showTab(id) { document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active')); document.getElementById(id).classList.add('active'); renderAll(); }
         window.onload = load;
     </script>
 
@@ -326,29 +241,32 @@
         </nav>
         <div class="flex items-center gap-4">
             <div id="status" class="text-[9px] font-mono text-blue-300">...</div>
-            <div onclick="showTab('tab-profil')" class="cursor-pointer bg-blue-600 px-3 py-1 rounded-lg text-xs font-bold hover:bg-blue-500">
-                👤 <span id="user-display-name">Profil</span>
-            </div>
-            <button onclick="logout()" class="text-xs text-slate-400 font-bold hover:text-white">Sortie</button>
+            <div onclick="showTab('tab-profil')" class="cursor-pointer bg-blue-600 px-3 py-1 rounded-lg text-xs font-bold hover:bg-blue-500">👤 <span id="user-display-name">Profil</span></div>
+            <button onclick="location.reload()" class="text-xs text-slate-400 font-bold hover:text-white">Sortie</button>
         </div>
     </header>
 
     <main class="max-w-[1600px] mx-auto p-6">
         <section id="tab-plan" class="tab-content active">
             <div class="flex items-center justify-between mb-6 bg-white p-4 rounded-xl border">
-                <div class="flex items-center gap-4">
-                    <button onclick="state.semaine--; renderAll()" class="p-2 bg-slate-100 rounded font-bold">◀</button>
-                    <div class="text-center min-w-[200px]"><div id="plan-title" class="font-black uppercase">Semaine...</div><div class="text-[10px] text-slate-400">S<span id="week-num"></span></div></div>
-                    <button onclick="state.semaine++; renderAll()" class="p-2 bg-slate-100 rounded font-bold">▶</button>
+                <div class="flex items-center gap-6">
+                    <button onclick="state.semaine--; renderAll()" class="p-3 bg-slate-100 rounded-xl hover:bg-blue-50 font-bold">◀</button>
+                    <div class="text-center min-w-[300px]">
+                        <div id="plan-title" class="text-xl font-black text-slate-800 uppercase tracking-tight">...</div>
+                        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em]">Semaine <span id="pair-type" class="text-blue-600 font-black">...</span> (S<span id="week-num"></span>)</div>
+                    </div>
+                    <button onclick="state.semaine++; renderAll()" class="p-3 bg-slate-100 rounded-xl hover:bg-blue-50 font-bold">▶</button>
                 </div>
+                <input type="number" value="2026" onchange="state.annee=parseInt(this.value); renderAll()" class="border rounded p-2 w-24 text-center font-black">
             </div>
             <div class="overflow-x-auto rounded-2xl border bg-white shadow-xl">
                 <table class="w-full text-left">
                     <thead class="bg-slate-900 text-white">
                         <tr>
-                            <th style="width: 12%">Jour</th><th style="width: 15%">Tournée</th><th style="width: 5%">Flux</th>
-                            <th style="width: 8%">Camion</th><th style="width: 12%">Chauffeur</th><th style="width: 12%">Ripeur 1</th>
-                            <th style="width: 12%">Ripeur 2</th><th style="width: 8%">Vidage</th><th style="width: 8%">Info</th><th style="width: 8%">Autres</th>
+                            <th style="width: 12%">Jour</th><th style="width: 14%">Tournée</th><th style="width: 5%">Flux</th>
+                            <th style="width: 7%">Camion</th><th style="width: 9%">Chauffeur</th><th style="width: 9%">Ripeur 1</th>
+                            <th style="width: 9%">Ripeur 2</th><th style="width: 7%">Vidage</th><th style="width: 10%">Info</th>
+                            <th style="width: 10%">Autres</th><th style="width: 13%" class="bg-emerald-900/20 text-emerald-800">Personnel Dispo</th>
                         </tr>
                     </thead>
                     <tbody id="plan-body"></tbody>
@@ -357,13 +275,13 @@
         </section>
 
         <section id="tab-conges" class="tab-content">
-            <div class="bg-white p-6 rounded-2xl border shadow-sm">
+            <div class="bg-white p-6 rounded-2xl border">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="font-black text-blue-900 uppercase">Absences</h2>
                     <div class="flex items-center gap-4 bg-slate-100 p-2 rounded-xl">
-                        <button onclick="changeMoisConges(-1)" class="font-bold">◀</button>
-                        <span id="current-month-display" class="font-bold text-sm uppercase">...</span>
-                        <button onclick="changeMoisConges(1)" class="font-bold">▶</button>
+                        <button onclick="state.moisConges--; changeMoisConges(0)" class="font-bold px-2">◀</button>
+                        <span id="current-month-display" class="font-bold text-sm uppercase min-w-[120px] text-center">...</span>
+                        <button onclick="state.moisConges++; changeMoisConges(0)" class="font-bold px-2">▶</button>
                     </div>
                 </div>
                 <div id="conges-wrapper" class="overflow-x-auto"></div>
@@ -371,15 +289,13 @@
         </section>
 
         <section id="tab-profil" class="tab-content">
-            <div class="max-w-md mx-auto bg-white p-8 rounded-2xl border shadow-sm">
-                <h2 class="font-black text-xl mb-6 uppercase tracking-tighter">Mon Profil</h2>
+            <div class="max-w-md mx-auto bg-white p-8 rounded-2xl border">
+                <h2 class="font-black text-xl mb-6 uppercase">Mon Profil</h2>
                 <div class="space-y-4">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div><label class="text-[10px] font-black text-slate-400">PRÉNOM</label><input type="text" id="prof-prenom" class="w-full border p-2 rounded-lg"></div>
-                        <div><label class="text-[10px] font-black text-slate-400">NOM</label><input type="text" id="prof-nom" class="w-full border p-2 rounded-lg"></div>
-                    </div>
-                    <div><label class="text-[10px] font-black text-slate-400">CHANGER MOT DE PASSE</label><input type="password" id="prof-pass" placeholder="Laisser vide pour ne pas changer" class="w-full border p-2 rounded-lg"></div>
-                    <button onclick="updateMyProfile()" class="w-full bg-slate-900 text-white p-3 rounded-lg font-black uppercase text-xs">Mettre à jour mes infos</button>
+                    <input type="text" id="prof-prenom" placeholder="Prénom" class="w-full border p-2 rounded-lg">
+                    <input type="text" id="prof-nom" placeholder="Nom" class="w-full border p-2 rounded-lg">
+                    <input type="password" id="prof-pass" placeholder="Nouveau mot de passe" class="w-full border p-2 rounded-lg">
+                    <button onclick="currentUser.prenom=document.getElementById('prof-prenom').value; currentUser.nom=document.getElementById('prof-nom').value; if(document.getElementById('prof-pass').value) currentUser.pass=document.getElementById('prof-pass').value; sync(); alert('Profil mis à jour !'); renderAll();" class="w-full bg-slate-900 text-white p-3 rounded-lg font-black uppercase text-xs">Sauvegarder</button>
                 </div>
             </div>
         </section>
@@ -387,25 +303,16 @@
         <section id="tab-users" class="tab-content">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div class="bg-white p-6 rounded-2xl border">
-                    <h3 class="font-black text-blue-700 uppercase mb-4 text-xs">Ajouter un collaborateur</h3>
+                    <h3 class="font-black text-blue-700 uppercase mb-4 text-xs">Nouveau compte</h3>
                     <div class="space-y-3">
-                        <div class="grid grid-cols-2 gap-2">
-                            <input type="text" id="new-u-prenom" placeholder="Prénom" class="border p-2 rounded-lg text-sm">
-                            <input type="text" id="new-u-nom" placeholder="Nom" class="border p-2 rounded-lg text-sm">
-                        </div>
-                        <input type="email" id="new-u-email" placeholder="Email (Identifiant)" class="w-full border p-2 rounded-lg text-sm">
-                        <input type="password" id="new-u-pass" placeholder="Mot de passe" class="w-full border p-2 rounded-lg text-sm">
-                        <select id="new-u-role" class="w-full border p-2 rounded-lg text-sm">
-                            <option value="read">Lecteur (Lecture Seule)</option>
-                            <option value="admin">Administrateur (Contrôle Total)</option>
-                        </select>
-                        <button onclick="addUser()" class="w-full bg-blue-600 text-white font-black p-3 rounded-xl uppercase text-xs">Créer le compte</button>
+                        <div class="grid grid-cols-2 gap-2"><input id="new-u-prenom" placeholder="Prénom" class="border p-2 rounded text-sm"><input id="new-u-nom" placeholder="Nom" class="border p-2 rounded text-sm"></div>
+                        <input id="new-u-email" placeholder="Email" class="w-full border p-2 rounded text-sm">
+                        <input id="new-u-pass" placeholder="Mot de passe" class="w-full border p-2 rounded text-sm">
+                        <select id="new-u-role" class="w-full border p-2 rounded text-sm"><option value="read">Lecteur</option><option value="admin">Admin</option></select>
+                        <button onclick="addUser()" class="w-full bg-blue-600 text-white font-black p-3 rounded-xl uppercase text-xs">Créer</button>
                     </div>
                 </div>
-                <div class="bg-white p-6 rounded-2xl border">
-                    <h3 class="font-black text-slate-400 uppercase mb-4 text-xs">Comptes existants</h3>
-                    <div id="list-users"></div>
-                </div>
+                <div class="bg-white p-6 rounded-2xl border"><h3 class="font-black text-slate-400 uppercase mb-4 text-xs">Comptes</h3><div id="list-users"></div></div>
             </div>
         </section>
 
@@ -413,15 +320,15 @@
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div class="bg-white p-6 border rounded-2xl">
                     <h3 class="font-black text-xs uppercase mb-4 text-blue-700">Agents & Camions</h3>
-                    <div class="flex gap-2 mb-4"><input type="text" id="in-agents" class="flex-1 border p-2 rounded-xl text-sm"><button onclick="addParam('agents')" class="bg-blue-600 text-white px-4 rounded-xl">+</button></div>
+                    <div class="flex gap-2 mb-4"><input id="in-agents" class="flex-1 border p-2 rounded text-sm"><button onclick="addParam('agents')" class="bg-blue-600 text-white px-4 rounded-xl">+</button></div>
                     <ul id="list-agents" class="mb-6"></ul>
-                    <div class="flex gap-2 mb-4"><input type="text" id="in-camions" class="flex-1 border p-2 rounded-xl text-sm"><button onclick="addParam('camions')" class="bg-blue-600 text-white px-4 rounded-xl">+</button></div>
+                    <div class="flex gap-2 mb-4"><input id="in-camions" class="flex-1 border p-2 rounded text-sm"><button onclick="addParam('camions')" class="bg-blue-600 text-white px-4 rounded-xl">+</button></div>
                     <ul id="list-camions"></ul>
                 </div>
                 <div class="lg:col-span-2 bg-white p-6 border rounded-2xl">
                     <h3 class="font-black text-xs uppercase mb-4 text-blue-700">Tournées</h3>
                     <div class="grid grid-cols-4 gap-2 mb-4 bg-slate-50 p-4 rounded-xl">
-                        <input type="text" id="in-tournees" placeholder="Nom" class="border p-2 rounded text-sm col-span-2">
+                        <input id="in-tournees" placeholder="Nom" class="border p-2 rounded text-sm col-span-2">
                         <select id="in-flux" class="border p-2 rounded text-sm"><option value="OM">OM</option><option value="CS">CS</option></select>
                         <select id="in-jour" class="border p-2 rounded text-sm"><option value="1">Lun</option><option value="2">Mar</option><option value="3">Mer</option><option value="4">Jeu</option><option value="5">Ven</option></select>
                         <select id="in-freq" class="border p-2 rounded text-sm col-span-2"><option value="impaire">Impaire</option><option value="paire">Paire</option></select>
@@ -436,5 +343,12 @@
         </section>
     </main>
 
+    <script>
+        function changeMoisConges() {
+            if(state.moisConges > 11) { state.moisConges = 0; state.anneeConges++; }
+            if(state.moisConges < 0) { state.moisConges = 11; state.anneeConges--; }
+            renderConges();
+        }
+    </script>
 </body>
 </html>
