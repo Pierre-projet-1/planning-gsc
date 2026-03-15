@@ -1,360 +1,451 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GSC - Planning Professionnel</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        .flux-om { background-color: #e2e8f0; color: #475569; border-left: 3px solid #475569; }
-        .flux-cs { background-color: #fef08a; color: #854d0e; border-left: 3px solid #854d0e; }
-        th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; padding: 8px; }
-        td { font-size: 11px; padding: 4px; border: 1px solid #e2e8f0; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GSC - Planning Professionnel</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+
+.tab-content {display:none}
+.tab-content.active {display:block}
+
+.flux-om {
+background:#e2e8f0;
+color:#475569;
+border-left:4px solid #475569
+}
+
+.flux-cs {
+background:#fef08a;
+color:#854d0e;
+border-left:4px solid #854d0e
+}
+
+</style>
 </head>
+
 <body class="bg-slate-100 min-h-screen font-sans">
 
-    <script>
-        const BIN_ID = "69b528beaa77b81da9e33a14"; 
-        const API_KEY = "$2a$10$KM0Bk26gr5ZNVIpvSKTSIOs57V3dBxtizW1IjdbER1L/yjh24vaEq"; 
-        const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+<script>
 
-        let state = {
-            annee: 2026,
-            semaine: 1,
-            data: {
-                agents: [],
-                camions: [],
-                tournees: [], // structure : {nom, flux, type, jour}
-                planning: {},
-                conges: {}
-            }
-        };
+const BIN_ID="69b528beaa77b81da9e33a14"
+const API_KEY="$2a$10$KM0Bk26gr5ZNVIpvSKTSIOs57V3dBxtizW1IjdbER1L/yjh24vaEq"
+const URL=`https://api.jsonbin.io/v3/b/${BIN_ID}`
 
-        const JOURS_NOM = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"];
+let state={
+annee:2026,
+semaine:1,
+data:{
+agents:[],
+camions:[],
+tournees:[],
+planning:{},
+conges:{}
+}
+}
 
-        async function load() {
-            document.getElementById('status').innerText = "⏳ Chargement...";
-            try {
-                const res = await fetch(`${URL}/latest`, { headers: { "X-Master-Key": API_KEY } });
-                const json = await res.json();
-                if (json.record) {
-                    state.data = {
-                        agents: json.record.agents || [],
-                        camions: json.record.camions || [],
-                        tournees: json.record.tournees || [],
-                        planning: json.record.planning || {},
-                        conges: json.record.conges || {}
-                    };
-                }
-                document.getElementById('status').innerText = "✅ Connecté";
-                renderAll();
-            } catch (err) {
-                document.getElementById('status').innerText = "❌ Erreur de connexion";
-            }
-        }
+async function load(){
 
-        async function sync() {
-            document.getElementById('status').innerText = "⏳ Sauvegarde...";
-            try {
-                await fetch(URL, {
-                    method: 'PUT',
-                    headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
-                    body: JSON.stringify(state.data)
-                });
-                document.getElementById('status').innerText = "✅ Sauvegardé";
-            } catch (err) {
-                document.getElementById('status').innerText = "❌ Erreur sync";
-            }
-        }
+document.getElementById('status').innerText="⏳ Chargement..."
 
-        function getDatesOfWeek(w, y) {
-            let simple = new Date(y, 0, 1 + (w - 1) * 7);
-            let dow = simple.getDay();
-            let ISOweekStart = simple;
-            if (dow <= 4) ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
-            else ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
-            
-            let days = [];
-            for (let i = 0; i < 5; i++) {
-                let d = new Date(ISOweekStart);
-                d.setDate(d.getDate() + i);
-                days.push({
-                    texte: d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }),
-                    iso: d.toISOString().split('T')[0]
-                });
-            }
-            return days;
-        }
+try{
 
-        function renderPlanning() {
-            const isPaire = state.semaine % 2 === 0;
-            const weekType = isPaire ? 'paire' : 'impaire';
-            const weekKey = `${state.annee}_W${state.semaine}`;
-            const dates = getDatesOfWeek(state.semaine, state.annee);
-            
-            // Titre Dynamique
-            const monthName = new Date(state.annee, 0, 1 + (state.semaine - 1) * 7).toLocaleString('fr-FR', {month: 'long'});
-            document.getElementById('plan-title').innerText = `Planning semaine n°${state.semaine} - ${monthName} ${state.annee}`;
+const res=await fetch(`${URL}/latest`,{
+headers:{"X-Master-Key":API_KEY}
+})
 
-            const body = document.getElementById('plan-body');
-            body.innerHTML = "";
+const json=await res.json()
 
-            dates.forEach((dateObj, dayIdx) => {
-                const jourIndex = dayIdx + 1; // 1 pour Lundi, etc.
-                const tourneesDuJour = state.data.tournees.filter(t => t.type === weekType && t.jour == jourIndex);
+if(json.record){
 
-                // Calcul agents occupés pour ce jour précis
-                let agentsOccupes = [];
-                tourneesDuJour.forEach(t => {
-                    const cell = state.data.planning[weekKey]?.[`${t.nom}_${dayIdx}`] || {};
-                    if(cell.ch) agentsOccupes.push(cell.ch);
-                    if(cell.r1) agentsOccupes.push(cell.r1);
-                    if(cell.r2) agentsOccupes.push(cell.r2);
-                });
+state.data={
+agents:json.record.agents||[],
+camions:json.record.camions||[],
+tournees:json.record.tournees||[],
+planning:json.record.planning||{},
+conges:json.record.conges||{}
+}
 
-                tourneesDuJour.forEach(t => {
-                    const rowKey = `${t.nom}_${dayIdx}`;
-                    const cell = state.data.planning[weekKey]?.[rowKey] || {};
-                    
-                    // Dispos : Agents non sélectionnés dans un équipage ce jour ET pas en congés
-                    const dispos = state.data.agents.filter(a => {
-                        const enCongé = (state.data.conges[a] || []).includes(dateObj.iso);
-                        return !agentsOccupes.includes(a) && !enCongé;
-                    });
+}
 
-                    const tr = document.createElement('tr');
-                    tr.className = "bg-white hover:bg-slate-50";
-                    tr.innerHTML = `
-                        <td class="font-bold border-l-4 border-l-blue-500">${dateObj.texte}</td>
-                        <td class="font-bold uppercase text-blue-900">${t.nom}</td>
-                        <td class="text-center"><span class="px-2 py-0.5 rounded ${t.flux==='OM'?'flux-om':'flux-cs'}">${t.flux}</span></td>
-                        <td>
-                            <select onchange="updatePlan('${rowKey}','camion',this.value)" class="w-full p-1 border rounded">
-                                <option value="">-</option>
-                                ${state.data.camions.map(c => `<option ${cell.camion===c?'selected':''}>${c}</option>`).join('')}
-                            </select>
-                        </td>
-                        <td>
-                            <select onchange="updatePlan('${rowKey}','ch',this.value)" class="w-full p-1 border rounded">
-                                <option value="">-</option>
-                                ${state.data.agents.map(a => `<option ${cell.ch===a?'selected':''}>${a}</option>`).join('')}
-                            </select>
-                        </td>
-                        <td>
-                            <select onchange="updatePlan('${rowKey}','r1',this.value)" class="w-full p-1 border rounded">
-                                <option value="">-</option>
-                                ${state.data.agents.map(a => `<option ${cell.r1===a?'selected':''}>${a}</option>`).join('')}
-                            </select>
-                        </td>
-                        <td>
-                            <select onchange="updatePlan('${rowKey}','r2',this.value)" class="w-full p-1 border rounded">
-                                <option value="">-</option>
-                                ${state.data.agents.map(a => `<option ${cell.r2===a?'selected':''}>${a}</option>`).join('')}
-                            </select>
-                        </td>
-                        <td>
-                            <select onchange="updatePlan('${rowKey}','vidage',this.value)" class="w-full p-1 border rounded">
-                                <option value="">-</option>
-                                <option ${cell.vidage==='Dépôt'?'selected':''}>Dépôt</option>
-                                <option ${cell.vidage==='DRIMM'?'selected':''}>DRIMM</option>
-                            </select>
-                        </td>
-                        <td><input type="text" value="${cell.info || ''}" onchange="updatePlan('${rowKey}','info',this.value)" class="w-full p-1 border rounded"></td>
-                        <td><input type="text" value="${cell.autres || ''}" onchange="updatePlan('${rowKey}','autres',this.value)" class="w-full p-1 border rounded"></td>
-                        <td class="text-[9px] text-emerald-600 font-bold leading-tight">${dispos.join(', ')}</td>
-                    `;
-                    body.appendChild(tr);
-                });
-            });
-        }
+document.getElementById('status').innerText="✅ Connecté"
 
-        function updatePlan(rowKey, field, val) {
-            const key = `${state.annee}_W${state.semaine}`;
-            if(!state.data.planning[key]) state.data.planning[key] = {};
-            if(!state.data.planning[key][rowKey]) state.data.planning[key][rowKey] = {};
-            state.data.planning[key][rowKey][field] = val;
-            sync();
-            renderPlanning(); // Re-calcul des dispos
-        }
+renderAll()
 
-        function addParam(type) {
-            if(type === 'tournees') {
-                const nom = document.getElementById('in-tournees').value.trim();
-                const flux = document.getElementById('in-flux').value;
-                const freq = document.getElementById('in-freq').value;
-                const jour = document.getElementById('in-jour').value;
-                if(!nom) return;
-                state.data.tournees.push({ nom, flux, type: freq, jour });
-                document.getElementById('in-tournees').value = "";
-            } else {
-                const input = document.getElementById(`in-${type}`);
-                if(!input.value.trim()) return;
-                state.data[type].push(input.value.trim());
-                input.value = "";
-            }
-            renderAll();
-            sync();
-        }
+}catch(err){
 
-        function removeParam(type, index) {
-            state.data[type].splice(index, 1);
-            renderAll();
-            sync();
-        }
+document.getElementById('status').innerText="❌ Erreur connexion"
 
-        function renderAll() {
-            document.getElementById('week-num').innerText = state.semaine;
-            document.getElementById('pair-type').innerText = (state.semaine % 2 === 0) ? "PAIRE" : "IMPAIRE";
-            renderPlanning();
+}
 
-            // Listes Paramètres
-            ['agents', 'camions'].forEach(type => {
-                const list = document.getElementById(`list-${type}`);
-                list.innerHTML = state.data[type].map((item, i) => `
-                    <li class="flex justify-between text-xs p-2 bg-white mb-1 rounded border">
-                        ${item} <button onclick="removeParam('${type}', ${i})" class="text-red-500">✕</button>
-                    </li>
-                `).join('');
-            });
+}
 
-            const listT = (type) => state.data.tournees
-                .map((t, i) => (t.type === type) ? `
-                    <div class="flex justify-between items-center p-2 mb-1 bg-white border text-[11px] rounded">
-                        <span><b>${JOURS_NOM[t.jour-1]}</b> : ${t.nom} (${t.flux})</span>
-                        <button onclick="removeParam('tournees', ${i})" class="text-red-400">✕</button>
-                    </div>
-                ` : '').join('');
+async function sync(){
 
-            document.getElementById('list-tournees-impaires').innerHTML = listT('impaire');
-            document.getElementById('list-tournees-paires').innerHTML = listT('paire');
-        }
+document.getElementById('status').innerText="⏳ Sauvegarde..."
 
-        function showTab(id) {
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
-            renderAll();
-        }
+try{
 
-        window.onload = load;
-    </script>
+await fetch(URL,{
+method:"PUT",
+headers:{
+"Content-Type":"application/json",
+"X-Master-Key":API_KEY
+},
+body:JSON.stringify(state.data)
+})
 
-    <header class="bg-blue-900 text-white p-4 shadow-lg sticky top-0 z-50">
-        <div class="max-w-[1600px] mx-auto flex justify-between items-center">
-            <h1 class="font-black text-lg tracking-tighter uppercase">Grand Sud Collecte</h1>
-            <nav class="flex gap-4 text-xs font-bold uppercase">
-                <button onclick="showTab('tab-plan')" class="hover:underline">Planning</button>
-                <button onclick="showTab('tab-params')" class="hover:underline">Paramètres</button>
-                <button onclick="showTab('tab-conges')" class="hover:underline">Congés</button>
-            </nav>
-            <div id="status" class="text-[9px] opacity-50 font-mono">Connexion...</div>
-        </div>
-    </header>
+document.getElementById('status').innerText="✅ Sauvegardé"
 
-    <main class="max-w-[1600px] mx-auto p-4">
-        
-        <section id="tab-plan" class="tab-content active">
-            <div class="flex items-center justify-between mb-4 bg-white p-3 rounded-lg border">
-                <div class="flex items-center gap-4">
-                    <button onclick="state.semaine--; renderAll()" class="p-2 bg-slate-100 rounded">◀</button>
-                    <div class="text-center">
-                        <div id="plan-title" class="text-lg font-black text-blue-900 uppercase">Chargement...</div>
-                        <div class="text-[10px] text-slate-400 font-bold uppercase">Semaine <span id="pair-type">...</span> (S<span id="week-num"></span>)</div>
-                    </div>
-                    <button onclick="state.semaine++; renderAll()" class="p-2 bg-slate-100 rounded">▶</button>
-                </div>
-                <input type="number" value="2026" onchange="state.annee=parseInt(this.value); renderAll()" class="border rounded p-1 w-20 text-sm font-bold text-center">
-            </div>
+}catch(err){
 
-            <div class="overflow-x-auto rounded-lg border shadow-xl bg-white">
-                <table class="w-full text-left border-collapse">
-                    <thead class="bg-slate-800 text-white">
-                        <tr>
-                            <th style="width: 12%">Jour</th>
-                            <th style="width: 12%">Tournée</th>
-                            <th style="width: 5%">Flux</th>
-                            <th style="width: 8%">Camion</th>
-                            <th style="width: 10%">Chauffeur</th>
-                            <th style="width: 10%">Ripeur 1</th>
-                            <th style="width: 10%">Ripeur 2</th>
-                            <th style="width: 8%">Vidage</th>
-                            <th style="width: 10%">Information</th>
-                            <th style="width: 10%">Autres</th>
-                            <th style="width: 15%">Personnel Dispo</th>
-                        </tr>
-                    </thead>
-                    <tbody id="plan-body"></tbody>
-                </table>
-            </div>
-        </section>
+document.getElementById('status').innerText="❌ Erreur sync"
 
-        <section id="tab-params" class="tab-content">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
-                <div class="space-y-6">
-                    <div class="bg-white p-4 rounded-xl shadow border">
-                        <h3 class="font-bold mb-4 text-blue-800 text-xs uppercase italic">1. Agents & Camions</h3>
-                        <div class="flex gap-1 mb-2">
-                            <input type="text" id="in-agents" placeholder="Nom Agent" class="border p-1.5 text-sm rounded w-full">
-                            <button onclick="addParam('agents')" class="bg-blue-600 text-white px-2 rounded font-bold">+</button>
-                        </div>
-                        <ul id="list-agents" class="max-h-32 overflow-y-auto mb-4"></ul>
+}
 
-                        <div class="flex gap-1 mb-2">
-                            <input type="text" id="in-camions" placeholder="N° Camion" class="border p-1.5 text-sm rounded w-full">
-                            <button onclick="addParam('camions')" class="bg-blue-600 text-white px-2 rounded font-bold">+</button>
-                        </div>
-                        <ul id="list-camions" class="max-h-32 overflow-y-auto"></ul>
-                    </div>
-                </div>
+}
 
-                <div class="lg:col-span-2 bg-white p-5 rounded-xl border-2 border-blue-100 shadow-sm">
-                    <h3 class="font-bold mb-4 text-blue-800 text-xs uppercase italic text-center">2. Prédisposition des tournées</h3>
-                    <div class="grid grid-cols-4 gap-2 mb-4 bg-slate-50 p-2 rounded">
-                        <input type="text" id="in-tournees" placeholder="Nom Tournée" class="border p-2 rounded text-sm col-span-2">
-                        <select id="in-flux" class="border p-2 rounded text-sm">
-                            <option value="OM">Flux OM (Gris)</option>
-                            <option value="CS">Flux CS (Jaune)</option>
-                        </select>
-                        <select id="in-jour" class="border p-2 rounded text-sm font-bold">
-                            <option value="1">Lundi</option>
-                            <option value="2">Mardi</option>
-                            <option value="3">Mercredi</option>
-                            <option value="4">Jeudi</option>
-                            <option value="5">Vendredi</option>
-                        </select>
-                        <select id="in-freq" class="border p-2 rounded text-sm col-span-2 font-bold text-blue-700">
-                            <option value="impaire">Semaine IMPAIRE</option>
-                            <option value="paire">Semaine PAIRE</option>
-                        </select>
-                        <button onclick="addParam('tournees')" class="bg-blue-700 text-white p-2 rounded font-black col-span-2 uppercase text-xs">
-                            Ajouter (+)
-                        </button>
-                    </div>
+function getDatesOfWeek(w,y){
 
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <h4 class="text-[10px] font-black uppercase mb-2 bg-indigo-50 text-center py-1">Semaines Impaires</h4>
-                            <div id="list-tournees-impaires"></div>
-                        </div>
-                        <div>
-                            <h4 class="text-[10px] font-black uppercase mb-2 bg-emerald-50 text-center py-1">Semaines Paires</h4>
-                            <div id="list-tournees-paires"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
+let simple=new Date(y,0,1+(w-1)*7)
 
-        <section id="tab-conges" class="tab-content">
-            <div class="bg-white p-10 rounded-xl shadow border border-dashed border-slate-300 text-center text-slate-400 italic">
-                La gestion des congés se fera via le calendrier dans la prochaine étape.
-            </div>
-        </section>
+let dow=simple.getDay()
 
-    </main>
+let ISOweekStart=simple
+
+if(dow<=4)
+ISOweekStart.setDate(simple.getDate()-simple.getDay()+1)
+else
+ISOweekStart.setDate(simple.getDate()+8-simple.getDay())
+
+let days=[]
+
+for(let i=0;i<5;i++){
+
+let d=new Date(ISOweekStart)
+d.setDate(d.getDate()+i)
+
+days.push({
+label:d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}),
+date:d
+})
+
+}
+
+return days
+
+}
+
+function renderPlanning(){
+
+const isPaire=state.semaine%2===0
+const targetType=isPaire?'paire':'impaire'
+
+const weekKey=`${state.annee}_W${state.semaine}`
+
+const dates=getDatesOfWeek(state.semaine,state.annee)
+
+const tournees=state.data.tournees.filter(t=>t.type===targetType)
+
+const refDate=new Date(state.annee,0,1+(state.semaine-1)*7)
+
+const monthName=refDate.toLocaleDateString('fr-FR',{month:'long',year:'numeric'})
+
+document.getElementById("plan-title").innerText=
+`Planning semaine n°${state.semaine} - ${monthName}`
+
+document.getElementById("plan-header").innerHTML=`
+
+<th class="p-2 border">Jour</th>
+<th class="p-2 border">Tournée</th>
+<th class="p-2 border">Flux</th>
+<th class="p-2 border">Camion</th>
+<th class="p-2 border">Chauffeur</th>
+<th class="p-2 border">Ripeur 1</th>
+<th class="p-2 border">Ripeur 2</th>
+<th class="p-2 border">Vidage</th>
+<th class="p-2 border">Information</th>
+<th class="p-2 border">Autres</th>
+<th class="p-2 border">Personnel disponible</th>
+
+`
+
+let html=""
+
+dates.forEach((dayObj,dayIdx)=>{
+
+tournees.forEach(t=>{
+
+const cell=state.data.planning[weekKey]?.[t.nom]?.[dayIdx]||{}
+
+const agentsUtilises=[cell.ch,cell.r1,cell.r2].filter(Boolean)
+
+const dispo=state.data.agents
+.filter(a=>!agentsUtilises.includes(a))
+.join(", ")
+
+html+=`
+
+<tr>
+
+<td class="border p-2 text-xs font-bold bg-slate-50">
+${dayObj.label}
+</td>
+
+<td class="border p-2 text-xs font-semibold">
+${t.nom}
+</td>
+
+<td class="border p-2">
+<span class="px-2 py-1 text-[10px] rounded ${t.flux==='OM'?'flux-om':'flux-cs'}">
+${t.flux}
+</span>
+</td>
+
+<td class="border p-1">
+
+<select onchange="updatePlan('${t.nom}',${dayIdx},'camion',this.value)" class="text-xs w-full">
+
+<option value=""></option>
+
+${state.data.camions.map(c=>
+`<option ${cell.camion===c?'selected':''}>${c}</option>`
+).join('')}
+
+</select>
+
+</td>
+
+<td class="border p-1">
+
+<select onchange="updatePlan('${t.nom}',${dayIdx},'ch',this.value)" class="text-xs w-full">
+
+<option value=""></option>
+
+${state.data.agents.map(a=>
+`<option ${cell.ch===a?'selected':''}>${a}</option>`
+).join('')}
+
+</select>
+
+</td>
+
+<td class="border p-1">
+
+<select onchange="updatePlan('${t.nom}',${dayIdx},'r1',this.value)" class="text-xs w-full">
+
+<option value=""></option>
+
+${state.data.agents.map(a=>
+`<option ${cell.r1===a?'selected':''}>${a}</option>`
+).join('')}
+
+</select>
+
+</td>
+
+<td class="border p-1">
+
+<select onchange="updatePlan('${t.nom}',${dayIdx},'r2',this.value)" class="text-xs w-full">
+
+<option value=""></option>
+
+${state.data.agents.map(a=>
+`<option ${cell.r2===a?'selected':''}>${a}</option>`
+).join('')}
+
+</select>
+
+</td>
+
+<td class="border p-1">
+
+<select onchange="updatePlan('${t.nom}',${dayIdx},'vidage',this.value)" class="text-xs w-full">
+
+<option value=""></option>
+<option ${cell.vidage==='Dépôt'?'selected':''}>Dépôt</option>
+<option ${cell.vidage==='DRIMM'?'selected':''}>DRIMM</option>
+
+</select>
+
+</td>
+
+<td class="border p-1">
+
+<input type="text"
+value="${cell.info||''}"
+onchange="updatePlan('${t.nom}',${dayIdx},'info',this.value)"
+class="text-xs w-full border rounded p-1">
+
+</td>
+
+<td class="border p-1">
+
+<input type="text"
+value="${cell.autres||''}"
+onchange="updatePlan('${t.nom}',${dayIdx},'autres',this.value)"
+class="text-xs w-full border rounded p-1">
+
+</td>
+
+<td class="border p-2 text-[10px] text-slate-500">
+
+${dispo}
+
+</td>
+
+</tr>
+
+`
+
+})
+
+})
+
+document.getElementById("plan-body").innerHTML=html
+
+}
+
+function updatePlan(tName,day,field,val){
+
+const key=`${state.annee}_W${state.semaine}`
+
+if(!state.data.planning[key])
+state.data.planning[key]={}
+
+if(!state.data.planning[key][tName])
+state.data.planning[key][tName]={}
+
+if(!state.data.planning[key][tName][day])
+state.data.planning[key][tName][day]={}
+
+state.data.planning[key][tName][day][field]=val
+
+sync()
+
+}
+
+function renderAll(){
+
+document.getElementById('week-num').innerText=state.semaine
+
+document.getElementById('pair-type').innerText=
+(state.semaine%2===0)?"PAIRE":"IMPAIRE"
+
+renderPlanning()
+
+}
+
+function showTab(id){
+
+document.querySelectorAll('.tab-content')
+.forEach(t=>t.classList.remove('active'))
+
+document.getElementById(id).classList.add('active')
+
+renderAll()
+
+}
+
+window.onload=load
+
+</script>
+
+<header class="bg-blue-900 text-white p-4 shadow-lg sticky top-0 z-50">
+
+<div class="max-w-7xl mx-auto flex justify-between items-center">
+
+<h1 class="font-black text-lg tracking-tighter">
+GRAND SUD COLLECTE
+</h1>
+
+<nav class="flex gap-4 text-xs font-bold uppercase">
+
+<button onclick="showTab('tab-plan')">Planning</button>
+<button onclick="showTab('tab-params')">Paramètres</button>
+<button onclick="showTab('tab-conges')">Congés</button>
+
+</nav>
+
+<div id="status" class="text-[9px] opacity-50 font-mono">
+Connexion...
+</div>
+
+</div>
+
+</header>
+
+<main class="max-w-7xl mx-auto p-4">
+
+<section id="tab-plan" class="tab-content active">
+
+<div class="flex items-center gap-4 mb-4 bg-white p-3 rounded-lg shadow-sm border">
+
+<button onclick="state.semaine--;renderAll()" class="p-2 bg-slate-100 rounded">
+◀
+</button>
+
+<div class="text-center">
+
+<div class="text-[10px] text-slate-400 font-bold uppercase">
+Semaine <span id="pair-type"></span>
+</div>
+
+<div class="text-xl font-black text-blue-900">
+S <span id="week-num">1</span>
+</div>
+
+</div>
+
+<button onclick="state.semaine++;renderAll()" class="p-2 bg-slate-100 rounded">
+▶
+</button>
+
+<input type="number"
+value="2026"
+onchange="state.annee=parseInt(this.value);renderAll()"
+class="ml-auto border rounded p-1 w-20">
+
+</div>
+
+<h2 id="plan-title"
+class="text-lg font-bold mb-3 text-blue-900">
+</h2>
+
+<div class="overflow-x-auto rounded-xl border shadow-xl bg-white">
+
+<table class="w-full text-left">
+
+<thead class="bg-slate-50 text-slate-500 text-[10px] uppercase">
+
+<tr id="plan-header"></tr>
+
+</thead>
+
+<tbody id="plan-body"></tbody>
+
+</table>
+
+</div>
+
+</section>
+
+<section id="tab-params" class="tab-content">
+<div class="bg-white p-10 rounded-xl shadow text-center text-slate-400">
+Module paramètres inchangé
+</div>
+</section>
+
+<section id="tab-conges" class="tab-content">
+<div class="bg-white p-10 rounded-xl shadow text-center text-slate-400">
+Module congés à venir
+</div>
+</section>
+
+</main>
 
 </body>
 </html>
