@@ -3,20 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GSC - Système Expert Planning</title>
+    <title>GSC - Planning Professionnel</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        .flux-om { background: #e2e8f0; color: #475569; }
-        .flux-cs { background: #fef08a; color: #854d0e; }
-        .conflict { color: #dc2626 !important; font-weight: 800; text-decoration: underline; }
-        .day-cell { transition: all 0.2s; cursor: pointer; }
-        .day-cell:hover { transform: scale(1.05); }
-        .is-conge { background-color: #fca5a5 !important; border-color: #ef4444 !important; }
-    </script>
+        .flux-om { background-color: #e2e8f0; color: #475569; border-left: 3px solid #475569; }
+        .flux-cs { background-color: #fef08a; color: #854d0e; border-left: 3px solid #854d0e; }
+        th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; padding: 8px; }
+        td { font-size: 11px; padding: 4px; border: 1px solid #e2e8f0; }
+    </style>
 </head>
-<body class="bg-slate-100 min-h-screen font-sans text-slate-900">
+<body class="bg-slate-100 min-h-screen font-sans">
 
     <script>
         const BIN_ID = "69b528beaa77b81da9e33a14"; 
@@ -26,22 +24,19 @@
         let state = {
             annee: 2026,
             semaine: 1,
-            selectedAgentForConges: "",
-            viewDateConges: new Date(),
             data: {
                 agents: [],
                 camions: [],
-                tournees: [], // {nom, flux, type, jour} jour de 1 (Lun) à 5 (Ven)
+                tournees: [], // structure : {nom, flux, type, jour}
                 planning: {},
-                conges: {} // { "NomAgent": ["YYYY-MM-DD", ...] }
+                conges: {}
             }
         };
 
         const JOURS_NOM = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"];
 
-        // --- CORE FUNCTIONS ---
         async function load() {
-            document.getElementById('status').innerText = "⏳ Synchronisation...";
+            document.getElementById('status').innerText = "⏳ Chargement...";
             try {
                 const res = await fetch(`${URL}/latest`, { headers: { "X-Master-Key": API_KEY } });
                 const json = await res.json();
@@ -54,24 +49,27 @@
                         conges: json.record.conges || {}
                     };
                 }
+                document.getElementById('status').innerText = "✅ Connecté";
                 renderAll();
-                document.getElementById('status').innerText = "✅ Système prêt";
             } catch (err) {
-                document.getElementById('status').innerText = "❌ Erreur réseau";
+                document.getElementById('status').innerText = "❌ Erreur de connexion";
             }
         }
 
         async function sync() {
             document.getElementById('status').innerText = "⏳ Sauvegarde...";
-            await fetch(URL, {
-                method: 'PUT',
-                headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
-                body: JSON.stringify(state.data)
-            });
-            document.getElementById('status').innerText = "✅ Enregistré";
+            try {
+                await fetch(URL, {
+                    method: 'PUT',
+                    headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
+                    body: JSON.stringify(state.data)
+                });
+                document.getElementById('status').innerText = "✅ Sauvegardé";
+            } catch (err) {
+                document.getElementById('status').innerText = "❌ Erreur sync";
+            }
         }
 
-        // --- CALCULS DATES ---
         function getDatesOfWeek(w, y) {
             let simple = new Date(y, 0, 1 + (w - 1) * 7);
             let dow = simple.getDay();
@@ -84,212 +82,154 @@
                 let d = new Date(ISOweekStart);
                 d.setDate(d.getDate() + i);
                 days.push({
-                    full: d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }),
-                    iso: d.toISOString().split('T')[0],
-                    short: d.toLocaleDateString('fr-FR')
+                    texte: d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }),
+                    iso: d.toISOString().split('T')[0]
                 });
             }
             return days;
         }
 
-        // --- RENDU PLANNING ---
         function renderPlanning() {
             const isPaire = state.semaine % 2 === 0;
+            const weekType = isPaire ? 'paire' : 'impaire';
             const weekKey = `${state.annee}_W${state.semaine}`;
             const dates = getDatesOfWeek(state.semaine, state.annee);
             
-            // Titre dynamique
+            // Titre Dynamique
             const monthName = new Date(state.annee, 0, 1 + (state.semaine - 1) * 7).toLocaleString('fr-FR', {month: 'long'});
-            document.getElementById('planning-title').innerText = `Planning semaine n°${state.semaine} - ${monthName} ${state.annee}`;
+            document.getElementById('plan-title').innerText = `Planning semaine n°${state.semaine} - ${monthName} ${state.annee}`;
 
             const body = document.getElementById('plan-body');
             body.innerHTML = "";
 
             dates.forEach((dateObj, dayIdx) => {
-                const jourNum = dayIdx + 1; // 1=Lundi
-                const tourneesDuJour = state.data.tournees.filter(t => 
-                    t.jour == jourNum && t.type === (isPaire ? 'paire' : 'impaire')
-                );
+                const jourIndex = dayIdx + 1; // 1 pour Lundi, etc.
+                const tourneesDuJour = state.data.tournees.filter(t => t.type === weekType && t.jour == jourIndex);
 
-                // Agents occupés ce jour
-                let agentsOccupesCeJour = [];
+                // Calcul agents occupés pour ce jour précis
+                let agentsOccupes = [];
                 tourneesDuJour.forEach(t => {
-                    const row = state.data.planning[weekKey]?.[`${t.nom}_${dayIdx}`] || {};
-                    if(row.ch) agentsOccupesCeJour.push(row.ch);
-                    if(row.r1) agentsOccupesCeJour.push(row.r1);
-                    if(row.r2) agentsOccupesCeJour.push(row.r2);
+                    const cell = state.data.planning[weekKey]?.[`${t.nom}_${dayIdx}`] || {};
+                    if(cell.ch) agentsOccupes.push(cell.ch);
+                    if(cell.r1) agentsOccupes.push(cell.r1);
+                    if(cell.r2) agentsOccupes.push(cell.r2);
                 });
 
                 tourneesDuJour.forEach(t => {
-                    const cellKey = `${t.nom}_${dayIdx}`;
-                    const rowData = state.data.planning[weekKey]?.[cellKey] || {};
+                    const rowKey = `${t.nom}_${dayIdx}`;
+                    const cell = state.data.planning[weekKey]?.[rowKey] || {};
                     
-                    const isConflict = (name) => {
-                        if(!name) return "";
-                        const congesAgent = state.data.conges[name] || [];
-                        return congesAgent.includes(dateObj.iso) ? "conflict" : "";
-                    };
-
-                    // Calcul dispos
+                    // Dispos : Agents non sélectionnés dans un équipage ce jour ET pas en congés
                     const dispos = state.data.agents.filter(a => {
                         const enCongé = (state.data.conges[a] || []).includes(dateObj.iso);
-                        const dejaPris = agentsOccupesCeJour.includes(a);
-                        return !enCongé && !dejaPris;
+                        return !agentsOccupes.includes(a) && !enCongé;
                     });
 
                     const tr = document.createElement('tr');
-                    tr.className = "border-b hover:bg-slate-50 transition-colors text-[11px]";
+                    tr.className = "bg-white hover:bg-slate-50";
                     tr.innerHTML = `
-                        <td class="p-2 border bg-slate-50 font-bold">${dateObj.full}</td>
-                        <td class="p-2 border font-bold uppercase">${t.nom}</td>
-                        <td class="p-1 border text-center"><span class="px-2 py-0.5 rounded ${t.flux==='OM'?'flux-om':'flux-cs'}">${t.flux}</span></td>
-                        <td class="p-1 border">
-                            <select onchange="updatePlan('${cellKey}','camion',this.value)" class="w-full p-1 border rounded">
-                                <option value="">---</option>
-                                ${state.data.camions.map(c => `<option ${rowData.camion===c?'selected':''}>${c}</option>`).join('')}
+                        <td class="font-bold border-l-4 border-l-blue-500">${dateObj.texte}</td>
+                        <td class="font-bold uppercase text-blue-900">${t.nom}</td>
+                        <td class="text-center"><span class="px-2 py-0.5 rounded ${t.flux==='OM'?'flux-om':'flux-cs'}">${t.flux}</span></td>
+                        <td>
+                            <select onchange="updatePlan('${rowKey}','camion',this.value)" class="w-full p-1 border rounded">
+                                <option value="">-</option>
+                                ${state.data.camions.map(c => `<option ${cell.camion===c?'selected':''}>${c}</option>`).join('')}
                             </select>
                         </td>
-                        <td class="p-1 border">
-                            <select onchange="updatePlan('${cellKey}','ch',this.value)" class="w-full p-1 border rounded ${isConflict(rowData.ch)}">
-                                <option value="">---</option>
-                                ${state.data.agents.map(a => `<option ${rowData.ch===a?'selected':''}>${a}</option>`).join('')}
+                        <td>
+                            <select onchange="updatePlan('${rowKey}','ch',this.value)" class="w-full p-1 border rounded">
+                                <option value="">-</option>
+                                ${state.data.agents.map(a => `<option ${cell.ch===a?'selected':''}>${a}</option>`).join('')}
                             </select>
                         </td>
-                        <td class="p-1 border">
-                            <select onchange="updatePlan('${cellKey}','r1',this.value)" class="w-full p-1 border rounded ${isConflict(rowData.r1)}">
-                                <option value="">---</option>
-                                ${state.data.agents.map(a => `<option ${rowData.r1===a?'selected':''}>${a}</option>`).join('')}
+                        <td>
+                            <select onchange="updatePlan('${rowKey}','r1',this.value)" class="w-full p-1 border rounded">
+                                <option value="">-</option>
+                                ${state.data.agents.map(a => `<option ${cell.r1===a?'selected':''}>${a}</option>`).join('')}
                             </select>
                         </td>
-                        <td class="p-1 border">
-                            <select onchange="updatePlan('${cellKey}','r2',this.value)" class="w-full p-1 border rounded ${isConflict(rowData.r2)}">
-                                <option value="">---</option>
-                                ${state.data.agents.map(a => `<option ${rowData.r2===a?'selected':''}>${a}</option>`).join('')}
+                        <td>
+                            <select onchange="updatePlan('${rowKey}','r2',this.value)" class="w-full p-1 border rounded">
+                                <option value="">-</option>
+                                ${state.data.agents.map(a => `<option ${cell.r2===a?'selected':''}>${a}</option>`).join('')}
                             </select>
                         </td>
-                        <td class="p-1 border">
-                            <select onchange="updatePlan('${cellKey}','vidage',this.value)" class="w-full p-1 border rounded font-bold">
-                                <option value="">---</option>
-                                <option ${rowData.vidage==='Dépôt'?'selected':''}>Dépôt</option>
-                                <option ${rowData.vidage==='DRIMM'?'selected':''}>DRIMM</option>
+                        <td>
+                            <select onchange="updatePlan('${rowKey}','vidage',this.value)" class="w-full p-1 border rounded">
+                                <option value="">-</option>
+                                <option ${cell.vidage==='Dépôt'?'selected':''}>Dépôt</option>
+                                <option ${cell.vidage==='DRIMM'?'selected':''}>DRIMM</option>
                             </select>
                         </td>
-                        <td class="p-1 border"><input type="text" value="${rowData.info||''}" onchange="updatePlan('${cellKey}','info',this.value)" class="w-full p-1 text-[10px]"></td>
-                        <td class="p-1 border"><input type="text" value="${rowData.autres||''}" onchange="updatePlan('${cellKey}','autres',this.value)" class="w-full p-1 text-[10px]"></td>
-                        <td class="p-2 border text-[9px] text-emerald-600 font-bold leading-tight">${dispos.join(', ') || 'Aucun'}</td>
+                        <td><input type="text" value="${cell.info || ''}" onchange="updatePlan('${rowKey}','info',this.value)" class="w-full p-1 border rounded"></td>
+                        <td><input type="text" value="${cell.autres || ''}" onchange="updatePlan('${rowKey}','autres',this.value)" class="w-full p-1 border rounded"></td>
+                        <td class="text-[9px] text-emerald-600 font-bold leading-tight">${dispos.join(', ')}</td>
                     `;
                     body.appendChild(tr);
                 });
             });
         }
 
-        function updatePlan(cellKey, field, val) {
-            const weekKey = `${state.annee}_W${state.semaine}`;
-            if(!state.data.planning[weekKey]) state.data.planning[weekKey] = {};
-            if(!state.data.planning[weekKey][cellKey]) state.data.planning[weekKey][cellKey] = {};
-            state.data.planning[weekKey][cellKey][field] = val;
+        function updatePlan(rowKey, field, val) {
+            const key = `${state.annee}_W${state.semaine}`;
+            if(!state.data.planning[key]) state.data.planning[key] = {};
+            if(!state.data.planning[key][rowKey]) state.data.planning[key][rowKey] = {};
+            state.data.planning[key][rowKey][field] = val;
             sync();
-            renderPlanning();
+            renderPlanning(); // Re-calcul des dispos
         }
 
-        // --- GESTION PARAMETRES ---
-        function addAgent() {
-            const name = document.getElementById('in-agent').value.trim();
-            if(name) { state.data.agents.push(name); sync(); renderAll(); document.getElementById('in-agent').value = ""; }
-        }
-        function addCamion() {
-            const name = document.getElementById('in-camion').value.trim();
-            if(name) { state.data.camions.push(name); sync(); renderAll(); document.getElementById('in-camion').value = ""; }
-        }
-        function addTournee() {
-            const nom = document.getElementById('t-nom').value.trim();
-            const flux = document.getElementById('t-flux').value;
-            const type = document.getElementById('t-type').value;
-            const jour = document.getElementById('t-jour').value;
-            if(nom) {
-                state.data.tournees.push({ nom, flux, type, jour });
-                sync(); renderAll();
+        function addParam(type) {
+            if(type === 'tournees') {
+                const nom = document.getElementById('in-tournees').value.trim();
+                const flux = document.getElementById('in-flux').value;
+                const freq = document.getElementById('in-freq').value;
+                const jour = document.getElementById('in-jour').value;
+                if(!nom) return;
+                state.data.tournees.push({ nom, flux, type: freq, jour });
+                document.getElementById('in-tournees').value = "";
+            } else {
+                const input = document.getElementById(`in-${type}`);
+                if(!input.value.trim()) return;
+                state.data[type].push(input.value.trim());
+                input.value = "";
             }
-        }
-        function removeTournee(idx) { state.data.tournees.splice(idx, 1); sync(); renderAll(); }
-
-        // --- GESTION CONGES ---
-        function renderConges() {
-            const container = document.getElementById('calendar-container');
-            const selector = document.getElementById('agent-conge-select');
-            
-            // Liste des agents
-            selector.innerHTML = `<option value="">-- Choisir un Agent --</option>` + 
-                state.data.agents.map(a => `<option value="${a}" ${state.selectedAgentForConges===a?'selected':''}>${a}</option>`).join('');
-
-            if(!state.selectedAgentForConges) {
-                container.innerHTML = `<div class="p-20 text-center text-slate-400">Sélectionnez un agent pour gérer ses congés.</div>`;
-                return;
-            }
-
-            const d = state.viewDateConges;
-            const month = d.getMonth();
-            const year = d.getFullYear();
-            
-            document.getElementById('current-month-display').innerText = d.toLocaleDateString('fr-FR', {month: 'long', year: 'numeric'}).toUpperCase();
-
-            const firstDay = new Date(year, month, 1).getDay() || 7;
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-            let html = `<div class="grid grid-cols-7 gap-1 bg-slate-200 border p-1 rounded">`;
-            const labelJours = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
-            labelJours.forEach(j => html += `<div class="text-center font-bold text-[10px] py-2 bg-slate-100">${j}</div>`);
-
-            for(let i = 1; i < firstDay; i++) html += `<div class="bg-white/50"></div>`;
-
-            for(let day = 1; day <= daysInMonth; day++) {
-                const dateIso = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-                const isConge = (state.data.conges[state.selectedAgentForConges] || []).includes(dateIso);
-                html += `
-                    <div onclick="toggleConge('${dateIso}')" class="day-cell h-16 border bg-white p-1 text-xs font-bold ${isConge ? 'is-conge' : ''}">
-                        ${day}
-                    </div>`;
-            }
-            html += `</div>`;
-            container.innerHTML = html;
-        }
-
-        function toggleConge(iso) {
-            const agent = state.selectedAgentForConges;
-            if(!agent) return;
-            if(!state.data.conges[agent]) state.data.conges[agent] = [];
-            
-            const index = state.data.conges[agent].indexOf(iso);
-            if(index > -1) state.data.conges[agent].splice(index, 1);
-            else state.data.conges[agent].push(iso);
-            
+            renderAll();
             sync();
-            renderConges();
         }
 
-        function changeMonth(offset) {
-            state.viewDateConges.setMonth(state.viewDateConges.getMonth() + offset);
-            renderConges();
+        function removeParam(type, index) {
+            state.data[type].splice(index, 1);
+            renderAll();
+            sync();
         }
 
-        // --- NAVIGATION ---
         function renderAll() {
+            document.getElementById('week-num').innerText = state.semaine;
+            document.getElementById('pair-type').innerText = (state.semaine % 2 === 0) ? "PAIRE" : "IMPAIRE";
             renderPlanning();
-            renderConges();
-            
+
             // Listes Paramètres
-            document.getElementById('list-agents').innerHTML = state.data.agents.map(a => `<div class="flex justify-between p-1 bg-white border mb-1 rounded text-xs">${a}</div>`).join('');
-            document.getElementById('list-camions').innerHTML = state.data.camions.map(c => `<div class="flex justify-between p-1 bg-white border mb-1 rounded text-xs">${c}</div>`).join('');
-            
+            ['agents', 'camions'].forEach(type => {
+                const list = document.getElementById(`list-${type}`);
+                list.innerHTML = state.data[type].map((item, i) => `
+                    <li class="flex justify-between text-xs p-2 bg-white mb-1 rounded border">
+                        ${item} <button onclick="removeParam('${type}', ${i})" class="text-red-500">✕</button>
+                    </li>
+                `).join('');
+            });
+
             const listT = (type) => state.data.tournees
-                .map((t, i) => t.type === type ? `
-                    <div class="flex justify-between items-center p-2 bg-white border mb-1 rounded text-xs shadow-sm">
+                .map((t, i) => (t.type === type) ? `
+                    <div class="flex justify-between items-center p-2 mb-1 bg-white border text-[11px] rounded">
                         <span><b>${JOURS_NOM[t.jour-1]}</b> : ${t.nom} (${t.flux})</span>
-                        <button onclick="removeTournee(${i})" class="text-red-500 font-bold">✕</button>
-                    </div>` : '').join('');
-            
-            document.getElementById('param-t-impaires').innerHTML = listT('impaire');
-            document.getElementById('param-t-paires').innerHTML = listT('paire');
+                        <button onclick="removeParam('tournees', ${i})" class="text-red-400">✕</button>
+                    </div>
+                ` : '').join('');
+
+            document.getElementById('list-tournees-impaires').innerHTML = listT('impaire');
+            document.getElementById('list-tournees-paires').innerHTML = listT('paire');
         }
 
         function showTab(id) {
@@ -301,55 +241,48 @@
         window.onload = load;
     </script>
 
-    <header class="bg-blue-950 text-white p-4 shadow-2xl sticky top-0 z-50">
+    <header class="bg-blue-900 text-white p-4 shadow-lg sticky top-0 z-50">
         <div class="max-w-[1600px] mx-auto flex justify-between items-center">
-            <div>
-                <h1 class="font-black text-2xl tracking-tighter">GSC <span class="text-blue-400">PLANNING</span></h1>
-                <div id="status" class="text-[10px] font-mono opacity-70 italic text-blue-200">Initialisation...</div>
-            </div>
-            <nav class="flex gap-2">
-                <button onclick="showTab('tab-plan')" class="px-4 py-2 hover:bg-blue-800 rounded-lg font-bold text-sm uppercase transition-all">Planning</button>
-                <button onclick="showTab('tab-conges')" class="px-4 py-2 hover:bg-blue-800 rounded-lg font-bold text-sm uppercase transition-all">Congés</button>
-                <button onclick="showTab('tab-params')" class="px-4 py-2 hover:bg-blue-800 rounded-lg font-bold text-sm uppercase transition-all">Paramètres</button>
+            <h1 class="font-black text-lg tracking-tighter uppercase">Grand Sud Collecte</h1>
+            <nav class="flex gap-4 text-xs font-bold uppercase">
+                <button onclick="showTab('tab-plan')" class="hover:underline">Planning</button>
+                <button onclick="showTab('tab-params')" class="hover:underline">Paramètres</button>
+                <button onclick="showTab('tab-conges')" class="hover:underline">Congés</button>
             </nav>
+            <div id="status" class="text-[9px] opacity-50 font-mono">Connexion...</div>
         </div>
     </header>
 
     <main class="max-w-[1600px] mx-auto p-4">
-
+        
         <section id="tab-plan" class="tab-content active">
-            <div class="flex items-center justify-between mb-6 bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+            <div class="flex items-center justify-between mb-4 bg-white p-3 rounded-lg border">
                 <div class="flex items-center gap-4">
-                    <button onclick="state.semaine--; renderAll()" class="p-3 bg-slate-100 rounded-xl hover:bg-blue-100 text-blue-600 transition-all font-bold">◀</button>
-                    <div class="text-center min-w-[300px]">
-                        <h2 id="planning-title" class="text-xl font-black text-slate-800 uppercase tracking-tight">Planning...</h2>
-                        <span class="text-[10px] font-bold text-slate-400 tracking-[0.2em]">GRAND SUD COLLECTE</span>
+                    <button onclick="state.semaine--; renderAll()" class="p-2 bg-slate-100 rounded">◀</button>
+                    <div class="text-center">
+                        <div id="plan-title" class="text-lg font-black text-blue-900 uppercase">Chargement...</div>
+                        <div class="text-[10px] text-slate-400 font-bold uppercase">Semaine <span id="pair-type">...</span> (S<span id="week-num"></span>)</div>
                     </div>
-                    <button onclick="state.semaine++; renderAll()" class="p-3 bg-slate-100 rounded-xl hover:bg-blue-100 text-blue-600 transition-all font-bold">▶</button>
+                    <button onclick="state.semaine++; renderAll()" class="p-2 bg-slate-100 rounded">▶</button>
                 </div>
-                <div class="flex gap-4 items-center">
-                    <div class="text-right">
-                        <div class="text-[10px] font-bold text-slate-400">ANNÉE</div>
-                        <input type="number" value="2026" onchange="state.annee=parseInt(this.value); renderAll()" class="border-b-2 border-blue-200 text-lg font-black w-20 text-center outline-none focus:border-blue-600">
-                    </div>
-                </div>
+                <input type="number" value="2026" onchange="state.annee=parseInt(this.value); renderAll()" class="border rounded p-1 w-20 text-sm font-bold text-center">
             </div>
 
-            <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-                <table class="w-full border-collapse">
-                    <thead>
-                        <tr class="bg-slate-800 text-white text-[10px] uppercase tracking-widest">
-                            <th class="p-3 border border-slate-700">Jour</th>
-                            <th class="p-3 border border-slate-700">Tournée</th>
-                            <th class="p-3 border border-slate-700">Flux</th>
-                            <th class="p-3 border border-slate-700">Camion</th>
-                            <th class="p-3 border border-slate-700">Chauffeur</th>
-                            <th class="p-3 border border-slate-700">Ripeur 1</th>
-                            <th class="p-3 border border-slate-700">Ripeur 2</th>
-                            <th class="p-3 border border-slate-700">Vidage</th>
-                            <th class="p-3 border border-slate-700">Information</th>
-                            <th class="p-3 border border-slate-700">Autres</th>
-                            <th class="p-3 border border-slate-700 w-48">Personnel Dispo</th>
+            <div class="overflow-x-auto rounded-lg border shadow-xl bg-white">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-800 text-white">
+                        <tr>
+                            <th style="width: 12%">Jour</th>
+                            <th style="width: 12%">Tournée</th>
+                            <th style="width: 5%">Flux</th>
+                            <th style="width: 8%">Camion</th>
+                            <th style="width: 10%">Chauffeur</th>
+                            <th style="width: 10%">Ripeur 1</th>
+                            <th style="width: 10%">Ripeur 2</th>
+                            <th style="width: 8%">Vidage</th>
+                            <th style="width: 10%">Information</th>
+                            <th style="width: 10%">Autres</th>
+                            <th style="width: 15%">Personnel Dispo</th>
                         </tr>
                     </thead>
                     <tbody id="plan-body"></tbody>
@@ -357,83 +290,67 @@
             </div>
         </section>
 
-        <section id="tab-conges" class="tab-content">
-            <div class="max-w-4xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
-                <div class="p-6 bg-slate-800 text-white flex justify-between items-center">
-                    <div>
-                        <h2 class="text-2xl font-black tracking-tighter">Gestion des Absences</h2>
-                        <p class="text-xs text-slate-400">Cliquez sur un jour pour basculer l'état (Congé/Actif)</p>
-                    </div>
-                    <select id="agent-conge-select" onchange="state.selectedAgentForConges=this.value; renderConges()" class="bg-slate-700 text-white border border-slate-600 p-2 rounded-xl font-bold outline-none">
-                    </select>
-                </div>
-                
-                <div class="p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <button onclick="changeMonth(-1)" class="p-2 hover:bg-slate-100 rounded-full font-bold">◀</button>
-                        <h3 id="current-month-display" class="text-xl font-black text-blue-900 tracking-widest">MOIS</h3>
-                        <button onclick="changeMonth(1)" class="p-2 hover:bg-slate-100 rounded-full font-bold">▶</button>
-                    </div>
-                    <div id="calendar-container"></div>
-                </div>
-            </div>
-        </section>
-
         <section id="tab-params" class="tab-content">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
                 <div class="space-y-6">
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border">
-                        <h3 class="font-black text-xs uppercase mb-4 text-blue-600">Personnel & Matériel</h3>
-                        <div class="flex gap-2 mb-4">
-                            <input type="text" id="in-agent" placeholder="Nom Agent" class="flex-1 border p-2 rounded-xl text-sm">
-                            <button onclick="addAgent()" class="bg-blue-600 text-white px-4 rounded-xl font-bold">+</button>
+                    <div class="bg-white p-4 rounded-xl shadow border">
+                        <h3 class="font-bold mb-4 text-blue-800 text-xs uppercase italic">1. Agents & Camions</h3>
+                        <div class="flex gap-1 mb-2">
+                            <input type="text" id="in-agents" placeholder="Nom Agent" class="border p-1.5 text-sm rounded w-full">
+                            <button onclick="addParam('agents')" class="bg-blue-600 text-white px-2 rounded font-bold">+</button>
                         </div>
-                        <div id="list-agents" class="max-h-40 overflow-y-auto mb-6"></div>
-                        
-                        <div class="flex gap-2 mb-4">
-                            <input type="text" id="in-camion" placeholder="N° Camion" class="flex-1 border p-2 rounded-xl text-sm">
-                            <button onclick="addCamion()" class="bg-blue-600 text-white px-4 rounded-xl font-bold">+</button>
+                        <ul id="list-agents" class="max-h-32 overflow-y-auto mb-4"></ul>
+
+                        <div class="flex gap-1 mb-2">
+                            <input type="text" id="in-camions" placeholder="N° Camion" class="border p-1.5 text-sm rounded w-full">
+                            <button onclick="addParam('camions')" class="bg-blue-600 text-white px-2 rounded font-bold">+</button>
                         </div>
-                        <div id="list-camions" class="max-h-40 overflow-y-auto"></div>
+                        <ul id="list-camions" class="max-h-32 overflow-y-auto"></ul>
                     </div>
                 </div>
 
-                <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border">
-                    <h3 class="font-black text-xs uppercase mb-4 text-blue-600 text-center italic">Prédisposition des Tournées</h3>
-                    
-                    <div class="grid grid-cols-2 md:grid-cols-5 gap-2 mb-6 bg-slate-50 p-4 rounded-2xl border-2 border-dashed border-slate-200">
-                        <input type="text" id="t-nom" placeholder="Nom Tournée" class="border p-2 rounded-xl text-sm col-span-2">
-                        <select id="t-flux" class="border p-2 rounded-xl text-sm">
-                            <option value="OM">Flux OM</option>
-                            <option value="CS">Flux CS</option>
+                <div class="lg:col-span-2 bg-white p-5 rounded-xl border-2 border-blue-100 shadow-sm">
+                    <h3 class="font-bold mb-4 text-blue-800 text-xs uppercase italic text-center">2. Prédisposition des tournées</h3>
+                    <div class="grid grid-cols-4 gap-2 mb-4 bg-slate-50 p-2 rounded">
+                        <input type="text" id="in-tournees" placeholder="Nom Tournée" class="border p-2 rounded text-sm col-span-2">
+                        <select id="in-flux" class="border p-2 rounded text-sm">
+                            <option value="OM">Flux OM (Gris)</option>
+                            <option value="CS">Flux CS (Jaune)</option>
                         </select>
-                        <select id="t-jour" class="border p-2 rounded-xl text-sm">
+                        <select id="in-jour" class="border p-2 rounded text-sm font-bold">
                             <option value="1">Lundi</option>
                             <option value="2">Mardi</option>
                             <option value="3">Mercredi</option>
                             <option value="4">Jeudi</option>
                             <option value="5">Vendredi</option>
                         </select>
-                        <select id="t-type" class="border p-2 rounded-xl text-sm font-bold text-blue-600">
-                            <option value="impaire">S. IMPAIRE</option>
-                            <option value="paire">S. PAIRE</option>
+                        <select id="in-freq" class="border p-2 rounded text-sm col-span-2 font-bold text-blue-700">
+                            <option value="impaire">Semaine IMPAIRE</option>
+                            <option value="paire">Semaine PAIRE</option>
                         </select>
-                        <button onclick="addTournee()" class="bg-blue-950 text-white p-2 rounded-xl font-bold col-span-full uppercase text-xs">Ajouter à la prédisposition</button>
+                        <button onclick="addParam('tournees')" class="bg-blue-700 text-white p-2 rounded font-black col-span-2 uppercase text-xs">
+                            Ajouter (+)
+                        </button>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-6">
+                    <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <h4 class="text-center font-black text-[10px] bg-slate-800 text-white py-1 mb-2 rounded">SEMAINES IMPAIRES</h4>
-                            <div id="param-t-impaires"></div>
+                            <h4 class="text-[10px] font-black uppercase mb-2 bg-indigo-50 text-center py-1">Semaines Impaires</h4>
+                            <div id="list-tournees-impaires"></div>
                         </div>
                         <div>
-                            <h4 class="text-center font-black text-[10px] bg-blue-600 text-white py-1 mb-2 rounded">SEMAINES PAIRES</h4>
-                            <div id="param-t-paires"></div>
+                            <h4 class="text-[10px] font-black uppercase mb-2 bg-emerald-50 text-center py-1">Semaines Paires</h4>
+                            <div id="list-tournees-paires"></div>
                         </div>
                     </div>
                 </div>
+            </div>
+        </section>
 
+        <section id="tab-conges" class="tab-content">
+            <div class="bg-white p-10 rounded-xl shadow border border-dashed border-slate-300 text-center text-slate-400 italic">
+                La gestion des congés se fera via le calendrier dans la prochaine étape.
             </div>
         </section>
 
