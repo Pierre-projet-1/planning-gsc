@@ -3,96 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GRAND SUD Tarn & Garonne - Planning Collecte</title>
+    <title>Planning Collecte</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        gsc: {
-                            teal: '#1B9EA6', // Bleu-vert du logo
-                            magenta: '#E61E5B', // Magenta du logo
-                            dark: '#0A4A4F', // Teal sombre pour textes
-                            light: '#F0FBFC', // Teal très clair pour fonds
-                        }
-                    },
-                    borderRadius: {
-                        'gsc': '1.5rem', // Arrondis fluides comme les pétales
-                    }
-                }
-            }
-        }
-    </script>
     <style>
-        /* Typographie pro et aérée */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-
         .tab-content { display: none; }
-        .tab-content.active { display: block; animation: fadeIn 0.3s ease-out; }
-
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* Dégradé fluide inspiré du logo */
-        .gsc-gradient {
-            background: linear-gradient(135deg, #1B9EA6 0%, #E61E5B 100%);
-        }
-        
-        /* Styles des états de cellules (modernisés) */
-        .is-conge { background-color: #FEE2E2 !important; color: #991B1B !important; font-weight: 700 !important; border-radius: 6px; }
-        .is-double { background-color: #FFEDD5 !important; color: #9A3412 !important; font-weight: 700 !important; border-radius: 6px; }
-        
-        /* Tableaux sans bordures, style "card" moderne */
-        th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: #64748B; padding: 16px 12px; border: none !important; }
-        td { font-size: 13px; padding: 10px 12px; border: none !important; transition: background 0.2s; }
-        tr:not(.bg-slate-900):hover td { background-color: #F8FAFC; }
-
-        /* Sélecteurs et inputs ultra-propres */
-        select, input[type="text"], input[type="email"], input[type="password"], input[type="number"] {
-            border: none !important;
-            background-color: #F1F5F9;
-            border-radius: 0.75rem;
-            padding: 10px 14px;
-            font-size: 13px;
-            transition: all 0.2s;
-        }
-        select:focus, input:focus {
-            ring: 2px;
-            ring-color: #1B9EA6;
-            background-color: white;
-            box-shadow: 0 4px 12px rgba(27, 158, 166, 0.1);
-        }
-
-        /* Sélection multiple Congés */
-        .selectable-cell { user-select: none; border: 1px solid #F1F5F9 !important; }
-        .cell-conge-active { background-color: #E61E5B !important; color: white !important; }
-        .weekend-bg { background-color: #F8FAFC !important; color: #CBD5E1; }
-
-        #login-overlay { position: fixed; inset: 0; z-index: 100; background-color: rgba(10, 74, 79, 0.95); display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); }
+        .tab-content.active { display: block; }
+        .flux-om { background-color: #e2e8f0; color: #475569; border-left: 4px solid #475569; }
+        .flux-cs { background-color: #fef08a; color: #854d0e; border-left: 4px solid #854d0e; }
+        .is-conge { background-color: #ef4444 !important; color: white !important; font-weight: 900 !important; border: 1px solid #7f1d1d !important; }
+        .is-double { background-color: #ffedd5 !important; color: #9a3412; font-weight: bold; border: 1px solid #f97316 !important; }
+        th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; padding: 12px 8px; }
+        td { font-size: 11px; padding: 6px; border: 1px solid #e2e8f0; }
+        .cell-conge-active { background-color: #ef4444 !important; }
+        .weekend-bg { background-color: #f8fafc !important; color: #cbd5e1; }
+        #login-overlay { position: fixed; inset: 0; z-index: 100; background: #0f172a; display: flex; align-items: center; justify-content: center; }
         .admin-only { display: none; }
         body.is-admin .admin-only { display: block; }
         
         /* Nettoyage visuel & PDF */
-        .pdf-export-container { padding: 30px; background: white; }
+        .pdf-export-container { padding: 20px; background: white; }
         .no-export { display: none !important; }
+        
+        /* Sélection multiple */
+        .selectable-cell { user-select: none; }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen text-slate-900">
+<body class="bg-slate-50 min-h-screen font-sans text-slate-900">
 
     <div id="login-overlay">
-        <div class="bg-white p-12 rounded-gsc shadow-2xl w-full max-w-lg flex flex-col items-center">
-            <img src="https://gsc-planning.github.io/img/logo.png" alt="Logo GRAND SUD Tarn & Garonne" class="h-28 mb-10">
-            
-            <div class="text-center mb-10">
-                <p class="text-gsc-dark text-sm font-bold uppercase tracking-widest">ESPACE DE PLANIFICATION PROFESSIONNEL</p>
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-black text-slate-900 uppercase tracking-tighter">GRAND SUD Tarn & Garonne</h2>
+                <p class="text-slate-400 text-sm font-bold uppercase tracking-widest">Espace Privé</p>
             </div>
-            <div class="space-y-5 w-full">
-                <input type="email" id="login-email" placeholder="Adresse Email" class="w-full">
-                <input type="password" id="login-pass" placeholder="Mot de passe" class="w-full">
-                <button onclick="handleLogin()" class="w-full gsc-gradient text-white font-black p-4 rounded-xl shadow-lg hover:shadow-cyan-500/20 transform hover:-translate-y-0.5 transition-all uppercase text-sm tracking-wider">Se Connecter</button>
-                <p id="login-error" class="text-gsc-magenta text-xs font-bold text-center hidden pt-2">Identifiants incorrects.</p>
+            <div class="space-y-4">
+                <input type="email" id="login-email" placeholder="Email" class="w-full border-2 p-3 rounded-xl outline-none focus:border-blue-500">
+                <input type="password" id="login-pass" placeholder="Mot de passe" class="w-full border-2 p-3 rounded-xl outline-none focus:border-blue-500">
+                <button onclick="handleLogin()" class="w-full bg-blue-600 text-white font-black p-4 rounded-xl shadow-xl hover:bg-blue-700 uppercase text-sm">Connexion</button>
+                <p id="login-error" class="text-red-500 text-xs font-bold text-center hidden">Identifiants incorrects.</p>
             </div>
         </div>
     </div>
@@ -173,8 +122,8 @@
 
         function getDatesOfWeek(w, y) {
             let simple = new Date(y, 0, 1 + (w - 1) * 7);
-            let ISOweekStart = simple;
             let dow = simple.getDay();
+            let ISOweekStart = simple;
             if (dow <= 4) ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
             else ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
             let days = [];
@@ -189,8 +138,17 @@
             return days;
         }
 
-        function exportPDF(elementId, fileName) {
+        function exportPDF(elementId, fileName, tabType) {
             const element = document.getElementById(elementId);
+            
+            // Masquage spécifique pour l'export
+            if(tabType === 'planning') {
+                element.querySelectorAll('.col-dispo').forEach(el => el.classList.add('no-export'));
+            }
+            if(tabType === 'conges') {
+                element.querySelectorAll('.nav-btn-conges').forEach(el => el.classList.add('no-export'));
+            }
+
             const opt = {
                 margin: 5,
                 filename: fileName + '.pdf',
@@ -198,7 +156,11 @@
                 html2canvas: { scale: 2, useCORS: true },
                 jsPDF: { unit: 'mm', format: 'a3', orientation: 'landscape' }
             };
-            html2pdf().set(opt).from(element).save();
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                // Rétablir l'affichage après export
+                element.querySelectorAll('.no-export').forEach(el => el.classList.remove('no-export'));
+            });
         }
 
         function renderPlanning() {
@@ -206,12 +168,11 @@
             const weekKey = `${state.annee}_W${state.semaine}`;
             const dates = getDatesOfWeek(state.semaine, state.annee);
             
-            document.querySelectorAll('.js-header-range').forEach(el => el.innerText = `${dates[0].court} au ${dates[4].court}`);
-            document.querySelectorAll('.js-header-semaine').forEach(el => el.innerText = state.semaine);
+            document.getElementById('header-range').innerText = `${dates[0].court} au ${dates[4].court}`;
+            document.getElementById('header-semaine').innerText = state.semaine;
             const dateRef = new Date(dates[0].iso);
-            const moisLabel = dateRef.toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
-            document.querySelectorAll('.js-header-mois').forEach(el => el.innerText = moisLabel);
-            document.querySelectorAll('.js-header-type').forEach(el => el.innerText = isPaire ? "Semaine Paire" : "Semaine Impaire");
+            document.getElementById('header-mois-annee').innerText = dateRef.toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
+            document.getElementById('header-flux-type').innerText = isPaire ? "Semaine Paire" : "Semaine Impaire";
 
             const body = document.getElementById('plan-body');
             body.innerHTML = "";
@@ -229,6 +190,7 @@
                     const rowKey = `${t.nom}_${dayIdx}`;
                     const cell = state.data.planning[weekKey]?.[rowKey] || {};
                     const vidageVal = cell.vidage || t.vidageDefault || "-";
+                    
                     const checkClass = (n) => {
                         if (!n) return "";
                         if (state.data.conges[n] && state.data.conges[n].includes(dateObj.iso)) return 'is-conge';
@@ -239,17 +201,21 @@
                     const tr = document.createElement('tr');
                     tr.className = "bg-white";
                     tr.innerHTML = `
-                        <td class="font-bold text-gsc-dark/70">${dateObj.texte}</td>
-                        <td class="font-black text-slate-900 uppercase tracking-tight">${t.nom}</td>
-                        <td class="text-center"><span class="px-3 py-1.5 rounded-full text-[10px] font-bold ${t.flux==='OM'?'bg-slate-100 text-slate-600':'bg-amber-50 text-amber-800'}">${t.flux}</span></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','camion',this.value)" class="w-full"><option value="">-</option>${state.data.camions.map(c => `<option ${cell.camion===c?'selected':''}>${c}</option>`).join('')}</select></td>
-                        <td class="${checkClass(cell.ch)}"><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','ch',this.value)" class="w-full bg-transparent"><option value="">-</option>${state.data.agents.map(a => `<option ${cell.ch===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                        <td class="${checkClass(cell.r1)}"><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r1',this.value)" class="w-full bg-transparent"><option value="">-</option>${state.data.agents.map(a => `<option ${cell.r1===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                        <td class="${checkClass(cell.r2)}"><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r2',this.value)" class="w-full bg-transparent"><option value="">-</option>${state.data.agents.map(a => `<option ${cell.r2===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','vidage',this.value)" class="w-full font-bold text-gsc-teal"><option value="">-</option><option ${vidageVal==='Dépôt'?'selected':''}>Dépôt</option><option ${vidageVal==='DRIMM'?'selected':''}>DRIMM</option></select></td>
-                        <td><input type="text" ${isLocked?'disabled':''} value="${cell.info||''}" onchange="updatePlan('${rowKey}','info',this.value)" class="w-full"></td>
-                        <td><input type="text" ${isLocked?'disabled':''} value="${cell.autres||''}" onchange="updatePlan('${rowKey}','autres',this.value)" class="w-full"></td>
-                        <td class="text-[10px] text-emerald-700 font-bold bg-emerald-50">${state.data.agents.filter(a => !counts[a] && !(state.data.conges[a] && state.data.conges[a].includes(dateObj.iso))).join(', ')}</td>
+                        <td class="font-bold text-slate-600 bg-slate-50/50">${dateObj.texte}</td>
+                        <td class="font-black text-blue-900 uppercase">${t.nom}</td>
+                        <td class="text-center"><span class="px-2 py-1 rounded text-[9px] font-bold ${t.flux==='OM'?'flux-om':'flux-cs'}">${t.flux}</span></td>
+                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','camion',this.value)" class="w-full p-1 border rounded"><option value="">-</option>${state.data.camions.map(c => `<option ${cell.camion===c?'selected':''}>${c}</option>`).join('')}</select></td>
+                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','ch',this.value)" class="w-full p-1 border rounded ${checkClass(cell.ch)}"><option value="">-</option>${state.data.agents.map(a => `<option ${cell.ch===a?'selected':''}>${a}</option>`).join('')}</select></td>
+                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r1',this.value)" class="w-full p-1 border rounded ${checkClass(cell.r1)}"><option value="">-</option>${state.data.agents.map(a => `<option ${cell.r1===a?'selected':''}>${a}</option>`).join('')}</select></td>
+                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r2',this.value)" class="w-full p-1 border rounded ${checkClass(cell.r2)}"><option value="">-</option>${state.data.agents.map(a => `<option ${cell.r2===a?'selected':''}>${a}</option>`).join('')}</select></td>
+                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','vidage',this.value)" class="w-full p-1 border rounded font-bold">
+                            <option value="">-</option>
+                            <option ${vidageVal==='Dépôt'?'selected':''}>Dépôt</option>
+                            <option ${vidageVal==='DRIMM'?'selected':''}>DRIMM</option>
+                        </select></td>
+                        <td><input type="text" ${isLocked?'disabled':''} value="${cell.info||''}" onchange="updatePlan('${rowKey}','info',this.value)" class="w-full p-1 border rounded"></td>
+                        <td><input type="text" ${isLocked?'disabled':''} value="${cell.autres||''}" onchange="updatePlan('${rowKey}','autres',this.value)" class="w-full p-1 border rounded"></td>
+                        <td class="col-dispo text-[9px] text-emerald-600 font-bold bg-emerald-50/30">${state.data.agents.filter(a => !counts[a] && !(state.data.conges[a] && state.data.conges[a].includes(dateObj.iso))).join(', ')}</td>
                     `;
                     body.appendChild(tr);
                 });
@@ -268,20 +234,21 @@
             const container = document.getElementById('conges-wrapper');
             const joursDansMois = new Date(state.anneeConges, state.moisConges + 1, 0).getDate();
             const nomsMois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+            
             const titreMois = `${nomsMois[state.moisConges]} ${state.anneeConges}`;
             document.getElementById('current-month-display').innerText = titreMois;
-            document.querySelectorAll('.js-pdf-title-conges').forEach(el => el.innerText = `Planning Congés - ${titreMois}`);
+            document.getElementById('pdf-title-conges').innerText = `Planning Congés - ${titreMois}`;
             
-            let html = `<table class="w-full bg-white" onmousedown="isMouseDown=true" onmouseup="isMouseDown=false; sync();"><thead><tr class="bg-gsc-dark text-white"><th>Agent</th>`;
+            let html = `<table class="w-full border border-slate-200 border-collapse bg-white" onmousedown="isMouseDown=true" onmouseup="isMouseDown=false; sync();"><thead><tr class="bg-slate-800 text-white"><th>Agent</th>`;
             for(let j=1; j<=joursDansMois; j++) {
                 const dateTemp = new Date(state.anneeConges, state.moisConges, j);
                 const isWE = dateTemp.getDay() === 0 || dateTemp.getDay() === 6;
-                html += `<th class="text-[9px] p-2 ${isWE?'bg-teal-950':''}">${dateTemp.toLocaleDateString('fr-FR', { weekday: 'short' })}<br>${dateTemp.getDate()}</th>`;
+                html += `<th class="text-[8px] border border-slate-300 p-1 ${isWE?'bg-slate-600':''}">${dateTemp.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })}</th>`;
             }
             html += `</tr></thead><tbody>`;
             
             state.data.agents.forEach(agent => {
-                html += `<tr><td class="font-bold p-3 text-sm text-slate-800 bg-gsc-light sticky left-0 z-10">${agent}</td>`;
+                html += `<tr><td class="font-bold border border-slate-200 p-2 text-[10px] bg-slate-50 sticky left-0 z-10">${agent}</td>`;
                 for(let j=1; j<=joursDansMois; j++) {
                     const dIso = `${state.anneeConges}-${String(state.moisConges+1).padStart(2,'0')}-${String(j).padStart(2,'0')}`;
                     const dateTemp = new Date(state.anneeConges, state.moisConges, j);
@@ -291,7 +258,7 @@
                     html += `<td 
                         onmousedown="if(currentUser.role==='admin') toggleConge('${agent}','${dIso}', this)"
                         onmouseenter="if(isMouseDown && currentUser.role==='admin') toggleConge('${agent}','${dIso}', this)"
-                        class="selectable-cell cursor-pointer h-10 ${isC?'cell-conge-active':''} ${isWE && !isC ? 'weekend-bg' : ''}"></td>`;
+                        class="selectable-cell border border-slate-200 cursor-pointer transition-colors ${isC?'cell-conge-active':''} ${isWE && !isC ? 'weekend-bg' : ''}"></td>`;
                 }
                 html += `</tr>`;
             });
@@ -308,25 +275,26 @@
                 state.data.conges[a].push(d);
                 el.classList.add('cell-conge-active');
             }
-            renderPlanning();
+            renderPlanning(); // Mettre à jour les couleurs du planning en temps réel
         }
 
         function renderUsers() {
             document.getElementById('list-users').innerHTML = state.data.users.map((u, i) => `
-                <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm mb-3">
-                    <div><p class="font-bold text-slate-800 text-lg">${u.prenom} ${u.nom}</p><p class="text-xs text-gsc-dark/60 font-medium uppercase tracking-wider">${u.email}</p></div>
-                    <div class="flex gap-3">
-                        <select onchange="updateUserRole(${i}, this.value)" class="text-xs font-bold border rounded-lg p-2 bg-slate-50">
+                <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl border mb-2">
+                    <div><p class="font-black text-sm">${u.prenom} ${u.nom}</p><p class="text-[10px] text-slate-400 font-bold uppercase">${u.email}</p></div>
+                    <div class="flex gap-2">
+                        <select onchange="updateUserRole(${i}, this.value)" class="text-[10px] font-bold border rounded p-1">
                             <option value="read" ${u.role==='read'?'selected':''}>Lecteur</option>
                             <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
                         </select>
-                        <button onclick="removeUser(${i})" class="text-gsc-magenta font-black text-sm p-2 bg-red-50 rounded-lg hover:bg-red-100">✕</button>
+                        <button onclick="removeUser(${i})" class="text-red-500 font-bold text-xs">✕</button>
                     </div>
                 </div>`).join('');
         }
 
         function updateUserRole(i, r) { state.data.users[i].role = r; sync(); }
         function removeUser(i) { if(state.data.users[i].email === currentUser.email) return; state.data.users.splice(i, 1); renderUsers(); sync(); }
+        
         function addUser() {
             state.data.users.push({ prenom: document.getElementById('new-u-prenom').value, nom: document.getElementById('new-u-nom').value, email: document.getElementById('new-u-email').value, pass: document.getElementById('new-u-pass').value, role: document.getElementById('new-u-role').value });
             renderUsers(); sync();
@@ -335,8 +303,11 @@
         function addParam(t) {
             if(t==='tournees') {
                 state.data.tournees.push({ 
-                    nom: document.getElementById('in-tournees').value, flux: document.getElementById('in-flux').value, 
-                    type: document.getElementById('in-freq').value, jour: document.getElementById('in-jour').value, vidageDefault: document.getElementById('in-vidage').value
+                    nom: document.getElementById('in-tournees').value, 
+                    flux: document.getElementById('in-flux').value, 
+                    type: document.getElementById('in-freq').value, 
+                    jour: document.getElementById('in-jour').value,
+                    vidageDefault: document.getElementById('in-vidage').value
                 });
             } else state.data[t].push(document.getElementById(`in-${t}`).value);
             renderAll(); sync();
@@ -347,9 +318,9 @@
             renderPlanning(); renderConges(); renderUsers();
             ['agents', 'camions'].forEach(t => {
                 document.getElementById(`list-${t}`).innerHTML = state.data[t].map((item, i) => `
-                    <li class="flex justify-between text-sm p-3 bg-white mb-2 rounded-xl shadow-sm font-medium text-slate-700">${item} <button onclick="state.data['${t}'].splice(${i},1);renderAll();sync();" class="text-gsc-magenta font-black text-xs p-1.5 bg-red-50 rounded-lg hover:bg-red-100">✕</button></li>`).join('');
+                    <li class="flex justify-between text-xs p-2 bg-slate-50 mb-1 rounded border">${item} <button onclick="state.data['${t}'].splice(${i},1);renderAll();sync();" class="text-red-500 admin-only">✕</button></li>`).join('');
             });
-            const lT = (type) => state.data.tournees.map((t, i) => (t.type === type) ? `<div class="flex justify-between p-3 mb-2 bg-white text-[13px] rounded-xl shadow-sm"><span><b>${JOURS_NOM[t.jour-1]}</b> : ${t.nom}</span><button onclick="state.data.tournees.splice(${i},1);renderAll();sync();" class="text-gsc-magenta font-black text-xs p-1.5 bg-red-50 rounded-lg hover:bg-red-100 admin-only">✕</button></div>` : '').join('');
+            const lT = (type) => state.data.tournees.map((t, i) => (t.type === type) ? `<div class="flex justify-between p-2 mb-1 bg-white border text-[11px] rounded shadow-sm"><span><b>${JOURS_NOM[t.jour-1]}</b> : ${t.nom} (${t.vidageDefault||'Aucun'})</span><button onclick="state.data.tournees.splice(${i},1);renderAll();sync();" class="text-red-400 admin-only">✕</button></div>` : '').join('');
             document.getElementById('list-tournees-impaires').innerHTML = lT('impaire');
             document.getElementById('list-tournees-paires').innerHTML = lT('paire');
         }
@@ -363,69 +334,72 @@
 
         function showTab(id) { document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active')); document.getElementById(id).classList.add('active'); renderAll(); }
         window.onload = load;
+        window.onmouseup = () => { isMouseDown = false; };
     </script>
 
-    <header class="bg-white p-4 sticky top-0 z-50 flex justify-between items-center shadow-lg border-b border-gsc-light">
-        <div class="flex items-center gap-4">
-            <img src="https://gsc-planning.github.io/img/logo.png" alt="Logo" class="h-14">
-            <h1 class="font-black text-2xl tracking-tighter uppercase text-slate-950">
-                Planning<span class="text-gsc-teal">Collecte</span>
-            </h1>
-        </div>
-        <nav class="flex gap-1.5 bg-gsc-light p-1.5 rounded-full shadow-inner">
-            <button onclick="showTab('tab-plan')" class="px-5 py-2.5 text-sm font-bold uppercase rounded-full tracking-wider text-gsc-dark hover:bg-white hover:shadow transition-all">Planning</button>
-            <button onclick="showTab('tab-conges')" class="px-5 py-2.5 text-sm font-bold uppercase rounded-full tracking-wider text-gsc-dark hover:bg-white hover:shadow transition-all">Congés</button>
-            <button onclick="showTab('tab-params')" class="px-5 py-2.5 text-sm font-bold uppercase rounded-full tracking-wider text-gsc-dark hover:bg-white hover:shadow transition-all admin-only">Configuration</button>
-            <button onclick="showTab('tab-users')" class="px-5 py-2.5 text-sm font-bold uppercase rounded-full tracking-wider text-gsc-dark hover:bg-white hover:shadow transition-all admin-only">Utilisateurs</button>
+    <header class="bg-slate-900 text-white p-4 sticky top-0 z-50 flex justify-between items-center shadow-xl">
+        <h1 class="font-black text-xl tracking-tighter uppercase text-blue-400">GRAND SUD Tarn & Garonne</h1>
+        <nav class="flex gap-4">
+            <button onclick="showTab('tab-plan')" class="text-xs font-bold uppercase hover:text-blue-400">Planning</button>
+            <button onclick="showTab('tab-conges')" class="text-xs font-bold uppercase hover:text-blue-400">Congés</button>
+            <button onclick="showTab('tab-params')" class="text-xs font-bold uppercase hover:text-blue-400 admin-only">Configuration</button>
+            <button onclick="showTab('tab-users')" class="text-xs font-bold uppercase hover:text-blue-400 admin-only">Utilisateurs</button>
         </nav>
         <div class="flex items-center gap-4">
-            <div id="status" class="text-xs font-mono text-gsc-teal/70 font-bold bg-gsc-light px-3 py-1.5 rounded-full">...</div>
-            <div onclick="showTab('tab-profil')" class="cursor-pointer bg-slate-100 px-4 py-2 rounded-full text-sm font-semibold text-slate-700 hover:bg-slate-200 transition-colors">👤 <span id="user-display-name">Profil</span></div>
-            <button onclick="location.reload()" class="text-xs text-gsc-magenta font-bold hover:text-red-700 bg-red-50 px-3 py-2 rounded-full">Sortie</button>
+            <div id="status" class="text-[9px] font-mono text-blue-300">...</div>
+            <div onclick="showTab('tab-profil')" class="cursor-pointer bg-blue-600 px-3 py-1 rounded-lg text-xs font-bold hover:bg-blue-500">👤 <span id="user-display-name">Profil</span></div>
+            <button onclick="location.reload()" class="text-xs text-slate-400 font-bold hover:text-white">Sortie</button>
         </div>
     </header>
 
-    <main class="max-w-[1600px] mx-auto p-8 space-y-8">
+    <main class="max-w-[1600px] mx-auto p-6">
         <section id="tab-plan" class="tab-content active">
-            <div class="flex justify-end mb-6">
-                <button onclick="exportPDF('pdf-area-plan', 'Planning_Semaine_' + state.semaine)" class="gsc-gradient text-white px-6 py-3 rounded-xl font-black text-xs uppercase shadow-lg hover:shadow-cyan-500/30 transform hover:-translate-y-0.5 transition-all tracking-widest">📄 Export PDF A3</button>
+            <div class="flex justify-end mb-4">
+                <button onclick="exportPDF('pdf-area-plan', 'Planning_Semaine_' + state.semaine, 'planning')" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-black text-xs uppercase shadow-lg hover:bg-emerald-700">📄 Export PDF A3</button>
             </div>
             
-            <div id="pdf-area-plan" class="bg-white rounded-gsc shadow-xl border border-slate-100 overflow-hidden">
-                <div class="p-8 flex items-center justify-between mb-2 bg-gsc-light/50 border-b border-gsc-light">
+            <div id="pdf-area-plan" class="pdf-export-container bg-white rounded-3xl border border-slate-200">
+                <div class="p-6 flex items-center justify-between mb-8 border-b-4 border-slate-100">
                     <div class="w-1/3 flex flex-col gap-1">
                         <select id="week-selector" onchange="state.semaine=parseInt(this.value); renderPlanning();" 
-                            class="p-4 bg-white rounded-xl font-black text-slate-950 uppercase text-lg w-52 shadow-sm cursor-pointer"></select>
-                        <span id="header-range" class="text-sm font-bold text-gsc-teal ml-1">...</span>
+                            class="p-3 bg-slate-50 rounded-xl font-black text-slate-700 uppercase text-sm border-2 border-slate-200 focus:border-blue-500 outline-none w-48 shadow-sm cursor-pointer"></select>
+                        <span id="header-range" class="text-sm font-black text-slate-500 ml-1">...</span>
                     </div>
 
-                    <div class="flex-1 flex flex-col items-center justify-center px-8 text-center">
+                    <div class="flex-1 flex flex-col items-center justify-center px-8">
                         <div class="flex items-center gap-8">
-                            <button onclick="changeSemaine(-1)" class="text-4xl text-gsc-teal hover:text-gsc-magenta transition-colors admin-only">◀</button>
+                            <button onclick="changeSemaine(-1)" class="text-4xl hover:text-blue-600 transition-colors admin-only">◀</button>
                             <div class="flex flex-col items-center">
-                                <span class="text-3xl font-black text-slate-950 tracking-tighter uppercase">
+                                <span class="text-3xl font-black text-slate-900 tracking-tight uppercase">
                                     Semaine n°<span id="header-semaine">00</span>  - <span id="header-mois-annee" class="capitalize">...</span>
                                 </span>
-                                <span id="header-flux-type" class="text-sm font-black text-gsc-magenta uppercase tracking-[0.4em] mt-2 bg-red-50 px-4 py-1 rounded-full">...</span>
+                                <span id="header-flux-type" class="text-sm font-black text-blue-600 uppercase tracking-[0.4em] mt-2">...</span>
                             </div>
-                            <button onclick="changeSemaine(1)" class="text-4xl text-gsc-teal hover:text-gsc-magenta transition-colors admin-only">▶</button>
+                            <button onclick="changeSemaine(1)" class="text-4xl hover:text-blue-600 transition-colors admin-only">▶</button>
                         </div>
                     </div>
 
                     <div class="w-1/3 flex justify-end">
                         <input type="number" value="2026" onchange="state.annee=parseInt(this.value); renderPlanning()" 
-                            class="bg-white rounded-xl p-4 w-36 text-center font-black text-3xl text-slate-950 shadow-sm">
+                            class="border-2 border-slate-100 bg-slate-50 rounded-xl p-3 w-32 text-center font-black text-2xl text-slate-700 focus:border-blue-500 outline-none shadow-sm">
                     </div>
                 </div>
                 
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead class="bg-slate-950 text-white">
+                <div class="overflow-x-auto border border-slate-200">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-slate-900 text-white">
                             <tr>
-                                <th style="width: 12%">Jour</th><th style="width: 14%">Tournée</th><th style="width: 5%">Flux</th>
-                                <th style="width: 7%">Camion</th><th style="width: 9%">Chauffeur</th><th style="width: 9%">Ripeur 1</th>
-                                <th style="width: 9%">Ripeur 2</th><th style="width: 7%">Vidage</th><th style="width: 10%">Info</th>
-                                <th style="width: 10%">Autres</th><th style="width: 13%" class="font-bold text-teal-300">Personnel Dispo</th>
+                                <th style="width: 12%">Jour</th>
+                                <th style="width: 14%">Tournée</th>
+                                <th style="width: 5%">Flux</th>
+                                <th style="width: 7%">Camion</th>
+                                <th style="width: 9%">Chauffeur</th>
+                                <th style="width: 9%">Ripeur 1</th>
+                                <th style="width: 9%">Ripeur 2</th>
+                                <th style="width: 7%">Vidage</th>
+                                <th style="width: 10%">Info</th>
+                                <th style="width: 10%">Autres</th>
+                                <th class="col-dispo" style="width: 13% font-bold text-emerald-400">Personnel Dispo</th>
                             </tr>
                         </thead>
                         <tbody id="plan-body"></tbody>
@@ -434,79 +408,74 @@
             </div>
         </section>
 
-        <section id="tab-conges" class="tab-content space-y-6">
+        <section id="tab-conges" class="tab-content">
             <div class="flex justify-end mb-4">
-                <button onclick="exportPDF('pdf-area-conges', 'Conges_Mensuels')" class="gsc-gradient text-white px-6 py-3 rounded-xl font-black text-xs uppercase shadow-lg hover:shadow-cyan-500/30 transform hover:-translate-y-0.5 transition-all tracking-widest">📄 Export PDF A3</button>
+                <button onclick="exportPDF('pdf-area-conges', 'Conges_' + state.moisConges, 'conges')" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-black text-xs uppercase shadow-lg hover:bg-emerald-700">📄 Export PDF A3</button>
             </div>
-            <div id="pdf-area-conges" class="bg-white rounded-gsc shadow-xl border border-slate-100 overflow-hidden p-4">
-                <div class="text-center mb-8 pt-4">
-                    <h2 class="js-pdf-title-conges font-black text-3xl text-slate-950 uppercase tracking-tight mb-6">...</h2>
-                    <div class="flex justify-center items-center gap-6 bg-slate-50 inline-flex p-2 rounded-full shadow-inner admin-only">
-                        <button onclick="changeMoisConges(-1)" class="text-2xl text-gsc-teal hover:text-gsc-magenta">◀</button>
-                        <span id="current-month-display" class="font-black text-xl uppercase w-64 text-center text-slate-800">...</span>
-                        <button onclick="changeMoisConges(1)" class="text-2xl text-gsc-teal hover:text-gsc-magenta">▶</button>
+            <div id="pdf-area-conges" class="pdf-export-container bg-white rounded-2xl border border-slate-200 shadow-sm">
+                <div class="flex justify-between items-center mb-6 px-4">
+                    <h2 id="pdf-title-conges" class="font-black text-2xl text-blue-900 uppercase">Gestion des Absences</h2>
+                    <div class="flex items-center gap-4 bg-slate-100 p-2 rounded-xl nav-btn-conges">
+                        <button onclick="changeMoisConges(-1)" class="font-bold px-3 py-1 bg-white rounded-lg shadow-sm hover:bg-blue-50">◀</button>
+                        <span id="current-month-display" class="font-bold text-sm uppercase min-w-[150px] text-center">...</span>
+                        <button onclick="changeMoisConges(1)" class="font-bold px-3 py-1 bg-white rounded-lg shadow-sm hover:bg-blue-50">▶</button>
                     </div>
                 </div>
                 <div id="conges-wrapper" class="overflow-x-auto"></div>
             </div>
         </section>
 
-        <section id="tab-params" class="tab-content space-y-8">
+        <section id="tab-params" class="tab-content">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div class="bg-gsc-light/50 p-8 rounded-gsc border border-gsc-light shadow-sm space-y-6">
-                    <h3 class="font-black text-sm uppercase text-gsc-teal tracking-widest">Agents & Camions</h3>
-                    <div class="flex gap-3 mb-4"><input id="in-agents" placeholder="Nom Agent" class="flex-1 bg-white p-3 rounded-xl"><button onclick="addParam('agents')" class="gsc-gradient text-white px-5 rounded-xl font-black">+</button></div>
-                    <ul id="list-agents" class="mb-6 space-y-1"></ul>
-                    <div class="flex gap-3 mb-4"><input id="in-camions" placeholder="N° Camion" class="flex-1 bg-white p-3 rounded-xl"><button onclick="addParam('camions')" class="gsc-gradient text-white px-5 rounded-xl font-black">+</button></div>
-                    <ul id="list-camions" class="space-y-1"></ul>
+                <div class="bg-white p-6 border border-slate-200 rounded-2xl shadow-sm">
+                    <h3 class="font-black text-xs uppercase mb-4 text-blue-700">Agents & Camions</h3>
+                    <div class="flex gap-2 mb-4"><input id="in-agents" placeholder="Nom Agent" class="flex-1 border p-2 rounded text-sm"><button onclick="addParam('agents')" class="bg-blue-600 text-white px-4 rounded-xl">+</button></div>
+                    <ul id="list-agents" class="mb-6"></ul>
+                    <div class="flex gap-2 mb-4"><input id="in-camions" placeholder="N° Camion" class="flex-1 border p-2 rounded text-sm"><button onclick="addParam('camions')" class="bg-blue-600 text-white px-4 rounded-xl">+</button></div>
+                    <ul id="list-camions"></ul>
                 </div>
-                <div class="lg:col-span-2 bg-gsc-light/50 p-8 rounded-gsc border border-gsc-light shadow-sm space-y-6">
-                    <h3 class="font-black text-sm uppercase text-gsc-teal tracking-widest">Gestion des Tournées</h3>
-                    <div class="grid grid-cols-6 gap-4 bg-white p-6 rounded-2xl shadow-inner border border-gsc-light">
-                        <div class="col-span-2"><label class="text-[10px] font-black uppercase text-slate-400 ml-1">Nom</label><input id="in-tournees" class="w-full bg-slate-50"></div>
-                        <div><label class="text-[10px] font-black uppercase text-slate-400 ml-1">Flux</label><select id="in-flux" class="w-full bg-slate-50"><option value="OM">OM</option><option value="CS">CS</option></select></div>
-                        <div><label class="text-[10px] font-black uppercase text-slate-400 ml-1">Jour</label><select id="in-jour" class="w-full bg-slate-50"><option value="1">Lundi</option><option value="2">Mardi</option><option value="3">Mercredi</option><option value="4">Jeudi</option><option value="5">Vendredi</option></select></div>
-                        <div><label class="text-[10px] font-black uppercase text-slate-400 ml-1">Semaine</label><select id="in-freq" class="w-full bg-slate-50"><option value="impaire">Impaire</option><option value="paire">Paire</option></select></div>
-                        <div><label class="text-[10px] font-black uppercase text-slate-400 ml-1">Vidage</label><select id="in-vidage" class="w-full bg-slate-50"><option value="Dépôt">Dépôt</option><option value="DRIMM">DRIMM</option></select></div>
-                        <button onclick="addParam('tournees')" class="col-span-6 gsc-gradient text-white p-4 rounded-xl font-black uppercase text-sm tracking-widest">Enregistrer la tournée</button>
+                <div class="lg:col-span-2 bg-white p-6 border border-slate-200 rounded-2xl shadow-sm">
+                    <h3 class="font-black text-xs uppercase mb-4 text-blue-700">Création des Tournées</h3>
+                    <div class="grid grid-cols-6 gap-3 mb-6 bg-slate-50 p-6 rounded-2xl">
+                        <div class="col-span-2"><label class="text-[9px] font-black uppercase text-slate-400">Nom de la Tournée</label><input id="in-tournees" class="w-full border p-2 rounded text-sm"></div>
+                        <div><label class="text-[9px] font-black uppercase text-slate-400">Flux</label><select id="in-flux" class="w-full border p-2 rounded text-sm"><option value="OM">OM</option><option value="CS">CS</option></select></div>
+                        <div><label class="text-[9px] font-black uppercase text-slate-400">Jour</label><select id="in-jour" class="w-full border p-2 rounded text-sm"><option value="1">Lundi</option><option value="2">Mardi</option><option value="3">Mercredi</option><option value="4">Jeudi</option><option value="5">Vendredi</option></select></div>
+                        <div><label class="text-[9px] font-black uppercase text-slate-400">Semaine</label><select id="in-freq" class="w-full border p-2 rounded text-sm"><option value="impaire">Impaire</option><option value="paire">Paire</option></select></div>
+                        <div><label class="text-[9px] font-black uppercase text-slate-400">Vidage</label><select id="in-vidage" class="w-full border p-2 rounded text-sm"><option value="Dépôt">Dépôt</option><option value="DRIMM">DRIMM</option></select></div>
+                        <div class="col-span-6"><button onclick="addParam('tournees')" class="w-full bg-blue-900 text-white p-3 rounded-xl font-bold uppercase text-xs">Enregistrer la tournée</button></div>
                     </div>
-                    <div class="grid grid-cols-2 gap-8">
-                        <div><h4 class="text-sm font-black uppercase text-gsc-magenta mb-4 tracking-tighter bg-red-50 inline-flex px-4 py-1.5 rounded-full">Semaines Impaires</h4><div id="list-tournees-impaires" class="space-y-1"></div></div>
-                        <div><h4 class="text-sm font-black uppercase text-gsc-teal mb-4 tracking-tighter bg-teal-50 inline-flex px-4 py-1.5 rounded-full">Semaines Paires</h4><div id="list-tournees-paires" class="space-y-1"></div></div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><h4 class="text-xs font-black uppercase text-indigo-500 mb-2 border-b-2 border-indigo-100 pb-1">Semaines Impaires</h4><div id="list-tournees-impaires"></div></div>
+                        <div><h4 class="text-xs font-black uppercase text-emerald-500 mb-2 border-b-2 border-emerald-100 pb-1">Semaines Paires</h4><div id="list-tournees-paires"></div></div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <section id="tab-users" class="tab-content max-w-5xl mx-auto space-y-6">
-            <div class="bg-gsc-light/50 p-8 rounded-gsc border border-gsc-light shadow-sm">
-                <h3 class="font-black text-sm uppercase text-gsc-teal mb-6 tracking-widest">Nouveau compte utilisateur</h3>
-                <div class="grid grid-cols-3 gap-4">
-                    <input id="new-u-prenom" placeholder="Prénom" class="bg-white">
-                    <input id="new-u-nom" placeholder="Nom" class="bg-white">
-                    <input id="new-u-email" placeholder="Adresse Email" class="bg-white">
-                    <input id="new-u-pass" placeholder="Mot de passe" class="bg-white col-span-2">
-                    <select id="new-u-role" class="bg-white"><option value="read">Lecteur (Vue seule)</option><option value="admin">Administrateur (Vue + Modif)</option></select>
-                    <button onclick="addUser()" class="col-span-3 gsc-gradient text-white p-4 rounded-xl font-black uppercase text-sm tracking-widest mt-2">Créer le compte</button>
+        <section id="tab-users" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <h3 class="font-black text-blue-700 uppercase mb-4 text-xs">Nouveau compte</h3>
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-2 gap-2"><input id="new-u-prenom" placeholder="Prénom" class="border p-2 rounded text-sm"><input id="new-u-nom" placeholder="Nom" class="border p-2 rounded text-sm"></div>
+                        <input id="new-u-email" placeholder="Email" class="w-full border p-2 rounded text-sm">
+                        <input id="new-u-pass" placeholder="Mot de passe" class="w-full border p-2 rounded text-sm">
+                        <select id="new-u-role" class="w-full border p-2 rounded text-sm"><option value="read">Lecteur</option><option value="admin">Admin</option></select>
+                        <button onclick="addUser()" class="w-full bg-blue-600 text-white font-black p-3 rounded-xl uppercase text-xs">Créer</button>
+                    </div>
                 </div>
-            </div>
-            <div class="bg-white p-6 rounded-gsc shadow-xl border border-slate-100">
-                <h3 class="font-black text-sm uppercase text-slate-400 mb-6 tracking-widest">Comptes actifs</h3>
-                <div id="list-users"></div>
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm"><h3 class="font-black text-slate-400 uppercase mb-4 text-xs">Comptes</h3><div id="list-users"></div></div>
             </div>
         </section>
 
         <section id="tab-profil" class="tab-content">
-            <div class="max-w-xl mx-auto bg-white p-12 rounded-gsc shadow-2xl border border-slate-100 space-y-8">
-                <div class="text-center">
-                    <h2 class="font-black text-4xl mb-2 uppercase tracking-tighter text-slate-950">Mon <span class="text-gsc-teal">Profil</span></h2>
-                    <p class="text-slate-500 text-sm">Gérez vos informations de connexion</p>
-                </div>
-                <div class="space-y-5">
-                    <label class="text-xs font-bold text-slate-400 ml-1">Prénom</label><input type="text" id="prof-prenom" placeholder="Prénom" class="w-full bg-slate-50">
-                    <label class="text-xs font-bold text-slate-400 ml-1">Nom</label><input type="text" id="prof-nom" placeholder="Nom" class="w-full bg-slate-50">
-                    <label class="text-xs font-bold text-slate-400 ml-1">Changer le mot de passe (laisser vide pour ne pas changer)</label><input type="password" id="prof-pass" placeholder="Nouveau mot de passe" class="w-full bg-slate-50">
-                    <button onclick="currentUser.prenom=document.getElementById('prof-prenom').value; currentUser.nom=document.getElementById('prof-nom').value; if(document.getElementById('prof-pass').value) currentUser.pass=document.getElementById('prof-pass').value; sync(); alert('Profil mis à jour !'); renderAll();" class="w-full gsc-gradient text-white p-4 rounded-xl font-black uppercase text-sm tracking-widest mt-4">Sauvegarder les modifications</button>
+            <div class="max-w-md mx-auto bg-white p-8 rounded-2xl border border-slate-200">
+                <h2 class="font-black text-xl mb-6 uppercase">Mon Profil</h2>
+                <div class="space-y-4">
+                    <input type="text" id="prof-prenom" placeholder="Prénom" class="w-full border p-2 rounded-lg">
+                    <input type="text" id="prof-nom" placeholder="Nom" class="w-full border p-2 rounded-lg">
+                    <input type="password" id="prof-pass" placeholder="Nouveau mot de passe" class="w-full border p-2 rounded-lg">
+                    <button onclick="currentUser.prenom=document.getElementById('prof-prenom').value; currentUser.nom=document.getElementById('prof-nom').value; if(document.getElementById('prof-pass').value) currentUser.pass=document.getElementById('prof-pass').value; sync(); alert('Profil mis à jour !'); renderAll();" class="w-full bg-slate-900 text-white p-3 rounded-lg font-black uppercase text-xs">Sauvegarder</button>
                 </div>
             </div>
         </section>
