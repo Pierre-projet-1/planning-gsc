@@ -1,477 +1,457 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>GSC Planning</title>
-
-<script src="https://cdn.tailwindcss.com"></script>
-
-<style>
-
-.tab-content{display:none}
-.tab-content.active{display:block}
-
-.flux-om{background:#e2e8f0;color:#475569}
-.flux-cs{background:#fef08a;color:#854d0e}
-
-.en-conge{
-background:#fca5a5!important;
-color:#7f1d1d!important;
-font-weight:bold
-}
-
-.case-conge{
-background:#fecaca
-}
-
-</style>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GSC - Logistique Professionnelle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .flux-om { background-color: #e2e8f0; color: #475569; }
+        .flux-cs { background-color: #fef08a; color: #854d0e; }
+        .agent-absent { background-color: #fee2e2 !important; color: #ef4444 !important; font-weight: bold; border: 1px solid #ef4444; }
+        .day-cell { min-height: 40px; cursor: pointer; transition: all 0.2s; }
+        .day-cell:hover { background-color: #f1f5f9; }
+        .day-has-absent { border-top: 3px solid #ef4444; }
+    </style>
 </head>
-
-<body class="bg-slate-100 min-h-screen">
-
-<script>
-
-const BIN_ID="69b528beaa77b81da9e33a14"
-const API_KEY="$2a$10$KM0Bk26gr5ZNVIpvSKTSIOs57V3dBxtizW1IjdbER1L/yjh24vaEq"
-
-const URL=`https://api.jsonbin.io/v3/b/${BIN_ID}`
-
-let state={
-annee:new Date().getFullYear(),
-semaine:1,
-mois:new Date().getMonth(),
-data:{
-agents:[],
-camions:[],
-tournees:[],
-planning:{},
-conges:{}
-}
-}
-
-async function load(){
-
-const res=await fetch(URL+"/latest",{headers:{"X-Master-Key":API_KEY}})
-const json=await res.json()
-
-state.data=json.record
-
-renderAll()
-
-}
-
-async function sync(){
-
-document.getElementById("status").innerText="⏳ Sauvegarde..."
-
-await fetch(URL,{
-method:"PUT",
-headers:{
-"Content-Type":"application/json",
-"X-Master-Key":API_KEY
-},
-body:JSON.stringify(state.data)
-})
-
-document.getElementById("status").innerText="✅ Synchronisé"
-
-}
-
-function getWeekDates(w,y){
-
-let simple=new Date(y,0,1+(w-1)*7)
-let dow=simple.getDay()
-
-let start=simple
-
-if(dow<=4) start.setDate(simple.getDate()-simple.getDay()+1)
-else start.setDate(simple.getDate()+8-simple.getDay())
-
-let days=[]
-
-for(let i=0;i<5;i++){
-
-let d=new Date(start)
-d.setDate(d.getDate()+i)
-
-days.push(d)
-
-}
-
-return days
-
-}
-
-function renderPlanning(){
-
-const dates=getWeekDates(state.semaine,state.annee)
-
-const weekKey=`${state.annee}_W${state.semaine}`
-
-const isPaire=state.semaine%2===0
-
-const header=document.getElementById("plan-header")
-
-header.innerHTML="<th class='p-2 border'>Tournée</th>"+dates.map(d=>`
-<th class="p-2 border text-xs text-center">
-${d.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"short"})}
-</th>`).join("")
-
-const tournees=state.data.tournees.filter(t=>
-t.type==="fixe"||(isPaire&&t.type==="paire")||(!isPaire&&t.type==="impaire")
-)
-
-const body=document.getElementById("plan-body")
-
-body.innerHTML=tournees.map(t=>{
-
-return `<tr>
-
-<td class="border p-2 font-bold bg-white">
-
-${t.nom}
-
-<div class="text-[10px] px-2 py-0.5 rounded mt-1 inline-block ${t.flux==="OM"?"flux-om":"flux-cs"}">
-
-${t.flux}
-
-</div>
-
-</td>
-
-${dates.map((d,day)=>{
-
-const cell=state.data.planning?.[weekKey]?.[t.nom]?.[day]||{}
-
-const conges=state.data.conges?.[d.toISOString().split("T")[0]]||[]
-
-const check=(n)=>conges.includes(n)?"en-conge":""
-
-const dispo=state.data.agents.filter(a=>
-!conges.includes(a)&&
-a!==cell.ch&&
-a!==cell.r1&&
-a!==cell.r2
-)
-
-return `
-
-<td class="border p-1 bg-white text-[10px] min-w-[140px]">
-
-<select onchange="update('${t.nom}',${day},'camion',this.value)" class="w-full mb-1">
-
-<option value="">Camion</option>
-
-${state.data.camions.map(c=>`<option ${cell.camion===c?"selected":""}>${c}</option>`).join("")}
-
-</select>
-
-<select onchange="update('${t.nom}',${day},'ch',this.value)" class="w-full mb-1 ${check(cell.ch)}">
-
-<option>Chauffeur</option>
-
-${state.data.agents.map(a=>`<option ${cell.ch===a?"selected":""}>${a}</option>`).join("")}
-
-</select>
-
-<select onchange="update('${t.nom}',${day},'r1',this.value)" class="w-full mb-1 ${check(cell.r1)}">
-
-<option>Ripeur 1</option>
-
-${state.data.agents.map(a=>`<option ${cell.r1===a?"selected":""}>${a}</option>`).join("")}
-
-</select>
-
-<select onchange="update('${t.nom}',${day},'r2',this.value)" class="w-full mb-1 ${check(cell.r2)}">
-
-<option>Ripeur 2</option>
-
-${state.data.agents.map(a=>`<option ${cell.r2===a?"selected":""}>${a}</option>`).join("")}
-
-</select>
-
-<select onchange="update('${t.nom}',${day},'vidage',this.value)" class="w-full mb-1">
-
-<option>Vidage</option>
-<option ${cell.vidage==="Dépôt"?"selected":""}>Dépôt</option>
-<option ${cell.vidage==="DRIMM"?"selected":""}>DRIMM</option>
-
-</select>
-
-<input type="text" placeholder="Infos" value="${cell.info||""}" onchange="update('${t.nom}',${day},'info',this.value)" class="w-full mb-1 bg-slate-50">
-
-<input type="text" placeholder="Autres" value="${cell.autres||""}" onchange="update('${t.nom}',${day},'autres',this.value)" class="w-full bg-slate-50">
-
-<div class="text-[9px] text-slate-400 mt-1">
-
-Dispo : ${dispo.join(", ")}
-
-</div>
-
-</td>
-
-`
-
-}).join("")}
-
-</tr>`
-
-}).join("")
-
-}
-
-function update(tournee,day,field,val){
-
-const key=`${state.annee}_W${state.semaine}`
-
-if(!state.data.planning[key]) state.data.planning[key]={}
-
-if(!state.data.planning[key][tournee]) state.data.planning[key][tournee]={}
-
-if(!state.data.planning[key][tournee][day]) state.data.planning[key][tournee][day]={}
-
-state.data.planning[key][tournee][day][field]=val
-
-sync()
-
-renderPlanning()
-
-}
-
-function renderConges(){
-
-const container=document.getElementById("conges")
-
-const days=new Date(state.annee,state.mois+1,0).getDate()
-
-let header="<tr><th class='border p-1'>Agent</th>"
-
-for(let d=1;d<=days;d++) header+=`<th class='border text-[10px]'>${d}</th>`
-
-header+="</tr>"
-
-let body=""
-
-state.data.agents.forEach(agent=>{
-
-body+="<tr>"
-
-body+=`<td class='border p-1 font-bold'>${agent}</td>`
-
-for(let d=1;d<=days;d++){
-
-const date=`${state.annee}-${String(state.mois+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`
-
-const list=state.data.conges[date]||[]
-
-const active=list.includes(agent)
-
-body+=`
-
-<td onclick="toggleConge('${agent}','${date}')" 
-class="border text-center cursor-pointer ${active?"case-conge":""}">
-</td>
-
-`
-
-}
-
-body+="</tr>"
-
-})
-
-container.innerHTML=`<table class="border-collapse text-xs">${header}${body}</table>`
-
-}
-
-function toggleConge(agent,date){
-
-if(!state.data.conges[date]) state.data.conges[date]=[]
-
-const arr=state.data.conges[date]
-
-if(arr.includes(agent))
-state.data.conges[date]=arr.filter(a=>a!==agent)
-else
-arr.push(agent)
-
-sync()
-
-renderConges()
-renderPlanning()
-
-}
-
-function renderParams(){
-
-["agents","camions","tournees"].forEach(type=>{
-
-const list=document.getElementById("list-"+type)
-
-list.innerHTML=state.data[type].map((it,i)=>`
-
-<li class="flex justify-between p-1 bg-white border mb-1">
-
-${typeof it==="string"?it:it.nom+" ("+it.type+")"}
-
-<button onclick="removeParam('${type}',${i})">✕</button>
-
-</li>
-
-`).join("")
-
-})
-
-}
-
-function addParam(type){
-
-const val=document.getElementById("in-"+type).value
-
-if(!val) return
-
-if(type==="tournees"){
-
-const flux=document.getElementById("in-flux").value
-const freq=document.getElementById("in-freq").value
-
-state.data.tournees.push({nom:val,flux:flux,type:freq})
-
-}else{
-
-state.data[type].push(val)
-
-}
-
-sync()
-renderAll()
-
-}
-
-function removeParam(type,i){
-
-state.data[type].splice(i,1)
-
-sync()
-renderAll()
-
-}
-
-function renderAll(){
-
-renderPlanning()
-renderParams()
-renderConges()
-
-}
-
-function showTab(id){
-
-document.querySelectorAll(".tab-content").forEach(t=>t.classList.remove("active"))
-
-document.getElementById(id).classList.add("active")
-
-}
-
-window.onload=load
-
-</script>
-
-<header class="bg-blue-900 text-white p-4 flex justify-between">
-
-<b>GRAND SUD COLLECTE</b>
-
-<div id="status">Connexion...</div>
-
-<nav class="flex gap-4">
-
-<button onclick="showTab('plan')">Planning</button>
-<button onclick="showTab('conges-tab')">Congés</button>
-<button onclick="showTab('params')">Paramètres</button>
-
-</nav>
-
-</header>
-
-<main class="p-6">
-
-<section id="plan" class="tab-content active">
-
-<div class="mb-4">
-
-<button onclick="state.semaine--;renderPlanning()">◀</button>
-
-Semaine <span id="week">${state.semaine}</span>
-
-<button onclick="state.semaine++;renderPlanning()">▶</button>
-
-</div>
-
-<table class="border-collapse w-full">
-
-<thead id="plan-header"></thead>
-<tbody id="plan-body"></tbody>
-
-</table>
-
-</section>
-
-<section id="conges-tab" class="tab-content">
-
-<div class="flex gap-4 mb-4">
-
-<select onchange="state.mois=this.value;renderConges()">
-
-${["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"]
-.map((m,i)=>`<option value="${i}">${m}</option>`).join("")}
-
-</select>
-
-<input type="number" value="2026" onchange="state.annee=this.value;renderConges()">
-
-</div>
-
-<div id="conges"></div>
-
-</section>
-
-<section id="params" class="tab-content">
-
-Agents
-<input id="in-agents">
-<button onclick="addParam('agents')">+</button>
-<ul id="list-agents"></ul>
-
-Camions
-<input id="in-camions">
-<button onclick="addParam('camions')">+</button>
-<ul id="list-camions"></ul>
-
-Tournées
-<input id="in-tournees">
-
-<select id="in-flux">
-<option value="OM">OM</option>
-<option value="CS">CS</option>
-</select>
-
-<select id="in-freq">
-<option value="fixe">Fixe</option>
-<option value="paire">Paire</option>
-<option value="impaire">Impaire</option>
-</select>
-
-<button onclick="addParam('tournees')">+</button>
-
-<ul id="list-tournees"></ul>
-
-</section>
-
-</main>
-
+<body class="bg-slate-100 min-h-screen text-slate-800">
+
+    <header class="bg-blue-950 text-white p-4 shadow-lg sticky top-0 z-50">
+        <div class="max-w-[1600px] mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="font-black text-xl tracking-tighter">GSC LOGISTIQUE</h1>
+                <div id="status" class="text-[10px] uppercase opacity-70 font-bold italic">Initialisation...</div>
+            </div>
+            <nav class="flex gap-4 font-bold text-xs uppercase tracking-widest">
+                <button onclick="showTab('tab-plan')" class="hover:text-blue-400">Planning</button>
+                <button onclick="showTab('tab-conges')" class="hover:text-blue-400">Congés</button>
+                <button onclick="showTab('tab-params')" class="hover:text-blue-400">Paramètres</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="max-w-[1600px] mx-auto p-4">
+        
+        <section id="tab-plan" class="tab-content active space-y-4">
+            <div class="bg-white p-4 rounded-xl shadow-sm border flex flex-wrap items-center gap-6">
+                <div class="flex items-center gap-2">
+                    <label class="font-bold text-xs">ANNÉE</label>
+                    <input type="number" id="plan-year" value="2025" onchange="updateDateContext()" class="border rounded p-1 w-20 font-bold">
+                </div>
+                <div class="flex items-center gap-2">
+                    <label class="font-bold text-xs">SEMAINE</label>
+                    <button onclick="changeWeek(-1)" class="px-3 py-1 bg-slate-100 rounded shadow-sm">◀</button>
+                    <span id="display-week" class="font-black text-blue-600 text-lg min-w-[30px] text-center">36</span>
+                    <button onclick="changeWeek(1)" class="px-3 py-1 bg-slate-100 rounded shadow-sm">▶</button>
+                </div>
+                <div id="week-info" class="text-sm font-bold text-slate-500 uppercase"></div>
+                
+                <div class="flex gap-2 ml-auto">
+                    <button onclick="copyWeek()" class="text-[10px] font-bold bg-slate-800 text-white px-3 py-2 rounded uppercase hover:bg-slate-700">Copier Équipages</button>
+                    <button onclick="pasteWeek()" class="text-[10px] font-bold bg-blue-600 text-white px-3 py-2 rounded uppercase hover:bg-blue-700 shadow-md">Coller</button>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md border overflow-hidden">
+                <table class="w-full text-left border-collapse table-fixed">
+                    <thead class="bg-slate-50 text-[10px] uppercase text-slate-400 border-b">
+                        <tr>
+                            <th class="p-3 w-32 border-r">Date</th>
+                            <th class="p-3 w-40 border-r">Tournée</th>
+                            <th class="p-3 w-16 border-r text-center">Flux</th>
+                            <th class="p-3 w-32 border-r">Camion</th>
+                            <th class="p-3 w-40 border-r">Chauffeur</th>
+                            <th class="p-3 w-40 border-r">Ripeur 1</th>
+                            <th class="p-3 w-40 border-r">Ripeur 2</th>
+                            <th class="p-3 w-28 border-r text-center">Vidage</th>
+                            <th class="p-3 w-32 border-r">Infos</th>
+                            <th class="p-3 w-32 border-r">Autres</th>
+                            <th class="p-3 bg-slate-100 text-blue-800">Disponibles</th>
+                        </tr>
+                    </thead>
+                    <tbody id="planning-body" class="text-[11px]"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="tab-conges" class="tab-content space-y-4">
+            <div class="bg-white p-6 rounded-xl shadow-md border text-center">
+                <div class="flex justify-center items-center gap-8 mb-6">
+                    <button onclick="changeMonth(-1)" class="p-2 bg-slate-100 rounded-full">◀</button>
+                    <h2 id="calendar-title" class="text-2xl font-black uppercase tracking-widest text-blue-900">Septembre 2025</h2>
+                    <button onclick="changeMonth(1)" class="p-2 bg-slate-100 rounded-full">▶</button>
+                </div>
+                <div class="grid grid-cols-7 gap-2" id="calendar-grid"></div>
+            </div>
+            
+            <div id="modal-absences" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[100]">
+                <div class="bg-white p-6 rounded-2xl shadow-2xl w-96 max-h-[80vh] overflow-y-auto">
+                    <h3 id="modal-date-title" class="font-black text-lg mb-4 border-b pb-2">Absents le ...</h3>
+                    <div id="agents-selection-list" class="space-y-2"></div>
+                    <button onclick="closeModal()" class="mt-6 w-full bg-slate-800 text-white py-2 rounded-xl font-bold">Fermer & Enregistrer</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-params" class="tab-content">
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="bg-white p-6 rounded-xl shadow border">
+                    <h3 class="font-black text-xs uppercase text-slate-400 mb-4 tracking-widest">Liste des Agents</h3>
+                    <div class="flex gap-2 mb-4">
+                        <input type="text" id="new-agent" class="flex-1 border rounded-lg p-2 text-sm" placeholder="Nom Prénom">
+                        <button onclick="addItem('agents', 'new-agent')" class="bg-blue-600 text-white px-4 rounded-lg font-bold">+</button>
+                    </div>
+                    <ul id="list-agents" class="space-y-1"></ul>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow border">
+                    <h3 class="font-black text-xs uppercase text-slate-400 mb-4 tracking-widest">Liste des Camions</h3>
+                    <div class="flex gap-2 mb-4">
+                        <input type="text" id="new-camion" class="flex-1 border rounded-lg p-2 text-sm" placeholder="Plaque / Nom">
+                        <button onclick="addItem('camions', 'new-camion')" class="bg-blue-600 text-white px-4 rounded-lg font-bold">+</button>
+                    </div>
+                    <ul id="list-camions" class="space-y-1"></ul>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow border">
+                    <h3 class="font-black text-xs uppercase text-slate-400 mb-4 tracking-widest">Prédispositions (Cycles)</h3>
+                    <div class="space-y-6">
+                        <div>
+                            <h4 class="text-[10px] font-black text-blue-600 uppercase mb-2">Semaines Paires</h4>
+                            <div id="pre-paires" class="space-y-2"></div>
+                            <button onclick="addTournee('paires')" class="w-full mt-2 text-[10px] border-2 border-dashed py-1 rounded text-slate-400 font-bold hover:border-blue-400 hover:text-blue-400">+ Ligne</button>
+                        </div>
+                        <div class="border-t pt-4">
+                            <h4 class="text-[10px] font-black text-blue-600 uppercase mb-2">Semaines Impaires</h4>
+                            <div id="pre-impaires" class="space-y-2"></div>
+                            <button onclick="addTournee('impaires')" class="w-full mt-2 text-[10px] border-2 border-dashed py-1 rounded text-slate-400 font-bold hover:border-blue-400 hover:text-blue-400">+ Ligne</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const BIN_ID = "69b528beaa77b81da9e33a14";
+        const API_KEY = "$2a$10$KM0Bk26gr5ZNVIpvSKTSIOs57V3dBxtizW1IjdbER1L/yjh24vaEq";
+        const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+        let state = {
+            annee: 2025,
+            semaine: 36,
+            moisVisu: 8, // Septembre
+            clipboard: null,
+            data: {
+                agents: [],
+                camions: [],
+                predispositions: { paires: [], impaires: [] },
+                planning: {}, 
+                conges: {} // "YYYY-MM-DD": [noms]
+            }
+        };
+
+        // --- CHARGEMENT / SAUVEGARDE ---
+        async function load() {
+            try {
+                const res = await fetch(`${URL}/latest`, { headers: { "X-Master-Key": API_KEY } });
+                const json = await res.json();
+                state.data = json.record;
+                renderAll();
+                document.getElementById('status').innerText = "✅ Connecté";
+            } catch(e) {
+                document.getElementById('status').innerText = "❌ Erreur de chargement";
+            }
+        }
+
+        async function sync() {
+            document.getElementById('status').innerText = "⏳ Synchronisation...";
+            try {
+                await fetch(URL, {
+                    method: 'PUT',
+                    headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
+                    body: JSON.stringify(state.data)
+                });
+                document.getElementById('status').innerText = "✅ Sauvegardé";
+            } catch(e) {
+                document.getElementById('status').innerText = "❌ Erreur sauvegarde";
+            }
+        }
+
+        // --- NAVIGATION ---
+        function showTab(id) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            renderAll();
+        }
+
+        function changeWeek(dir) {
+            state.semaine += dir;
+            if(state.semaine < 1) state.semaine = 52;
+            if(state.semaine > 52) state.semaine = 1;
+            renderAll();
+        }
+
+        function changeMonth(dir) {
+            state.moisVisu += dir;
+            if(state.moisVisu < 0) { state.moisVisu = 11; state.annee--; }
+            if(state.moisVisu > 11) { state.moisVisu = 0; state.annee++; }
+            renderAll();
+        }
+
+        // --- LOGIQUE DATES ---
+        function getDatesOfWeek(w, y) {
+            let d = new Date(y, 0, 1 + (w - 1) * 7);
+            let dow = d.getDay();
+            let start = new Date(d);
+            if (dow <= 4) start.setDate(d.getDate() - d.getDay() + 1);
+            else start.setDate(d.getDate() + 8 - d.getDay());
+            
+            let dates = [];
+            for (let i = 0; i < 5; i++) {
+                let day = new Date(start);
+                day.setDate(start.getDate() + i);
+                dates.push(day);
+            }
+            return dates;
+        }
+
+        const dateToISO = (d) => d.toISOString().split('T')[0];
+
+        // --- RENDU PLANNING ---
+        function renderPlanning() {
+            const container = document.getElementById('planning-body');
+            const weekDates = getDatesOfWeek(state.semaine, state.annee);
+            const isPaire = state.semaine % 2 === 0;
+            const cycle = isPaire ? state.data.predispositions.paires : state.data.predispositions.impaires;
+            const weekKey = `${state.annee}_W${state.semaine}`;
+
+            // Update Header info
+            const firstDay = weekDates[0];
+            document.getElementById('display-week').innerText = state.semaine;
+            document.getElementById('week-info').innerText = `Semaine ${isPaire?'Paire':'Impaire'} - ${firstDay.toLocaleDateString('fr-FR', {month:'long', year:'numeric'})}`;
+
+            let html = "";
+            weekDates.forEach((date, dayIdx) => {
+                const iso = dateToISO(date);
+                const absents = state.data.conges[iso] || [];
+                
+                // Calculer les agents déjà occupés ce jour
+                let occupes = [];
+                const dayPlan = state.data.planning[weekKey] || {};
+                Object.values(dayPlan).forEach(t => {
+                    const cell = t[dayIdx] || {};
+                    if(cell.ch) occupes.push(cell.ch);
+                    if(cell.r1) occupes.push(cell.r1);
+                    if(cell.r2) occupes.push(cell.r2);
+                });
+
+                const dispo = state.data.agents.filter(a => !absents.includes(a) && !occupes.includes(a));
+
+                cycle.forEach((tournee, tIdx) => {
+                    const rowId = `${tournee.nom}_${tIdx}`;
+                    const cell = state.data.planning[weekKey]?.[rowId]?.[dayIdx] || {};
+
+                    const checkAbs = (name) => absents.includes(name) ? 'agent-absent' : '';
+
+                    html += `
+                        <tr class="border-b border-slate-100 hover:bg-slate-50/50">
+                            ${tIdx === 0 ? `<td rowSpan="${cycle.length}" class="p-3 border-r font-black bg-slate-50 text-blue-900 sticky left-0 uppercase">${date.toLocaleDateString('fr-FR', {weekday:'long', day:'numeric'})}</td>` : ''}
+                            <td class="p-3 border-r font-bold">${tournee.nom}</td>
+                            <td class="p-2 border-r text-center"><span class="px-2 py-0.5 rounded font-black ${tournee.flux==='OM'?'flux-om':'flux-cs'}">${tournee.flux}</span></td>
+                            
+                            <td class="p-1 border-r">
+                                <select onchange="updatePlan('${rowId}', ${dayIdx}, 'camion', this.value)" class="w-full bg-transparent border-none">
+                                    <option value="">-</option>
+                                    ${state.data.camions.map(c => `<option ${cell.camion===c?'selected':''}>${c}</option>`).join('')}
+                                </select>
+                            </td>
+                            <td class="p-1 border-r">
+                                <select onchange="updatePlan('${rowId}', ${dayIdx}, 'ch', this.value)" class="w-full bg-transparent border-none ${checkAbs(cell.ch)}">
+                                    <option value="">-</option>
+                                    ${state.data.agents.map(a => `<option ${cell.ch===a?'selected':''}>${a}</option>`).join('')}
+                                </select>
+                            </td>
+                            <td class="p-1 border-r">
+                                <select onchange="updatePlan('${rowId}', ${dayIdx}, 'r1', this.value)" class="w-full bg-transparent border-none ${checkAbs(cell.r1)}">
+                                    <option value="">-</option>
+                                    ${state.data.agents.map(a => `<option ${cell.r1===a?'selected':''}>${a}</option>`).join('')}
+                                </select>
+                            </td>
+                            <td class="p-1 border-r">
+                                <select onchange="updatePlan('${rowId}', ${dayIdx}, 'r2', this.value)" class="w-full bg-transparent border-none ${checkAbs(cell.r2)}">
+                                    <option value="">-</option>
+                                    ${state.data.agents.map(a => `<option ${cell.r2===a?'selected':''}>${a}</option>`).join('')}
+                                </select>
+                            </td>
+                            <td class="p-1 border-r">
+                                <select onchange="updatePlan('${rowId}', ${dayIdx}, 'vidage', this.value)" class="w-full bg-transparent border-none font-bold">
+                                    <option value="">-</option>
+                                    <option ${cell.vidage==='Dépôt'?'selected':''}>Dépôt</option>
+                                    <option ${cell.vidage==='DRIMM'?'selected':''}>DRIMM</option>
+                                </select>
+                            </td>
+                            <td class="p-1 border-r"><input type="text" onchange="updatePlan('${rowId}', ${dayIdx}, 'info', this.value)" value="${cell.info||''}" class="w-full border-none bg-transparent placeholder-slate-200" placeholder="..."></td>
+                            <td class="p-1 border-r"><input type="text" onchange="updatePlan('${rowId}', ${dayIdx}, 'autres', this.value)" value="${cell.autres||''}" class="w-full border-none bg-transparent placeholder-slate-200" placeholder="..."></td>
+                            
+                            ${tIdx === 0 ? `<td rowSpan="${cycle.length}" class="p-2 align-top bg-slate-50/50 text-[9px] font-bold text-slate-400">
+                                <div class="flex flex-wrap gap-1">${dispo.map(a => `<span class="bg-white border rounded px-1">${a}</span>`).join('')}</div>
+                            </td>` : ''}
+                        </tr>
+                    `;
+                });
+            });
+            container.innerHTML = html;
+        }
+
+        function updatePlan(rowId, dayIdx, field, val) {
+            const key = `${state.annee}_W${state.semaine}`;
+            if(!state.data.planning[key]) state.data.planning[key] = {};
+            if(!state.data.planning[key][rowId]) state.data.planning[key][rowId] = {};
+            if(!state.data.planning[key][rowId][dayIdx]) state.data.planning[key][rowId][dayIdx] = {};
+            state.data.planning[key][rowId][dayIdx][field] = val;
+            sync(); renderPlanning();
+        }
+
+        // --- COPIER / COLLER ---
+        function copyWeek() {
+            const key = `${state.annee}_W${state.semaine}`;
+            if(!state.data.planning[key]) return alert("Rien à copier sur cette semaine");
+            state.clipboard = JSON.parse(JSON.stringify(state.data.planning[key]));
+            alert("Équipages copiés !");
+        }
+
+        function pasteWeek() {
+            if(!state.clipboard) return alert("Le presse-papier est vide");
+            const key = `${state.annee}_W${state.semaine}`;
+            state.data.planning[key] = JSON.parse(JSON.stringify(state.clipboard));
+            sync(); renderPlanning();
+        }
+
+        // --- CONGÉS ---
+        let activeModalDate = null;
+        function renderCalendar() {
+            const grid = document.getElementById('calendar-grid');
+            const title = document.getElementById('calendar-title');
+            grid.innerHTML = "";
+
+            const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+            title.innerText = `${monthNames[state.moisVisu]} ${state.annee}`;
+
+            const firstDay = new Date(state.annee, state.moisVisu, 1).getDay();
+            const daysInMonth = new Date(state.annee, state.moisVisu + 1, 0).getDate();
+
+            // Padding
+            for(let i=1; i < (firstDay === 0 ? 7 : firstDay); i++) grid.innerHTML += `<div></div>`;
+
+            for(let d=1; d <= daysInMonth; d++) {
+                const date = new Date(state.annee, state.moisVisu, d);
+                const iso = dateToISO(date);
+                const absents = state.data.conges[iso] || [];
+                const hasAbs = absents.length > 0;
+
+                grid.innerHTML += `
+                    <div onclick="openModal('${iso}')" class="day-cell bg-white border rounded-xl p-2 text-left relative ${hasAbs?'day-has-absent':''}">
+                        <span class="font-black text-xs ${hasAbs?'text-red-600':'text-slate-300'}">${d}</span>
+                        <div class="text-[8px] mt-1 space-y-0.5">
+                            ${absents.slice(0,3).map(a => `<div class="bg-red-50 text-red-700 px-1 rounded truncate">${a}</div>`).join('')}
+                            ${absents.length > 3 ? `<div class="text-slate-400 font-bold">+${absents.length-3}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function openModal(iso) {
+            activeModalDate = iso;
+            document.getElementById('modal-absences').classList.remove('hidden');
+            document.getElementById('modal-date-title').innerText = `Absents le ${new Date(iso).toLocaleDateString('fr-FR', {day:'numeric', month:'long'})}`;
+            
+            const list = document.getElementById('agents-selection-list');
+            const currentAbs = state.data.conges[iso] || [];
+            
+            list.innerHTML = state.data.agents.map(a => `
+                <label class="flex items-center gap-3 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 transition">
+                    <input type="checkbox" class="w-5 h-5" ${currentAbs.includes(a)?'checked':''} onchange="toggleAbsent('${a}')">
+                    <span class="font-bold text-sm">${a}</span>
+                </label>
+            `).join('');
+        }
+
+        function toggleAbsent(name) {
+            if(!state.data.conges[activeModalDate]) state.data.conges[activeModalDate] = [];
+            let list = state.data.conges[activeModalDate];
+            if(list.includes(name)) state.data.conges[activeModalDate] = list.filter(x => x !== name);
+            else state.data.conges[activeModalDate].push(name);
+        }
+
+        function closeModal() {
+            document.getElementById('modal-absences').classList.add('hidden');
+            sync(); renderAll();
+        }
+
+        // --- PARAMÈTRES ---
+        function renderParams() {
+            ['agents', 'camions'].forEach(type => {
+                const list = document.getElementById(`list-${type}`);
+                list.innerHTML = state.data[type].map((it, i) => `
+                    <li class="flex justify-between items-center bg-slate-50 p-2 rounded-lg text-sm font-bold">
+                        ${it}
+                        <button onclick="removeItem('${type}', ${i})" class="text-red-400 hover:text-red-600">✕</button>
+                    </li>
+                `).join('');
+            });
+
+            ['paires', 'impaires'].forEach(type => {
+                const container = document.getElementById(`pre-${type}`);
+                container.innerHTML = state.data.predispositions[type].map((t, i) => `
+                    <div class="flex gap-1 items-center bg-slate-50 p-1 rounded border">
+                        <input type="text" onchange="updateTournee('${type}', ${i}, 'nom', this.value)" value="${t.nom}" class="flex-1 bg-transparent border-none text-[11px] font-bold p-1" placeholder="Nom">
+                        <select onchange="updateTournee('${type}', ${i}, 'flux', this.value)" class="text-[10px] font-black border rounded bg-white">
+                            <option value="OM" ${t.flux==='OM'?'selected':''}>OM</option>
+                            <option value="CS" ${t.flux==='CS'?'selected':''}>CS</option>
+                        </select>
+                        <button onclick="removeTournee('${type}', ${i})" class="text-red-400 px-1 font-bold">✕</button>
+                    </div>
+                `).join('');
+            });
+        }
+
+        function addItem(type, inputId) {
+            const val = document.getElementById(inputId).value;
+            if(!val) return;
+            state.data[type].push(val);
+            document.getElementById(inputId).value = "";
+            sync(); renderAll();
+        }
+
+        function removeItem(type, idx) {
+            state.data[type].splice(idx, 1);
+            sync(); renderAll();
+        }
+
+        function addTournee(type) {
+            state.data.predispositions[type].push({nom: "Nouvelle", flux: "OM"});
+            sync(); renderAll();
+        }
+
+        function updateTournee(type, idx, field, val) {
+            state.data.predispositions[type][idx][field] = val;
+            sync(); renderAll();
+        }
+
+        function removeTournee(type, idx) {
+            state.data.predispositions[type].splice(idx, 1);
+            sync(); renderAll();
+        }
+
+        function renderAll() {
+            renderPlanning();
+            renderCalendar();
+            renderParams();
+        }
+
+        window.onload = load;
+    </script>
 </body>
 </html>
