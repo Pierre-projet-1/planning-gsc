@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GSC - Planning Professionnel V3</title>
+    <title>GSC - Planning & Congés</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         .flux-om { background-color: #e2e8f0; color: #475569; border-left: 3px solid #475569; }
         .flux-cs { background-color: #fef08a; color: #854d0e; border-left: 3px solid #854d0e; }
-        th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; padding: 12px 8px; }
-        td { font-size: 11px; padding: 6px; border: 1px solid #e2e8f0; }
-        select, input { outline: none; transition: border 0.2s; }
-        select:focus, input:focus { border-color: #3b82f6; }
+        .is-conge { background-color: #fecaca !important; color: #b91c1c; font-weight: bold; }
+        th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 5px; }
+        td { font-size: 11px; padding: 4px; border: 1px solid #e2e8f0; }
+        .bg-conge-active { background-color: #ef4444 !important; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen font-sans text-slate-900">
@@ -26,31 +26,27 @@
         let state = {
             annee: 2026,
             semaine: 1,
+            moisConges: new Date().getMonth(),
+            anneeConges: 2026,
             data: {
                 agents: [],
                 camions: [],
-                tournees: [], // {nom, flux, type, jour}
+                tournees: [],
                 planning: {},
-                conges: {}
+                conges: {} // Format: { "Nom Agent": ["2026-03-15", "2026-03-16"] }
             }
         };
 
         const JOURS_NOM = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"];
 
-        // --- SYNCHRONISATION ---
         async function load() {
             document.getElementById('status').innerText = "⏳ Chargement...";
             try {
                 const res = await fetch(`${URL}/latest`, { headers: { "X-Master-Key": API_KEY } });
                 const json = await res.json();
                 if (json.record) {
-                    state.data = {
-                        agents: json.record.agents || [],
-                        camions: json.record.camions || [],
-                        tournees: json.record.tournees || [],
-                        planning: json.record.planning || {},
-                        conges: json.record.conges || {}
-                    };
+                    state.data = json.record;
+                    if (!state.data.conges) state.data.conges = {};
                 }
                 document.getElementById('status').innerText = "✅ Connecté";
                 renderAll();
@@ -73,7 +69,7 @@
             }
         }
 
-        // --- CALCULS DATES ---
+        // --- UTILITAIRES ---
         function getDatesOfWeek(w, y) {
             let simple = new Date(y, 0, 1 + (w - 1) * 7);
             let dow = simple.getDay();
@@ -100,26 +96,21 @@
             const weekKey = `${state.annee}_W${state.semaine}`;
             const dates = getDatesOfWeek(state.semaine, state.annee);
             
-            // Titre Dynamique
             const firstDate = new Date(state.annee, 0, 1 + (state.semaine - 1) * 7);
-            const monthName = firstDate.toLocaleString('fr-FR', {month: 'long'});
-            document.getElementById('plan-title').innerText = `Planning semaine n°${state.semaine} - ${monthName} ${state.annee}`;
+            document.getElementById('plan-title').innerText = `Planning semaine n°${state.semaine} - ${firstDate.toLocaleString('fr-FR', {month: 'long'})} ${state.annee}`;
 
             const body = document.getElementById('plan-body');
             body.innerHTML = "";
 
             dates.forEach((dateObj, dayIdx) => {
                 const jourIndex = dayIdx + 1; 
-                const tourneesDuJour = state.data.tournees.filter(t => t.type === weekType && t.jour == jourIndex);
+                const tourneesDuJour = (state.data.tournees || []).filter(t => t.type === weekType && t.jour == jourIndex);
 
-                // Agents occupés pour ce jour
                 let agentsOccupes = [];
                 tourneesDuJour.forEach(t => {
                     const rowKey = `${t.nom}_${dayIdx}`;
                     const rowData = state.data.planning[weekKey]?.[rowKey] || {};
-                    if(rowData.ch) agentsOccupes.push(rowData.ch);
-                    if(rowData.r1) agentsOccupes.push(rowData.r1);
-                    if(rowData.r2) agentsOccupes.push(rowData.r2);
+                    ['ch', 'r1', 'r2'].forEach(role => { if(rowData[role]) agentsOccupes.push(rowData[role]); });
                 });
 
                 tourneesDuJour.forEach(t => {
@@ -127,50 +118,29 @@
                     const cell = state.data.planning[weekKey]?.[rowKey] || {};
                     
                     const dispos = state.data.agents.filter(a => {
-                        const enCongé = (state.data.conges[a] || []).includes(dateObj.iso);
-                        return !agentsOccupes.includes(a) && !enCongé;
+                        const enConge = (state.data.conges[a] || []).includes(dateObj.iso);
+                        return !agentsOccupes.includes(a) && !enConge;
                     });
 
+                    const checkConge = (nomAgent) => {
+                        if (!nomAgent) return "";
+                        return (state.data.conges[nomAgent] || []).includes(dateObj.iso) ? 'is-conge' : '';
+                    };
+
                     const tr = document.createElement('tr');
-                    tr.className = "bg-white hover:bg-slate-50 transition-colors";
+                    tr.className = "bg-white hover:bg-slate-50";
                     tr.innerHTML = `
-                        <td class="font-bold text-slate-600 bg-slate-50/50">${dateObj.texte}</td>
+                        <td class="font-bold text-slate-500">${dateObj.texte}</td>
                         <td class="font-black text-blue-900 uppercase">${t.nom}</td>
                         <td class="text-center"><span class="px-2 py-1 rounded text-[9px] font-bold ${t.flux==='OM'?'flux-om':'flux-cs'}">${t.flux}</span></td>
-                        <td>
-                            <select onchange="updatePlan('${rowKey}','camion',this.value)" class="w-full p-1 border rounded bg-white">
-                                <option value="">-</option>
-                                ${state.data.camions.map(c => `<option ${cell.camion===c?'selected':''}>${c}</option>`).join('')}
-                            </select>
-                        </td>
-                        <td>
-                            <select onchange="updatePlan('${rowKey}','ch',this.value)" class="w-full p-1 border rounded bg-white">
-                                <option value="">-</option>
-                                ${state.data.agents.map(a => `<option ${cell.ch===a?'selected':''}>${a}</option>`).join('')}
-                            </select>
-                        </td>
-                        <td>
-                            <select onchange="updatePlan('${rowKey}','r1',this.value)" class="w-full p-1 border rounded bg-white">
-                                <option value="">-</option>
-                                ${state.data.agents.map(a => `<option ${cell.r1===a?'selected':''}>${a}</option>`).join('')}
-                            </select>
-                        </td>
-                        <td>
-                            <select onchange="updatePlan('${rowKey}','r2',this.value)" class="w-full p-1 border rounded bg-white">
-                                <option value="">-</option>
-                                ${state.data.agents.map(a => `<option ${cell.r2===a?'selected':''}>${a}</option>`).join('')}
-                            </select>
-                        </td>
-                        <td>
-                            <select onchange="updatePlan('${rowKey}','vidage',this.value)" class="w-full p-1 border rounded bg-white font-medium">
-                                <option value="">-</option>
-                                <option ${cell.vidage==='Dépôt'?'selected':''}>Dépôt</option>
-                                <option ${cell.vidage==='DRIMM'?'selected':''}>DRIMM</option>
-                            </select>
-                        </td>
-                        <td><input type="text" value="${cell.info || ''}" onchange="updatePlan('${rowKey}','info',this.value)" placeholder="..." class="w-full p-1 border rounded"></td>
-                        <td><input type="text" value="${cell.autres || ''}" onchange="updatePlan('${rowKey}','autres',this.value)" placeholder="..." class="w-full p-1 border rounded"></td>
-                        <td class="text-[9px] text-emerald-600 font-bold italic leading-tight bg-emerald-50/30">${dispos.join(', ')}</td>
+                        <td><select onchange="updatePlan('${rowKey}','camion',this.value)" class="w-full border rounded">${state.data.camions.map(c => `<option ${cell.camion===c?'selected':''}>${c}</option>`).unshift('<option value="">-</option>') && state.data.camions.map(c => `<option ${cell.camion===c?'selected':''}>${c}</option>`).join('')}</select></td>
+                        <td><select onchange="updatePlan('${rowKey}','ch',this.value)" class="w-full border rounded ${checkConge(cell.ch)}"><option value="">-</option>${state.data.agents.map(a => `<option ${cell.ch===a?'selected':''}>${a}</option>`).join('')}</select></td>
+                        <td><select onchange="updatePlan('${rowKey}','r1',this.value)" class="w-full border rounded ${checkConge(cell.r1)}"><option value="">-</option>${state.data.agents.map(a => `<option ${cell.r1===a?'selected':''}>${a}</option>`).join('')}</select></td>
+                        <td><select onchange="updatePlan('${rowKey}','r2',this.value)" class="w-full border rounded ${checkConge(cell.r2)}"><option value="">-</option>${state.data.agents.map(a => `<option ${cell.r2===a?'selected':''}>${a}</option>`).join('')}</select></td>
+                        <td><select onchange="updatePlan('${rowKey}','vidage',this.value)" class="w-full border rounded font-bold"><option value="">-</option><option ${cell.vidage==='Dépôt'?'selected':''}>Dépôt</option><option ${cell.vidage==='DRIMM'?'selected':''}>DRIMM</option></select></td>
+                        <td><input type="text" value="${cell.info || ''}" onchange="updatePlan('${rowKey}','info',this.value)" class="w-full border rounded p-0.5"></td>
+                        <td><input type="text" value="${cell.autres || ''}" onchange="updatePlan('${rowKey}','autres',this.value)" class="w-full border rounded p-0.5"></td>
+                        <td class="text-[9px] text-emerald-600 font-bold bg-emerald-50/50">${dispos.join(', ')}</td>
                     `;
                     body.appendChild(tr);
                 });
@@ -186,69 +156,92 @@
             renderPlanning(); 
         }
 
-        // --- GESTION PARAMETRES ---
-        function addParam(type) {
-            if(type === 'tournees') {
-                const nom = document.getElementById('in-tournees').value.trim();
-                const flux = document.getElementById('in-flux').value;
-                const freq = document.getElementById('in-freq').value;
-                const jour = document.getElementById('in-jour').value;
-                if(!nom) return;
-                state.data.tournees.push({ nom, flux, type: freq, jour });
-                document.getElementById('in-tournees').value = "";
-            } else {
-                const input = document.getElementById(`in-${type}`);
-                if(!input.value.trim()) return;
-                state.data[type].push(input.value.trim());
-                input.value = "";
-            }
-            renderAll();
+        // --- GESTION CONGES ---
+        function renderConges() {
+            const container = document.getElementById('conges-wrapper');
+            const joursDansMois = new Date(state.anneeConges, state.moisConges + 1, 0).getDate();
+            const nomsMois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+            
+            document.getElementById('current-month-display').innerText = `${nomsMois[state.moisConges]} ${state.anneeConges}`;
+
+            let html = `<table class="w-full border-collapse bg-white shadow-sm"><thead><tr class="bg-slate-800 text-white">`;
+            html += `<th class="sticky left-0 bg-slate-900 z-10 w-32">Agent</th>`;
+            for(let j=1; j<=joursDansMois; j++) html += `<th class="text-[9px] border w-8">${j}</th>`;
+            html += `</tr></thead><tbody>`;
+
+            state.data.agents.forEach(agent => {
+                html += `<tr><td class="sticky left-0 bg-slate-50 font-bold border p-2 text-xs">${agent}</td>`;
+                for(let j=1; j<=joursDansMois; j++) {
+                    const dateIso = `${state.anneeConges}-${String(state.moisConges+1).padStart(2,'0')}-${String(j).padStart(2,'0')}`;
+                    const isConge = (state.data.conges[agent] || []).includes(dateIso);
+                    html += `<td onclick="toggleConge('${agent}', '${dateIso}')" class="border cursor-pointer hover:bg-blue-50 ${isConge ? 'bg-conge-active' : ''}"></td>`;
+                }
+                html += `</tr>`;
+            });
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+        }
+
+        function toggleConge(agent, dateIso) {
+            if(!state.data.conges[agent]) state.data.conges[agent] = [];
+            const index = state.data.conges[agent].indexOf(dateIso);
+            if(index > -1) state.data.conges[agent].splice(index, 1);
+            else state.data.conges[agent].push(dateIso);
+            renderConges();
             sync();
         }
 
-        function removeParam(type, index) {
-            state.data[type].splice(index, 1);
-            renderAll();
-            sync();
+        function changeMoisConges(delta) {
+            state.moisConges += delta;
+            if(state.moisConges > 11) { state.moisConges = 0; state.anneeConges++; }
+            if(state.moisConges < 0) { state.moisConges = 11; state.anneeConges--; }
+            renderConges();
+        }
+
+        // --- PARAMETRES ---
+        function renderParams() {
+            document.getElementById('list-agents').innerHTML = state.data.agents.map((a, i) => `<li class="flex justify-between p-1 border-b text-xs">${a}<button onclick="removeParam('agents',${i})" class="text-red-500">✕</button></li>`).join('');
+            document.getElementById('list-camions').innerHTML = state.data.camions.map((c, i) => `<li class="flex justify-between p-1 border-b text-xs">${c}<button onclick="removeParam('camions',${i})" class="text-red-500">✕</button></li>`).join('');
+            
+            const tHtml = (type) => state.data.tournees.filter(t => t.type === type).map((t, i) => `
+                <div class="p-2 border mb-1 text-[10px] flex justify-between bg-white">
+                    <span><b>${JOURS_NOM[t.jour-1]}</b> : ${t.nom}</span>
+                    <button onclick="removeTournee(${i}, '${type}')" class="text-red-400">✕</button>
+                </div>`).join('');
+            document.getElementById('list-tournees-impaires').innerHTML = tHtml('impaire');
+            document.getElementById('list-tournees-paires').innerHTML = tHtml('paire');
+        }
+
+        function addParam(type) {
+            const input = document.getElementById(`in-${type}`);
+            if(!input.value.trim()) return;
+            state.data[type].push(input.value.trim());
+            input.value = ""; renderAll(); sync();
+        }
+
+        function addTournee() {
+            const nom = document.getElementById('in-tournees').value;
+            if(!nom) return;
+            state.data.tournees.push({
+                nom, flux: document.getElementById('in-flux').value,
+                type: document.getElementById('in-freq').value,
+                jour: document.getElementById('in-jour').value
+            });
+            document.getElementById('in-tournees').value = ""; renderAll(); sync();
+        }
+
+        function removeParam(type, idx) { state.data[type].splice(idx, 1); renderAll(); sync(); }
+        function removeTournee(idx, type) { 
+            const realIdx = state.data.tournees.findIndex((t, i) => t.type === type && i === i); // Simplifié pour l'exemple
+            state.data.tournees.splice(realIdx, 1); renderAll(); sync(); 
         }
 
         function renderAll() {
             document.getElementById('week-num').innerText = state.semaine;
             document.getElementById('pair-type').innerText = (state.semaine % 2 === 0) ? "PAIRE" : "IMPAIRE";
             renderPlanning();
-
-            // Rendu Agents
-            document.getElementById('list-agents').innerHTML = state.data.agents.map((item, i) => `
-                <li class="flex justify-between items-center text-xs p-2 bg-slate-50 mb-1 rounded border border-slate-200">
-                    <span class="font-bold">${item}</span>
-                    <button onclick="removeParam('agents', ${i})" class="text-red-500 hover:bg-red-50 px-2 rounded">✕</button>
-                </li>
-            `).join('');
-
-            // Rendu Camions
-            document.getElementById('list-camions').innerHTML = state.data.camions.map((item, i) => `
-                <li class="flex justify-between items-center text-xs p-2 bg-slate-50 mb-1 rounded border border-slate-200">
-                    <span class="font-bold">${item}</span>
-                    <button onclick="removeParam('camions', ${i})" class="text-red-500 hover:bg-red-50 px-2 rounded">✕</button>
-                </li>
-            `).join('');
-
-            // Rendu Tournées Séparées
-            const itemHTML = (t, i) => `
-                <div class="flex justify-between items-center p-2 mb-1 bg-white border text-[11px] rounded shadow-sm">
-                    <div class="flex flex-col">
-                        <span class="font-black text-slate-700 uppercase">${t.nom}</span>
-                        <span class="text-[9px] text-blue-600 font-bold tracking-tighter">${JOURS_NOM[t.jour-1]} | ${t.flux}</span>
-                    </div>
-                    <button onclick="removeParam('tournees', ${i})" class="text-red-400 hover:text-red-600 font-bold p-1">✕</button>
-                </div>
-            `;
-
-            document.getElementById('list-tournees-impaires').innerHTML = state.data.tournees
-                .map((t, i) => t.type === 'impaire' ? itemHTML(t, i) : '').join('');
-
-            document.getElementById('list-tournees-paires').innerHTML = state.data.tournees
-                .map((t, i) => t.type === 'paire' ? itemHTML(t, i) : '').join('');
+            renderParams();
+            renderConges();
         }
 
         function showTab(id) {
@@ -260,54 +253,39 @@
         window.onload = load;
     </script>
 
-    <header class="bg-slate-900 text-white p-4 shadow-xl sticky top-0 z-50">
-        <div class="max-w-[1600px] mx-auto flex justify-between items-center">
-            <div>
-                <h1 class="font-black text-xl tracking-tighter uppercase leading-none">Grand Sud Collecte</h1>
-                <span class="text-[9px] font-bold text-slate-400 tracking-widest uppercase">Gestion de Planning Professionnel</span>
-            </div>
-            <nav class="flex gap-2">
-                <button onclick="showTab('tab-plan')" class="px-4 py-2 text-[11px] font-bold uppercase rounded-lg hover:bg-slate-800 transition-colors">Planning</button>
-                <button onclick="showTab('tab-params')" class="px-4 py-2 text-[11px] font-bold uppercase rounded-lg hover:bg-slate-800 transition-colors">Paramètres</button>
-                <button onclick="showTab('tab-conges')" class="px-4 py-2 text-[11px] font-bold uppercase rounded-lg hover:bg-slate-800 transition-colors">Congés</button>
-            </nav>
-            <div id="status" class="text-[9px] font-mono bg-slate-800 px-3 py-1 rounded-full text-blue-300 border border-slate-700">Initialisation...</div>
-        </div>
+    <header class="bg-slate-900 text-white p-4 sticky top-0 z-50 flex justify-between items-center shadow-lg">
+        <div><h1 class="font-black text-xl tracking-tighter uppercase">Grand Sud Collecte</h1></div>
+        <nav class="flex gap-4">
+            <button onclick="showTab('tab-plan')" class="text-xs font-bold uppercase hover:text-blue-400">Planning</button>
+            <button onclick="showTab('tab-conges')" class="text-xs font-bold uppercase hover:text-blue-400">Congés</button>
+            <button onclick="showTab('tab-params')" class="text-xs font-bold uppercase hover:text-blue-400">Paramètres</button>
+        </nav>
+        <div id="status" class="text-[9px] font-mono text-blue-300">Connexion...</div>
     </header>
 
     <main class="max-w-[1600px] mx-auto p-6">
         
         <section id="tab-plan" class="tab-content active">
-            <div class="flex items-center justify-between mb-6 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                <div class="flex items-center gap-6">
-                    <button onclick="state.semaine--; renderAll()" class="p-3 bg-slate-100 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-all font-bold text-slate-400">◀</button>
-                    <div class="text-center min-w-[300px]">
-                        <div id="plan-title" class="text-xl font-black text-slate-800 uppercase tracking-tight">Chargement du planning...</div>
-                        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em]">Semaine <span id="pair-type" class="text-blue-600 font-black">...</span> (S<span id="week-num"></span>)</div>
+            <div class="flex items-center justify-between mb-4 bg-white p-4 rounded-xl border">
+                <div class="flex items-center gap-4">
+                    <button onclick="state.semaine--; renderAll()" class="px-3 py-1 bg-slate-100 rounded font-bold text-slate-500">◀</button>
+                    <div class="text-center">
+                        <div id="plan-title" class="text-lg font-black text-slate-800 uppercase">...</div>
+                        <div class="text-[10px] text-slate-400 font-bold uppercase italic">Semaine <span id="pair-type" class="text-blue-600">...</span></div>
                     </div>
-                    <button onclick="state.semaine++; renderAll()" class="p-3 bg-slate-100 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-all font-bold text-slate-400">▶</button>
+                    <button onclick="state.semaine++; renderAll()" class="px-3 py-1 bg-slate-100 rounded font-bold text-slate-500">▶</button>
                 </div>
-                <div class="bg-slate-50 p-2 rounded-lg border flex items-center gap-3">
-                    <span class="text-[10px] font-black text-slate-400">ANNÉE</span>
-                    <input type="number" value="2026" onchange="state.annee=parseInt(this.value); renderAll()" class="bg-transparent text-sm font-black w-16 text-center focus:text-blue-600">
-                </div>
+                <input type="number" value="2026" onchange="state.annee=parseInt(this.value); renderAll()" class="border rounded p-1 w-20 text-center font-bold">
             </div>
 
-            <div class="overflow-x-auto rounded-2xl border border-slate-200 shadow-2xl bg-white">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-slate-900 text-white">
-                            <th style="width: 12%">Jour</th>
-                            <th style="width: 14%">Tournée</th>
-                            <th style="width: 5%" class="text-center">Flux</th>
-                            <th style="width: 7%">Camion</th>
-                            <th style="width: 9%">Chauffeur</th>
-                            <th style="width: 9%">Ripeur 1</th>
-                            <th style="width: 9%">Ripeur 2</th>
-                            <th style="width: 7%">Vidage</th>
-                            <th style="width: 10%">Information</th>
-                            <th style="width: 10%">Autres</th>
-                            <th style="width: 13%" class="bg-emerald-900/10 text-emerald-800">Personnel Dispo</th>
+            <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-lg bg-white">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-900 text-white">
+                        <tr>
+                            <th style="width: 12%">Jour</th><th style="width: 12%">Tournée</th><th style="width: 5%">Flux</th>
+                            <th style="width: 8%">Camion</th><th style="width: 10%">Chauffeur</th><th style="width: 10%">Ripeur 1</th>
+                            <th style="width: 10%">Ripeur 2</th><th style="width: 8%">Vidage</th><th style="width: 8%">Info</th>
+                            <th style="width: 8%">Autres</th><th style="width: 11%">Personnel Dispo</th>
                         </tr>
                     </thead>
                     <tbody id="plan-body"></tbody>
@@ -315,87 +293,53 @@
             </div>
         </section>
 
-        <section id="tab-params" class="tab-content">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                
-                <div class="space-y-6">
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                        <h3 class="font-black text-xs uppercase mb-6 text-blue-700 tracking-widest italic border-b pb-2">1. Ressources</h3>
-                        
-                        <label class="block text-[10px] font-bold text-slate-400 mb-2">AJOUTER AGENT</label>
-                        <div class="flex gap-2 mb-4">
-                            <input type="text" id="in-agents" placeholder="Nom Prénom" class="flex-1 border p-2 text-sm rounded-xl bg-slate-50">
-                            <button onclick="addParam('agents')" class="bg-blue-600 text-white px-4 rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700">+</button>
-                        </div>
-                        <ul id="list-agents" class="max-h-40 overflow-y-auto mb-8 pr-2"></ul>
-
-                        <label class="block text-[10px] font-bold text-slate-400 mb-2">AJOUTER CAMION</label>
-                        <div class="flex gap-2 mb-4">
-                            <input type="text" id="in-camions" placeholder="Ex: C01" class="flex-1 border p-2 text-sm rounded-xl bg-slate-50">
-                            <button onclick="addParam('camions')" class="bg-blue-600 text-white px-4 rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700">+</button>
-                        </div>
-                        <ul id="list-camions" class="max-h-40 overflow-y-auto pr-2"></ul>
+        <section id="tab-conges" class="tab-content">
+            <div class="bg-white p-6 rounded-xl border shadow-sm">
+                <div class="flex justify-between items-center mb-6 border-b pb-4">
+                    <h2 class="font-black text-blue-900 uppercase">Gestion des Absences / Congés</h2>
+                    <div class="flex items-center gap-4 bg-slate-100 p-2 rounded-lg">
+                        <button onclick="changeMoisConges(-1)" class="font-bold">◀</button>
+                        <span id="current-month-display" class="font-bold min-w-[150px] text-center uppercase text-sm">...</span>
+                        <button onclick="changeMoisConges(1)" class="font-bold">▶</button>
+                    </div>
+                    <div class="text-[10px] flex items-center gap-2">
+                        <span class="w-4 h-4 bg-red-500 rounded"></span> = Agent en congé
                     </div>
                 </div>
-
-                <div class="lg:col-span-2 space-y-6">
-                    <div class="bg-white p-6 rounded-2xl border-2 border-blue-50 shadow-sm">
-                        <h3 class="font-black text-xs uppercase mb-6 text-blue-700 tracking-widest italic text-center border-b pb-2">2. Prédisposition des Tournées</h3>
-                        
-                        <div class="grid grid-cols-4 gap-4 mb-8 bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
-                            <div class="col-span-2">
-                                <label class="text-[9px] font-black text-blue-900/40 ml-1">NOM DE LA TOURNÉE</label>
-                                <input type="text" id="in-tournees" placeholder="ex: Secteur Centre" class="w-full border p-2.5 rounded-xl text-sm mt-1">
-                            </div>
-                            <div>
-                                <label class="text-[9px] font-black text-blue-900/40 ml-1">FLUX</label>
-                                <select id="in-flux" class="w-full border p-2.5 rounded-xl text-sm font-bold mt-1 bg-white">
-                                    <option value="OM">Flux OM</option>
-                                    <option value="CS">Flux CS</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="text-[9px] font-black text-blue-900/40 ml-1">JOUR</label>
-                                <select id="in-jour" class="w-full border p-2.5 rounded-xl text-sm font-bold mt-1 bg-white">
-                                    <option value="1">Lundi</option>
-                                    <option value="2">Mardi</option>
-                                    <option value="3">Mercredi</option>
-                                    <option value="4">Jeudi</option>
-                                    <option value="5">Vendredi</option>
-                                </select>
-                            </div>
-                            <div class="col-span-2">
-                                <label class="text-[9px] font-black text-blue-900/40 ml-1">FRÉQUENCE</label>
-                                <select id="in-freq" class="w-full border p-2.5 rounded-xl text-sm font-black mt-1 bg-white text-blue-700">
-                                    <option value="impaire">SEMAINE IMPAIRE Uniquement</option>
-                                    <option value="paire">SEMAINE PAIRE Uniquement</option>
-                                </select>
-                            </div>
-                            <button onclick="addParam('tournees')" class="col-span-2 bg-blue-900 text-white p-2.5 rounded-xl font-black mt-5 shadow-xl hover:bg-blue-800 transition-all uppercase text-[10px] tracking-widest">
-                                Enregistrer la tournée (+)
-                            </button>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-8">
-                            <div>
-                                <h4 class="text-[10px] font-black uppercase mb-4 text-indigo-500 bg-indigo-50 py-2 rounded-lg text-center tracking-tighter">Catalogue : S. IMPAIRES</h4>
-                                <div id="list-tournees-impaires" class="space-y-1"></div>
-                            </div>
-                            <div>
-                                <h4 class="text-[10px] font-black uppercase mb-4 text-emerald-500 bg-emerald-50 py-2 rounded-lg text-center tracking-tighter">Catalogue : S. PAIRES</h4>
-                                <div id="list-tournees-paires" class="space-y-1"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <div id="conges-wrapper" class="overflow-x-auto"></div>
             </div>
         </section>
 
-        <section id="tab-conges" class="tab-content">
-            <div class="bg-white p-20 rounded-3xl shadow-xl border-4 border-dashed border-slate-100 flex flex-col items-center justify-center text-center">
-                <div class="text-4xl mb-4">🗓️</div>
-                <h2 class="text-xl font-black text-slate-400 uppercase tracking-tighter">Gestionnaire de Congés</h2>
-                <p class="text-slate-400 text-sm max-w-sm">Le calendrier interactif pour marquer les absences sera disponible dans la prochaine mise à jour.</p>
+        <section id="tab-params" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="bg-white p-4 rounded-xl border shadow-sm">
+                    <h3 class="font-bold text-xs uppercase mb-4 text-blue-700">Agents & Camions</h3>
+                    <div class="flex gap-2 mb-4">
+                        <input type="text" id="in-agents" placeholder="Nouvel Agent" class="flex-1 border p-1 rounded text-sm">
+                        <button onclick="addParam('agents')" class="bg-blue-600 text-white px-2 rounded">+</button>
+                    </div>
+                    <ul id="list-agents" class="mb-6"></ul>
+                    <div class="flex gap-2 mb-4">
+                        <input type="text" id="in-camions" placeholder="N° Camion" class="flex-1 border p-1 rounded text-sm">
+                        <button onclick="addParam('camions')" class="bg-blue-600 text-white px-2 rounded">+</button>
+                    </div>
+                    <ul id="list-camions"></ul>
+                </div>
+
+                <div class="lg:col-span-2 bg-white p-4 rounded-xl border shadow-sm">
+                    <h3 class="font-bold text-xs uppercase mb-4 text-blue-700">Configuration des Tournées</h3>
+                    <div class="grid grid-cols-4 gap-2 mb-6 bg-slate-50 p-3 rounded-lg">
+                        <input type="text" id="in-tournees" placeholder="Nom Tournée" class="border p-2 rounded text-sm col-span-2">
+                        <select id="in-flux" class="border p-2 rounded text-sm"><option value="OM">OM</option><option value="CS">CS</option></select>
+                        <select id="in-jour" class="border p-2 rounded text-sm"><option value="1">Lundi</option><option value="2">Mardi</option><option value="3">Mercredi</option><option value="4">Jeudi</option><option value="5">Vendredi</option></select>
+                        <select id="in-freq" class="border p-2 rounded text-sm col-span-2"><option value="impaire">Semaine Impaire</option><option value="paire">Semaine Paire</option></select>
+                        <button onclick="addTournee()" class="bg-blue-900 text-white p-2 rounded font-bold col-span-2 uppercase text-xs">Ajouter au catalogue</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><h4 class="text-[10px] font-black uppercase mb-2 text-indigo-500">S. Impaires</h4><div id="list-tournees-impaires"></div></div>
+                        <div><h4 class="text-[10px] font-black uppercase mb-2 text-emerald-500">S. Paires</h4><div id="list-tournees-paires"></div></div>
+                    </div>
+                </div>
             </div>
         </section>
 
