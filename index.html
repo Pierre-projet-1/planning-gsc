@@ -65,7 +65,7 @@
         let currentUser = null;
         let isMouseDown = false;
         let currentMotif = "CA";
-        let clipboard = null; // Stockage temporaire pour le copier/coller
+        let clipboard = null; 
         let state = {
             annee: 2026, semaine: 1, moisConges: new Date().getMonth(), anneeConges: 2026,
             data: { agents: [], camions: [], tournees: [], tourneesOccas: [], planning: {}, conges: {}, users: [] }
@@ -96,7 +96,6 @@
             document.getElementById('status').innerText = "✅ Sauvegardé";
         }
 
-        // --- Fonctions Copier/Coller ---
         function copyWeek() {
             const wk = `${state.annee}_W${state.semaine}`;
             clipboard = JSON.parse(JSON.stringify(state.data.planning[wk] || {}));
@@ -128,7 +127,6 @@
             sync(); renderPlanning();
         }
 
-        // --- Logique Authentification ---
         function handleLogin() {
             const email = document.getElementById('login-email').value;
             const pass = document.getElementById('login-pass').value;
@@ -154,6 +152,7 @@
                 if(i === state.semaine) opt.selected = true;
                 select.appendChild(opt);
             }
+            if(document.getElementById('btn-paste-week')) document.getElementById('btn-paste-week').innerText = state.semaine;
         }
 
         function changeSemaine(delta) {
@@ -161,6 +160,7 @@
             if (n < 1) n = 52; if (n > 52) n = 1;
             state.semaine = n;
             document.getElementById('week-selector').value = n;
+            document.getElementById('btn-paste-week').innerText = n;
             renderPlanning();
         }
 
@@ -357,7 +357,7 @@
             <div class="flex justify-between items-end mb-4">
                 <div class="flex gap-2 admin-only">
                     <button onclick="copyWeek()" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase shadow hover:bg-slate-700 transition-colors">📋 Copier Semaine</button>
-                    <button onclick="openPasteModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase shadow hover:bg-blue-500 transition-colors">📥 Coller sur S<span id="btn-paste-week"></span></button>
+                    <button onclick="openPasteModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase shadow hover:bg-blue-500 transition-colors">📥 Coller sur S<span id="btn-paste-week">1</span></button>
                 </div>
                 <button onclick="exportPDF('pdf-area-plan', 'Planning', 'planning')" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-black text-xs uppercase shadow-lg">📄 Export PDF A3</button>
             </div>
