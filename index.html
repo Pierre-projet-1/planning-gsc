@@ -15,14 +15,15 @@
         .is-double { background-color: #ffedd5 !important; color: #9a3412; font-weight: bold; border: 1px solid #f97316 !important; }
         th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; padding: 12px 8px; border: 1px solid #e2e8f0; }
         td { font-size: 11px; padding: 6px; border: 1px solid #e2e8f0; }
-        .cell-conge-active { background-color: #ef4444 !important; }
+        .cell-conge-active { background-color: #ef4444 !important; color: white !important; font-weight: 900; text-align: center; font-size: 9px; }
         .weekend-bg { background-color: #f8fafc !important; color: #cbd5e1; }
         #login-overlay { position: fixed; inset: 0; z-index: 100; background: #0f172a; display: flex; align-items: center; justify-content: center; }
         .admin-only { display: none; }
         body.is-admin .admin-only { display: block; }
+        .motif-btn.active { border-color: #3b82f6; background-color: #3b82f6; color: white; transform: scale(1.05); }
         .pdf-export-container { padding: 20px; background: white; }
         .no-export { display: none !important; }
-        .selectable-cell { user-select: none; }
+        .selectable-cell { user-select: none; transition: all 0.1s; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen font-sans text-slate-900">
@@ -49,12 +50,22 @@
 
         let currentUser = null;
         let isMouseDown = false;
+        let currentMotif = "CA";
         let state = {
             annee: 2026, semaine: 1, moisConges: new Date().getMonth(), anneeConges: 2026,
             data: { agents: [], camions: [], tournees: [], tourneesOccas: [], planning: {}, conges: {}, users: [] }
         };
 
         const JOURS_NOM = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+        const MOTIFS = {
+            "CA": "Congés annuels",
+            "RH": "Récup Heures Sup",
+            "ARTT": "ARTT",
+            "ASA": "Autorisation Spéciale Absence",
+            "DAS": "Absences Syndicales",
+            "FOR": "Agent en Formation",
+            "AM": "Absences Maladie"
+        };
 
         async function load() {
             try {
@@ -166,7 +177,7 @@
                 tourDuJour.forEach(t => {
                     const rowKey = `${t.nom}_${dayIdx}`;
                     const cell = state.data.planning[weekKey]?.[rowKey] || {};
-                    const checkClass = (n) => (n && state.data.conges[n]?.includes(dateObj.iso)) ? 'is-conge' : (counts[n]>1 ? 'is-double' : '');
+                    const checkClass = (n) => (n && state.data.conges[n] && state.data.conges[n][dateObj.iso]) ? 'is-conge' : (counts[n]>1 ? 'is-double' : '');
                     const tr = document.createElement('tr');
                     tr.className = "bg-white";
                     tr.innerHTML = `
@@ -180,7 +191,7 @@
                         <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','vidage',this.value)" class="w-full p-1 border rounded font-bold"><option value="">-</option><option ${cell.vidage==='Dépôt'?'selected':''}>Dépôt</option><option ${cell.vidage==='DRIMM'?'selected':''}>DRIMM</option></select></td>
                         <td><input type="text" ${isLocked?'disabled':''} value="${cell.info||''}" onchange="updatePlan('${rowKey}','info',this.value)" class="w-full p-1 border rounded"></td>
                         <td><input type="text" ${isLocked?'disabled':''} value="${cell.autres||''}" onchange="updatePlan('${rowKey}','autres',this.value)" class="w-full p-1 border rounded"></td>
-                        <td class="col-dispo text-[9px] text-emerald-600 font-bold bg-emerald-50/30">${state.data.agents.filter(a => !counts[a] && !(state.data.conges[a]?.includes(dateObj.iso))).join(', ')}</td>`;
+                        <td class="col-dispo text-[9px] text-emerald-600 font-bold bg-emerald-50/30">${state.data.agents.filter(a => !counts[a] && !(state.data.conges[a] && state.data.conges[a][dateObj.iso])).join(', ')}</td>`;
                     body.appendChild(tr);
                 });
             });
@@ -200,6 +211,7 @@
             const nomsMois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
             document.getElementById('current-month-display').innerText = `${nomsMois[state.moisConges]} ${state.anneeConges}`;
             document.getElementById('pdf-title-conges').innerText = `Planning Congés - ${nomsMois[state.moisConges]} ${state.anneeConges}`;
+            
             let html = `<table class="w-full border-collapse bg-white" onmousedown="isMouseDown=true" onmouseup="isMouseDown=false; sync();"><thead><tr class="bg-slate-800 text-white"><th>Agent</th>`;
             for(let j=1; j<=joursDansMois; j++) {
                 const dateTemp = new Date(state.anneeConges, state.moisConges, j);
@@ -207,25 +219,39 @@
                 html += `<th class="text-[8px] border p-1 ${isWE?'bg-slate-600':''}">${dateTemp.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })}</th>`;
             }
             html += `</tr></thead><tbody>`;
+            
             state.data.agents.forEach(agent => {
                 html += `<tr><td class="font-bold border p-2 text-[10px] bg-slate-50 sticky left-0 z-10">${agent}</td>`;
                 for(let j=1; j<=joursDansMois; j++) {
                     const dIso = `${state.anneeConges}-${String(state.moisConges+1).padStart(2,'0')}-${String(j).padStart(2,'0')}`;
                     const dateTemp = new Date(state.anneeConges, state.moisConges, j);
                     const isWE = dateTemp.getDay() === 0 || dateTemp.getDay() === 6;
-                    const isC = (state.data.conges[agent] || []).includes(dIso);
-                    html += `<td onmousedown="if(currentUser.role==='admin') toggleConge('${agent}','${dIso}', this)" onmouseenter="if(isMouseDown && currentUser.role==='admin') toggleConge('${agent}','${dIso}', this)" class="selectable-cell border cursor-pointer h-8 ${isC?'cell-conge-active':''} ${isWE && !isC ? 'weekend-bg' : ''}"></td>`;
+                    const motif = state.data.conges[agent] ? state.data.conges[agent][dIso] : null;
+                    html += `<td onmousedown="if(currentUser.role==='admin') toggleConge('${agent}','${dIso}', this)" onmouseenter="if(isMouseDown && currentUser.role==='admin') toggleConge('${agent}','${dIso}', this)" class="selectable-cell border cursor-pointer h-8 ${motif?'cell-conge-active':''} ${isWE && !motif ? 'weekend-bg' : ''}">${motif || ''}</td>`;
                 }
                 html += `</tr>`;
             });
             container.innerHTML = html + `</tbody></table>`;
         }
 
+        function setMotif(m) {
+            currentMotif = m;
+            document.querySelectorAll('.motif-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.motif === m);
+            });
+        }
+
         function toggleConge(a, d, el) {
-            if(!state.data.conges[a]) state.data.conges[a] = [];
-            const i = state.data.conges[a].indexOf(d);
-            if(i>-1) { state.data.conges[a].splice(i,1); el.classList.remove('cell-conge-active'); }
-            else { state.data.conges[a].push(d); el.classList.add('cell-conge-active'); }
+            if(!state.data.conges[a]) state.data.conges[a] = {};
+            if(state.data.conges[a][d]) {
+                delete state.data.conges[a][d];
+                el.innerText = "";
+                el.classList.remove('cell-conge-active');
+            } else {
+                state.data.conges[a][d] = currentMotif;
+                el.innerText = currentMotif;
+                el.classList.add('cell-conge-active');
+            }
             renderPlanning();
         }
 
@@ -322,12 +348,24 @@
         <section id="tab-conges" class="tab-content">
             <div class="flex justify-end mb-4"><button onclick="exportPDF('pdf-area-conges', 'Conges', 'conges')" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-black text-xs uppercase shadow-lg">📄 Export PDF A3</button></div>
             <div id="pdf-area-conges" class="pdf-export-container bg-white border">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 id="pdf-title-conges" class="font-black text-xl uppercase text-slate-800">Planning Congés</h2>
-                    <div class="flex items-center gap-4 nav-btn-conges">
-                        <button onclick="changeMoisConges(-1)" class="font-bold px-3 py-1 bg-slate-100 rounded">◀</button>
-                        <span id="current-month-display" class="font-black text-sm uppercase w-40 text-center"></span>
-                        <button onclick="changeMoisConges(1)" class="font-bold px-3 py-1 bg-slate-100 rounded">▶</button>
+                <div class="flex flex-col gap-6 mb-6">
+                    <div class="flex justify-between items-center">
+                        <h2 id="pdf-title-conges" class="font-black text-xl uppercase text-slate-800">Planning Congés</h2>
+                        <div class="flex items-center gap-4 nav-btn-conges">
+                            <button onclick="changeMoisConges(-1)" class="font-bold px-3 py-1 bg-slate-100 rounded">◀</button>
+                            <span id="current-month-display" class="font-black text-sm uppercase w-40 text-center"></span>
+                            <button onclick="changeMoisConges(1)" class="font-bold px-3 py-1 bg-slate-100 rounded">▶</button>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-2 p-3 bg-slate-50 border rounded-xl admin-only">
+                        <span class="text-[10px] font-black uppercase text-slate-400 w-full mb-1">Motif de sélection :</span>
+                        <button onclick="setMotif('CA')" data-motif="CA" class="motif-btn active border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm hover:bg-white transition-all">CA</button>
+                        <button onclick="setMotif('RH')" data-motif="RH" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm hover:bg-white transition-all">RH</button>
+                        <button onclick="setMotif('ARTT')" data-motif="ARTT" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm hover:bg-white transition-all">ARTT</button>
+                        <button onclick="setMotif('ASA')" data-motif="ASA" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm hover:bg-white transition-all">ASA</button>
+                        <button onclick="setMotif('DAS')" data-motif="DAS" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm hover:bg-white transition-all">DAS</button>
+                        <button onclick="setMotif('FOR')" data-motif="FOR" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm hover:bg-white transition-all">FOR</button>
+                        <button onclick="setMotif('AM')" data-motif="AM" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm hover:bg-white transition-all">AM</button>
                     </div>
                 </div>
                 <div id="conges-wrapper" class="overflow-x-auto"></div>
