@@ -17,7 +17,7 @@
         td { font-size: 11px; padding: 6px; border: 1px solid #e2e8f0; }
         .cell-conge-active { background-color: #ef4444 !important; color: white !important; font-weight: 900; text-align: center; font-size: 9px; }
         .weekend-bg { background-color: #f8fafc !important; color: #cbd5e1; }
-        #login-overlay { position: fixed; inset: 0; z-index: 100; background: #0f172a; display: flex; align-items: center; justify-content: center; }
+        #login-overlay, #copy-modal { position: fixed; inset: 0; z-index: 100; background: rgba(15, 23, 42, 0.9); display: flex; align-items: center; justify-content: center; }
         .admin-only { display: none; }
         body.is-admin .admin-only { display: block; }
         .motif-btn.active { border-color: #3b82f6; background-color: #3b82f6; color: white; transform: scale(1.05); }
@@ -43,6 +43,20 @@
         </div>
     </div>
 
+    <div id="copy-modal" class="hidden">
+        <div class="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm">
+            <h3 class="font-black uppercase text-lg mb-4">Options de collage</h3>
+            <p class="text-xs text-slate-500 mb-4 font-bold">Que souhaitez-vous coller sur la semaine <span id="target-week-num"></span> ?</p>
+            <div class="space-y-2">
+                <button onclick="pasteData('all')" class="w-full bg-slate-900 text-white p-3 rounded-lg text-xs font-black uppercase hover:bg-slate-700">Tout coller (Complet)</button>
+                <button onclick="pasteData('ch')" class="w-full border-2 border-slate-200 p-3 rounded-lg text-xs font-black uppercase hover:bg-slate-50">Chauffeurs uniquement</button>
+                <button onclick="pasteData('ripeurs')" class="w-full border-2 border-slate-200 p-3 rounded-lg text-xs font-black uppercase hover:bg-slate-50">Ripeurs uniquement</button>
+                <button onclick="pasteData('camion')" class="w-full border-2 border-slate-200 p-3 rounded-lg text-xs font-black uppercase hover:bg-slate-50">Camions uniquement</button>
+            </div>
+            <button onclick="document.getElementById('copy-modal').classList.add('hidden')" class="w-full mt-6 text-slate-400 font-bold text-xs uppercase underline">Annuler</button>
+        </div>
+    </div>
+
     <script>
         const BIN_ID = "69b528beaa77b81da9e33a14"; 
         const API_KEY = "$2a$10$KM0Bk26gr5ZNVIpvSKTSIOs57V3dBxtizW1IjdbER1L/yjh24vaEq"; 
@@ -51,21 +65,13 @@
         let currentUser = null;
         let isMouseDown = false;
         let currentMotif = "CA";
+        let clipboard = null; // Stockage temporaire pour le copier/coller
         let state = {
             annee: 2026, semaine: 1, moisConges: new Date().getMonth(), anneeConges: 2026,
             data: { agents: [], camions: [], tournees: [], tourneesOccas: [], planning: {}, conges: {}, users: [] }
         };
 
         const JOURS_NOM = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
-        const MOTIFS = {
-            "CA": "Congés annuels",
-            "RH": "Récup Heures Sup",
-            "ARTT": "ARTT",
-            "ASA": "Autorisation Spéciale Absence",
-            "DAS": "Absences Syndicales",
-            "FOR": "Agent en Formation",
-            "AM": "Absences Maladie"
-        };
 
         async function load() {
             try {
@@ -90,6 +96,39 @@
             document.getElementById('status').innerText = "✅ Sauvegardé";
         }
 
+        // --- Fonctions Copier/Coller ---
+        function copyWeek() {
+            const wk = `${state.annee}_W${state.semaine}`;
+            clipboard = JSON.parse(JSON.stringify(state.data.planning[wk] || {}));
+            alert(`Semaine ${state.semaine} copiée ! Naviguez vers une autre semaine pour coller.`);
+        }
+
+        function openPasteModal() {
+            if(!clipboard) return alert("Presse-papier vide. Copiez une semaine d'abord.");
+            document.getElementById('target-week-num').innerText = state.semaine;
+            document.getElementById('copy-modal').classList.remove('hidden');
+        }
+
+        function pasteData(type) {
+            const wk = `${state.annee}_W${state.semaine}`;
+            if(!state.data.planning[wk]) state.data.planning[wk] = {};
+
+            Object.keys(clipboard).forEach(rowKey => {
+                if(!state.data.planning[wk][rowKey]) state.data.planning[wk][rowKey] = {};
+                const source = clipboard[rowKey];
+                const target = state.data.planning[wk][rowKey];
+
+                if(type === 'all' || type === 'ch') target.ch = source.ch;
+                if(type === 'all' || type === 'ripeurs') { target.r1 = source.r1; target.r2 = source.r2; }
+                if(type === 'all' || type === 'camion') target.camion = source.camion;
+                if(type === 'all') { target.vidage = source.vidage; target.info = source.info; target.autres = source.autres; }
+            });
+
+            document.getElementById('copy-modal').classList.add('hidden');
+            sync(); renderPlanning();
+        }
+
+        // --- Logique Authentification ---
         function handleLogin() {
             const email = document.getElementById('login-email').value;
             const pass = document.getElementById('login-pass').value;
@@ -211,7 +250,6 @@
             const nomsMois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
             document.getElementById('current-month-display').innerText = `${nomsMois[state.moisConges]} ${state.anneeConges}`;
             document.getElementById('pdf-title-conges').innerText = `Planning Congés - ${nomsMois[state.moisConges]} ${state.anneeConges}`;
-            
             let html = `<table class="w-full border-collapse bg-white" onmousedown="isMouseDown=true" onmouseup="isMouseDown=false; sync();"><thead><tr class="bg-slate-800 text-white"><th>Agent</th>`;
             for(let j=1; j<=joursDansMois; j++) {
                 const dateTemp = new Date(state.anneeConges, state.moisConges, j);
@@ -219,7 +257,6 @@
                 html += `<th class="text-[8px] border p-1 ${isWE?'bg-slate-600':''}">${dateTemp.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })}</th>`;
             }
             html += `</tr></thead><tbody>`;
-            
             state.data.agents.forEach(agent => {
                 html += `<tr><td class="font-bold border p-2 text-[10px] bg-slate-50 sticky left-0 z-10">${agent}</td>`;
                 for(let j=1; j<=joursDansMois; j++) {
@@ -236,21 +273,15 @@
 
         function setMotif(m) {
             currentMotif = m;
-            document.querySelectorAll('.motif-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.motif === m);
-            });
+            document.querySelectorAll('.motif-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.motif === m));
         }
 
         function toggleConge(a, d, el) {
             if(!state.data.conges[a]) state.data.conges[a] = {};
             if(state.data.conges[a][d]) {
-                delete state.data.conges[a][d];
-                el.innerText = "";
-                el.classList.remove('cell-conge-active');
+                delete state.data.conges[a][d]; el.innerText = ""; el.classList.remove('cell-conge-active');
             } else {
-                state.data.conges[a][d] = currentMotif;
-                el.innerText = currentMotif;
-                el.classList.add('cell-conge-active');
+                state.data.conges[a][d] = currentMotif; el.innerText = currentMotif; el.classList.add('cell-conge-active');
             }
             renderPlanning();
         }
@@ -323,10 +354,16 @@
 
     <main class="max-w-[1600px] mx-auto p-6">
         <section id="tab-plan" class="tab-content active">
-            <div class="flex justify-end mb-4"><button onclick="exportPDF('pdf-area-plan', 'Planning', 'planning')" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-black text-xs uppercase shadow-lg">📄 Export PDF A3</button></div>
+            <div class="flex justify-between items-end mb-4">
+                <div class="flex gap-2 admin-only">
+                    <button onclick="copyWeek()" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase shadow hover:bg-slate-700 transition-colors">📋 Copier Semaine</button>
+                    <button onclick="openPasteModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase shadow hover:bg-blue-500 transition-colors">📥 Coller sur S<span id="btn-paste-week"></span></button>
+                </div>
+                <button onclick="exportPDF('pdf-area-plan', 'Planning', 'planning')" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-black text-xs uppercase shadow-lg">📄 Export PDF A3</button>
+            </div>
             <div id="pdf-area-plan" class="pdf-export-container bg-white border">
                 <div class="flex items-center justify-between mb-8 pb-4 border-b">
-                    <div class="w-1/3"><select id="week-selector" onchange="state.semaine=parseInt(this.value); renderPlanning();" class="p-3 bg-slate-50 border rounded-xl font-black uppercase text-sm"></select><div id="header-range" class="text-xs font-bold text-slate-400 mt-1"></div></div>
+                    <div class="w-1/3"><select id="week-selector" onchange="state.semaine=parseInt(this.value); document.getElementById('btn-paste-week').innerText=this.value; renderPlanning();" class="p-3 bg-slate-50 border rounded-xl font-black uppercase text-sm"></select><div id="header-range" class="text-xs font-bold text-slate-400 mt-1"></div></div>
                     <div class="flex-1 text-center">
                         <div class="flex justify-center items-center gap-6">
                             <button onclick="changeSemaine(-1)" class="text-2xl admin-only">◀</button>
@@ -359,13 +396,13 @@
                     </div>
                     <div class="flex flex-wrap gap-2 p-3 bg-slate-50 border rounded-xl admin-only">
                         <span class="text-[10px] font-black uppercase text-slate-400 w-full mb-1">Motif de sélection :</span>
-                        <button onclick="setMotif('CA')" data-motif="CA" class="motif-btn active border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm hover:bg-white transition-all">CA</button>
-                        <button onclick="setMotif('RH')" data-motif="RH" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm hover:bg-white transition-all">RH</button>
-                        <button onclick="setMotif('ARTT')" data-motif="ARTT" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm hover:bg-white transition-all">ARTT</button>
-                        <button onclick="setMotif('ASA')" data-motif="ASA" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm hover:bg-white transition-all">ASA</button>
-                        <button onclick="setMotif('DAS')" data-motif="DAS" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm hover:bg-white transition-all">DAS</button>
-                        <button onclick="setMotif('FOR')" data-motif="FOR" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm hover:bg-white transition-all">FOR</button>
-                        <button onclick="setMotif('AM')" data-motif="AM" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm hover:bg-white transition-all">AM</button>
+                        <button onclick="setMotif('CA')" data-motif="CA" class="motif-btn active border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm">CA</button>
+                        <button onclick="setMotif('RH')" data-motif="RH" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm">RH</button>
+                        <button onclick="setMotif('ARTT')" data-motif="ARTT" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm">ARTT</button>
+                        <button onclick="setMotif('ASA')" data-motif="ASA" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm">ASA</button>
+                        <button onclick="setMotif('DAS')" data-motif="DAS" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm">DAS</button>
+                        <button onclick="setMotif('FOR')" data-motif="FOR" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm">FOR</button>
+                        <button onclick="setMotif('AM')" data-motif="AM" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm">AM</button>
                     </div>
                 </div>
                 <div id="conges-wrapper" class="overflow-x-auto"></div>
