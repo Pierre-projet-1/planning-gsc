@@ -7,24 +7,28 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
+        :root {
+            --bleu-principal: #5568A5; /* C75 M60 J15 N0 */
+            --bleu-clair: #00AEEF;    /* C93 M0 J35 N0 */
+            --jaune-gsc: #FFF200;     /* C0 M0 J90 N0 */
+            --gris-gsc: #939598;      /* C42 M33 J33 N12 */
+        }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        .flux-om { background-color: #e2e8f0; color: #475569; display: flex; align-items: center; justify-content: center; height: 100%; width: 100%; min-height: 40px; font-weight: 900; }
-        .flux-cs { background-color: #fef08a; color: #854d0e; display: flex; align-items: center; justify-content: center; height: 100%; width: 100%; min-height: 40px; font-weight: 900; }
+        .flux-om { background-color: #f1f1f1; color: var(--gris-gsc); display: flex; align-items: center; justify-content: center; height: 100%; width: 100%; min-height: 40px; font-weight: 900; border: 1px solid var(--gris-gsc); }
+        .flux-cs { background-color: var(--jaune-gsc); color: #000; display: flex; align-items: center; justify-content: center; height: 100%; width: 100%; min-height: 40px; font-weight: 900; border: 1px solid #d4c700; }
         .is-conge { background-color: #ef4444 !important; color: white !important; font-weight: 900 !important; }
-        .is-double { background-color: #ffedd5 !important; color: #9a3412; font-weight: bold; border: 1px solid #f97316 !important; }
-        th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; padding: 12px 8px; border: 1px solid #e2e8f0; }
+        .is-double { background-color: #ffedd5 !important; color: #9a3412; font-weight: bold; border: 2px solid #f97316 !important; }
+        th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; padding: 12px 8px; border: 1px solid #e2e8f0; background-color: var(--bleu-principal); color: white; }
         td { font-size: 11px; padding: 6px; border: 1px solid #e2e8f0; }
-        .cell-conge-active { background-color: #ef4444 !important; color: white !important; font-weight: 900; text-align: center; font-size: 9px; }
+        .cell-conge-active { background-color: #ef4444 !important; color: white !important; font-weight: 900; text-align: center; }
         .weekend-bg { background-color: #f8fafc !important; color: #cbd5e1; }
         #login-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(15, 23, 42, 0.9); display: flex; align-items: center; justify-content: center; }
         #copy-modal { position: fixed; inset: 0; z-index: 200; background: rgba(15, 23, 42, 0.8); display: none; align-items: center; justify-content: center; }
         #copy-modal.active { display: flex; }
         .admin-only { display: none; }
         body.is-admin .admin-only { display: block; }
-        .motif-btn.active { border-color: #3b82f6; background-color: #3b82f6; color: white; transform: scale(1.05); }
-        .pdf-export-container { padding: 20px; background: white; }
-        .no-export { display: none !important; }
+        .motif-btn.active { border-color: var(--bleu-clair); background-color: var(--bleu-clair); color: white; transform: scale(1.05); }
         .selectable-cell { user-select: none; transition: all 0.1s; }
     </style>
 </head>
@@ -33,13 +37,13 @@
     <div id="login-overlay">
         <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
             <div class="text-center mb-8">
-                <h2 class="text-3xl font-black text-slate-900 uppercase tracking-tighter">GRAND SUD Tarn & Garonne</h2>
+                <h2 class="text-3xl font-black uppercase tracking-tighter" style="color: var(--bleu-principal)">GRAND SUD Tarn & Garonne</h2>
                 <p class="text-slate-400 text-sm font-bold uppercase tracking-widest">Espace Privé</p>
             </div>
             <div class="space-y-4">
-                <input type="email" id="login-email" placeholder="Email" class="w-full border-2 p-3 rounded-xl outline-none focus:border-blue-500">
-                <input type="password" id="login-pass" placeholder="Mot de passe" class="w-full border-2 p-3 rounded-xl outline-none focus:border-blue-500">
-                <button onclick="handleLogin()" class="w-full bg-blue-600 text-white font-black p-4 rounded-xl shadow-xl hover:bg-blue-700 uppercase text-sm">Connexion</button>
+                <input type="email" id="login-email" placeholder="Email" class="w-full border-2 p-3 rounded-xl outline-none focus:border-[var(--bleu-principal)]">
+                <input type="password" id="login-pass" placeholder="Mot de passe" class="w-full border-2 p-3 rounded-xl outline-none focus:border-[var(--bleu-principal)]">
+                <button onclick="handleLogin()" class="w-full text-white font-black p-4 rounded-xl shadow-xl hover:opacity-90 uppercase text-sm" style="background-color: var(--bleu-principal)">Connexion</button>
                 <p id="login-error" class="text-red-500 text-xs font-bold text-center hidden">Identifiants incorrects.</p>
             </div>
         </div>
@@ -99,36 +103,6 @@
                 body: JSON.stringify(state.data)
             });
             document.getElementById('status').innerText = "✅ Sauvegardé";
-        }
-
-        function copyWeek() {
-            const wk = `${state.annee}_W${state.semaine}`;
-            clipboard = JSON.parse(JSON.stringify(state.data.planning[wk] || {}));
-            alert(`Semaine ${state.semaine} copiée !`);
-        }
-
-        function openPasteModal() {
-            if(!clipboard) return alert("Presse-papier vide.");
-            document.getElementById('target-week-num').innerText = state.semaine;
-            document.getElementById('copy-modal').classList.add('active');
-        }
-
-        function pasteData(type) {
-            const wk = `${state.annee}_W${state.semaine}`;
-            if(!state.data.planning[wk]) state.data.planning[wk] = {};
-            Object.keys(clipboard).forEach(rowKey => {
-                if(!state.data.planning[wk][rowKey]) state.data.planning[wk][rowKey] = {};
-                const src = clipboard[rowKey];
-                const trg = state.data.planning[wk][rowKey];
-                if(type === 'all' || type === 'ch') trg.ch = src.ch;
-                if(type === 'all' || type === 'ripeurs') { trg.r1 = src.r1; trg.r2 = src.r2; }
-                if(type === 'all' || type === 'camion') trg.camion = src.camion;
-                if(type === 'all' || type === 'vidage') trg.vidage = src.vidage;
-                if(type === 'all' || type === 'info') trg.info = src.info;
-                if(type === 'all' || type === 'autres') trg.autres = src.autres;
-            });
-            document.getElementById('copy-modal').classList.remove('active');
-            sync(); renderPlanning();
         }
 
         function handleLogin() {
@@ -205,7 +179,6 @@
             body.innerHTML = "";
             const isLocked = currentUser.role !== 'admin';
 
-            // Listes filtrées
             const chauffeurs = state.data.agents.filter(a => (state.data.agentRoles[a]||'').includes('Chauffeur'));
             const ripeurs = state.data.agents.filter(a => (state.data.agentRoles[a]||'').includes('Ripeur'));
 
@@ -213,32 +186,39 @@
                 const perm = state.data.tournees.filter(t => t.type === (isPaire?'paire':'impaire') && t.jour == (dayIdx+1));
                 const occas = (state.data.tourneesOccas || []).filter(t => t.dateSpecifique === dateObj.iso);
                 const tourDuJour = [...perm, ...occas];
-                let counts = {};
+                
+                let agentCounts = {};
+                let camionCounts = {};
+
                 tourDuJour.forEach(t => {
                     const c = state.data.planning[weekKey]?.[`${t.nom}_${dayIdx}`] || {};
-                    [c.ch, c.r1, c.r2, c.autres].forEach(n => { if(n) counts[n] = (counts[n] || 0) + 1; });
+                    [c.ch, c.r1, c.r2, c.autres].forEach(n => { if(n && n !== "-") agentCounts[n] = (agentCounts[n] || 0) + 1; });
+                    if(c.camion && c.camion !== "-") camionCounts[c.camion] = (camionCounts[c.camion] || 0) + 1;
                 });
 
                 tourDuJour.forEach((t, tIdx) => {
                     const rowKey = `${t.nom}_${dayIdx}`;
                     const cell = state.data.planning[weekKey]?.[rowKey] || {};
-                    const checkClass = (n) => (n && state.data.conges[n] && state.data.conges[n][dateObj.iso]) ? 'is-conge' : (counts[n]>1 ? 'is-double' : '');
+                    
+                    const checkAgent = (n) => (n && n !== "-" && state.data.conges[n] && state.data.conges[n][dateObj.iso]) ? 'is-conge' : (agentCounts[n]>1 ? 'is-double' : '');
+                    const checkCamion = (c) => (c && c !== "-" && camionCounts[c]>1) ? 'is-double' : '';
+
                     const tr = document.createElement('tr');
                     tr.className = "bg-white";
                     let dayCell = tIdx === 0 ? `<td rowspan="${tourDuJour.length}" class="font-bold text-slate-600 bg-slate-50/50 border-r">${dateObj.texte}</td>` : "";
                     
                     tr.innerHTML = `
                         ${dayCell}
-                        <td class="font-black text-blue-900 uppercase">${t.nom}</td>
+                        <td class="font-black uppercase" style="color: var(--bleu-principal)">${t.nom}</td>
                         <td class="p-0"><div class="${t.flux==='OM'?'flux-om':'flux-cs'}">${t.flux}</div></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','camion',this.value)" class="w-full p-1 border rounded"><option value="">-</option>${state.data.camions.map(c => `<option ${cell.camion===c?'selected':''}>${c}</option>`).join('')}</select></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','ch',this.value)" class="w-full p-1 border rounded ${checkClass(cell.ch)}"><option value="">-</option>${chauffeurs.map(a => `<option ${cell.ch===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r1',this.value)" class="w-full p-1 border rounded ${checkClass(cell.r1)}"><option value="">-</option>${ripeurs.map(a => `<option ${cell.r1===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r2',this.value)" class="w-full p-1 border rounded ${checkClass(cell.r2)}"><option value="">-</option>${ripeurs.map(a => `<option ${cell.r2===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','vidage',this.value)" class="w-full p-1 border rounded font-bold"><option value="">-</option><option ${cell.vidage==='Dépôt'?'selected':''}>Dépôt</option><option ${cell.vidage==='DRIMM'?'selected':''}>DRIMM</option></select></td>
+                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','camion',this.value)" class="w-full p-1 border rounded ${checkCamion(cell.camion)}"><option value="-">-</option>${state.data.camions.map(c => `<option ${cell.camion===c?'selected':''}>${c}</option>`).join('')}</select></td>
+                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','ch',this.value)" class="w-full p-1 border rounded ${checkAgent(cell.ch)}"><option value="-">-</option>${chauffeurs.map(a => `<option ${cell.ch===a?'selected':''}>${a}</option>`).join('')}</select></td>
+                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r1',this.value)" class="w-full p-1 border rounded ${checkAgent(cell.r1)}"><option value="-">-</option>${ripeurs.map(a => `<option ${cell.r1===a?'selected':''}>${a}</option>`).join('')}</select></td>
+                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r2',this.value)" class="w-full p-1 border rounded ${checkAgent(cell.r2)}"><option value="-">-</option>${ripeurs.map(a => `<option ${cell.r2===a?'selected':''}>${a}</option>`).join('')}</select></td>
+                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','vidage',this.value)" class="w-full p-1 border rounded font-bold"><option value="-">-</option><option ${cell.vidage==='Dépôt'?'selected':''}>Dépôt</option><option ${cell.vidage==='DRIMM'?'selected':''}>DRIMM</option></select></td>
                         <td><input type="text" ${isLocked?'disabled':''} value="${cell.info||''}" onchange="updatePlan('${rowKey}','info',this.value)" class="w-full p-1 border rounded"></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','autres',this.value)" class="w-full p-1 border rounded ${checkClass(cell.autres)}"><option value="">-</option>${state.data.agents.map(a => `<option ${cell.autres===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                        ${tIdx === 0 ? `<td rowspan="${tourDuJour.length}" class="col-dispo text-[9px] text-emerald-600 font-bold bg-emerald-50/30 border-l">${state.data.agents.filter(a => !counts[a] && !(state.data.conges[a] && state.data.conges[a][dateObj.iso])).join(', ')}</td>` : ''}`;
+                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','autres',this.value)" class="w-full p-1 border rounded ${checkAgent(cell.autres)}"><option value="-">-</option>${state.data.agents.map(a => `<option ${cell.autres===a?'selected':''}>${a}</option>`).join('')}</select></td>
+                        ${tIdx === 0 ? `<td rowspan="${tourDuJour.length}" class="col-dispo text-[9px] text-emerald-600 font-bold bg-emerald-50/30 border-l">${state.data.agents.filter(a => !agentCounts[a] && !(state.data.conges[a] && state.data.conges[a][dateObj.iso])).join(', ')}</td>` : ''}`;
                     body.appendChild(tr);
                 });
             });
@@ -259,20 +239,18 @@
             const titreMois = `${nomsMois[state.moisConges]} ${state.anneeConges}`;
             document.getElementById('current-month-display').innerText = titreMois;
             
-            let html = `<table class="w-full border-collapse bg-white" onmousedown="isMouseDown=true" onmouseup="isMouseDown=false; sync();"><thead><tr class="bg-slate-800 text-white"><th>Agent</th>`;
+            let html = `<table class="w-full border-collapse bg-white" onmousedown="isMouseDown=true" onmouseup="isMouseDown=false; sync();"><thead><tr style="background-color: var(--bleu-principal); color: white;"><th>Agent</th>`;
             for(let j=1; j<=joursDansMois; j++) {
-                const dateTemp = new Date(state.anneeConges, state.moisConges, j);
-                const isWE = dateTemp.getDay() === 0 || dateTemp.getDay() === 6;
-                html += `<th class="text-[8px] border p-1 ${isWE?'bg-slate-600':''}">${dateTemp.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })}</th>`;
+                const d = new Date(state.anneeConges, state.moisConges, j);
+                html += `<th class="text-[8px] border p-1 ${d.getDay()===0||d.getDay()===6?'opacity-70':''}">${d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })}</th>`;
             }
             html += `</tr></thead><tbody>`;
             state.data.agents.forEach(agent => {
                 html += `<tr><td class="font-bold border p-2 text-[10px] bg-slate-50 sticky left-0 z-10">${agent}</td>`;
                 for(let j=1; j<=joursDansMois; j++) {
                     const dIso = `${state.anneeConges}-${String(state.moisConges+1).padStart(2,'0')}-${String(j).padStart(2,'0')}`;
-                    const dateTemp = new Date(state.anneeConges, state.moisConges, j);
-                    const isWE = dateTemp.getDay() === 0 || dateTemp.getDay() === 6;
-                    const motif = state.data.conges[agent] ? state.data.conges[agent][dIso] : null;
+                    const isWE = new Date(state.anneeConges, state.moisConges, j).getDay() % 6 === 0;
+                    const motif = state.data.conges[agent]?.[dIso];
                     html += `<td onmousedown="if(currentUser.role==='admin') toggleConge('${agent}','${dIso}', this)" onmouseenter="if(isMouseDown && currentUser.role==='admin') toggleConge('${agent}','${dIso}', this)" class="selectable-cell border cursor-pointer h-8 ${motif?'cell-conge-active':''} ${isWE && !motif ? 'weekend-bg' : ''}">${motif || ''}</td>`;
                 }
                 html += `</tr>`;
@@ -280,18 +258,10 @@
             container.innerHTML = html + `</tbody></table>`;
         }
 
-        function setMotif(m) {
-            currentMotif = m;
-            document.querySelectorAll('.motif-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.motif === m));
-        }
-
         function toggleConge(a, d, el) {
             if(!state.data.conges[a]) state.data.conges[a] = {};
-            if(state.data.conges[a][d]) {
-                delete state.data.conges[a][d]; el.innerText = ""; el.classList.remove('cell-conge-active');
-            } else {
-                state.data.conges[a][d] = currentMotif; el.innerText = currentMotif; el.classList.add('cell-conge-active');
-            }
+            if(state.data.conges[a][d]) { delete state.data.conges[a][d]; el.innerText = ""; el.classList.remove('cell-conge-active'); }
+            else { state.data.conges[a][d] = currentMotif; el.innerText = currentMotif; el.classList.add('cell-conge-active'); }
             renderPlanning();
         }
 
@@ -302,18 +272,26 @@
             renderConges();
         }
 
+        function setMotif(m) {
+            currentMotif = m;
+            document.querySelectorAll('.motif-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.motif === m));
+        }
+
         function addParam(t) {
             if(t==='tournees') {
-                state.data.tournees.push({ nom: document.getElementById('in-tournees').value, flux: document.getElementById('in-flux').value, type: document.getElementById('in-freq').value, jour: document.getElementById('in-jour').value, vidageDefault: document.getElementById('in-vidage').value });
+                state.data.tournees.push({ nom: document.getElementById('in-tournees').value, flux: document.getElementById('in-flux').value, type: document.getElementById('in-freq').value, jour: document.getElementById('in-jour').value });
             } else if(t==='tourneesOccas') {
-                const dVal = document.getElementById('occ-date').value;
-                state.data.tourneesOccas.push({ nom: document.getElementById('occ-tournees').value, flux: document.getElementById('occ-flux').value, dateSpecifique: dVal, vidageDefault: document.getElementById('occ-vidage').value });
+                state.data.tourneesOccas.push({ nom: document.getElementById('occ-tournees').value, flux: document.getElementById('occ-flux').value, dateSpecifique: document.getElementById('occ-date').value });
             } else if(t==='agents') {
                 const name = document.getElementById('in-agents').value;
-                const role = document.getElementById('in-agent-role').value;
-                if(name) { state.data.agents.push(name); state.data.agentRoles[name] = role; }
+                if(name) { state.data.agents.push(name); state.data.agentRoles[name] = document.getElementById('in-agent-role').value; }
             } else state.data[t].push(document.getElementById(`in-${t}`).value);
             renderAll(); sync();
+        }
+
+        function updateAgentRole(agent, role) {
+            state.data.agentRoles[agent] = role;
+            sync(); renderPlanning();
         }
 
         function renderAll() {
@@ -322,20 +300,27 @@
             
             document.getElementById('list-agents').innerHTML = state.data.agents.map((item, i) => `
                 <li class="flex justify-between items-center text-xs p-2 bg-slate-50 mb-1 border rounded">
-                    <div><b>${item}</b> <span class="text-[9px] text-slate-400 uppercase">(${state.data.agentRoles[item]||'Non défini'})</span></div>
-                    <button onclick="state.data.agents.splice(${i},1);renderAll();sync();" class="text-red-500 admin-only">✕</button>
+                    <div class="font-bold">${item}</div>
+                    <div class="flex gap-2 items-center">
+                        <select onchange="updateAgentRole('${item}', this.value)" class="text-[9px] border rounded p-1">
+                            <option value="Chauffeur" ${state.data.agentRoles[item]==='Chauffeur'?'selected':''}>Chauffeur</option>
+                            <option value="Ripeur" ${state.data.agentRoles[item]==='Ripeur'?'selected':''}>Ripeur</option>
+                            <option value="Chauffeur / Ripeur" ${state.data.agentRoles[item]==='Chauffeur / Ripeur'?'selected':''}>Chauffeur / Ripeur</option>
+                        </select>
+                        <button onclick="state.data.agents.splice(${i},1);renderAll();sync();" class="text-red-500 admin-only">✕</button>
+                    </div>
                 </li>`).join('');
 
             document.getElementById('list-camions').innerHTML = state.data.camions.map((item, i) => `<li class="flex justify-between text-xs p-2 bg-slate-50 mb-1 border rounded">${item} <button onclick="state.data.camions.splice(${i},1);renderAll();sync();" class="text-red-500 admin-only">✕</button></li>`).join('');
 
             const tHTML = (t, i, list) => {
-                const bg = t.flux==='CS'?'bg-yellow-400 border-yellow-600':'bg-slate-100 border-slate-300';
+                const bg = t.flux==='CS'?'background-color: var(--jaune-gsc); border-color: #d4c700;':'background-color: #f1f1f1; border-color: var(--gris-gsc);';
                 let dateTxt = t.dateSpecifique ? `[${new Date(t.dateSpecifique).toLocaleDateString('fr-FR')}] ` : `<b>${JOURS_NOM[t.jour-1]}</b> : `;
-                return `<div class="flex justify-between p-2 mb-1 ${bg} border text-[11px] font-bold rounded shadow-sm"><span>${dateTxt}${t.nom}</span><button onclick="state.data.${list}.splice(${i},1);renderAll();sync();" class="text-red-600 admin-only">✕</button></div>`;
+                return `<div class="flex justify-between p-2 mb-1 border text-[11px] font-bold rounded shadow-sm" style="${bg}"><span>${dateTxt}${t.nom}</span><button onclick="state.data.${list}.splice(${i},1);renderAll();sync();" class="text-red-600 admin-only">✕</button></div>`;
             };
             document.getElementById('list-tournees-impaires').innerHTML = state.data.tournees.map((t, i) => t.type==='impaire'?tHTML(t,i,'tournees'):'').join('');
             document.getElementById('list-tournees-paires').innerHTML = state.data.tournees.map((t, i) => t.type==='paire'?tHTML(t,i,'tournees'):'').join('');
-            document.getElementById('list-tournees-occas').innerHTML = state.data.tourneesOccas.map((t, i) => tHTML(t,i,'tourneesOccas')).join('');
+            document.getElementById('list-tournees-occas').innerHTML = (state.data.tourneesOccas||[]).map((t, i) => tHTML(t,i,'tourneesOccas')).join('');
         }
 
         function renderUsers() {
@@ -356,20 +341,47 @@
         }
         function showTab(id) { document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active')); document.getElementById(id).classList.add('active'); renderAll(); }
         window.onload = load;
+
+        function copyWeek() {
+            const wk = `${state.annee}_W${state.semaine}`;
+            clipboard = JSON.parse(JSON.stringify(state.data.planning[wk] || {}));
+            alert(`Semaine ${state.semaine} copiée !`);
+        }
+        function openPasteModal() {
+            if(!clipboard) return alert("Presse-papier vide.");
+            document.getElementById('target-week-num').innerText = state.semaine;
+            document.getElementById('copy-modal').classList.add('active');
+        }
+        function pasteData(type) {
+            const wk = `${state.annee}_W${state.semaine}`;
+            if(!state.data.planning[wk]) state.data.planning[wk] = {};
+            Object.keys(clipboard).forEach(rowKey => {
+                if(!state.data.planning[wk][rowKey]) state.data.planning[wk][rowKey] = {};
+                const src = clipboard[rowKey]; const trg = state.data.planning[wk][rowKey];
+                if(type === 'all' || type === 'ch') trg.ch = src.ch;
+                if(type === 'all' || type === 'ripeurs') { trg.r1 = src.r1; trg.r2 = src.r2; }
+                if(type === 'all' || type === 'camion') trg.camion = src.camion;
+                if(type === 'all' || type === 'vidage') trg.vidage = src.vidage;
+                if(type === 'all' || type === 'info') trg.info = src.info;
+                if(type === 'all' || type === 'autres') trg.autres = src.autres;
+            });
+            document.getElementById('copy-modal').classList.remove('active');
+            sync(); renderPlanning();
+        }
     </script>
 
-    <header class="bg-slate-900 text-white p-4 sticky top-0 z-50 flex justify-between items-center shadow-xl">
-        <h1 class="font-black text-xl tracking-tighter uppercase text-blue-400">GRAND SUD Tarn & Garonne</h1>
+    <header class="text-white p-4 sticky top-0 z-50 flex justify-between items-center shadow-xl" style="background-color: var(--bleu-principal)">
+        <h1 class="font-black text-xl tracking-tighter uppercase" style="color: var(--jaune-gsc)">GRAND SUD Tarn & Garonne</h1>
         <nav class="flex gap-4">
-            <button onclick="showTab('tab-plan')" class="text-xs font-bold uppercase hover:text-blue-400">Planning</button>
-            <button onclick="showTab('tab-conges')" class="text-xs font-bold uppercase hover:text-blue-400">Congés</button>
-            <button onclick="showTab('tab-params')" class="text-xs font-bold uppercase hover:text-blue-400 admin-only">Configuration</button>
-            <button onclick="showTab('tab-users')" class="text-xs font-bold uppercase hover:text-blue-400 admin-only">Utilisateurs</button>
+            <button onclick="showTab('tab-plan')" class="text-xs font-bold uppercase hover:opacity-70">Planning</button>
+            <button onclick="showTab('tab-conges')" class="text-xs font-bold uppercase hover:opacity-70">Congés</button>
+            <button onclick="showTab('tab-params')" class="text-xs font-bold uppercase hover:opacity-70 admin-only">Configuration</button>
+            <button onclick="showTab('tab-users')" class="text-xs font-bold uppercase hover:opacity-70 admin-only">Utilisateurs</button>
         </nav>
         <div class="flex items-center gap-4">
-            <div id="status" class="text-[9px] font-mono text-blue-300">...</div>
-            <div onclick="showTab('tab-profil')" class="cursor-pointer bg-blue-600 px-3 py-1 rounded-lg text-xs font-bold hover:bg-blue-500">👤 <span id="user-display-name">Profil</span></div>
-            <button onclick="location.reload()" class="text-xs text-slate-400 font-bold hover:text-white">Sortie</button>
+            <div id="status" class="text-[9px] font-mono text-white/50">...</div>
+            <div onclick="showTab('tab-profil')" class="cursor-pointer px-3 py-1 rounded-lg text-xs font-bold hover:bg-white/20" style="border: 1px solid white">👤 <span id="user-display-name">Profil</span></div>
+            <button onclick="location.reload()" class="text-xs text-white/70 font-bold hover:text-white">Sortie</button>
         </div>
     </header>
 
@@ -377,8 +389,8 @@
         <section id="tab-plan" class="tab-content active">
             <div class="flex justify-between items-end mb-4">
                 <div class="flex gap-2 admin-only">
-                    <button onclick="copyWeek()" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase shadow hover:bg-slate-700 transition-colors">📋 Copier Semaine</button>
-                    <button onclick="openPasteModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase shadow hover:bg-blue-500 transition-colors">📥 Coller ici</button>
+                    <button onclick="copyWeek()" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase shadow">📋 Copier Semaine</button>
+                    <button onclick="openPasteModal()" class="text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase shadow" style="background-color: var(--bleu-principal)">📥 Coller ici</button>
                 </div>
                 <button onclick="exportPDF('pdf-area-plan', 'Planning', 'planning')" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-black text-xs uppercase shadow-lg">📄 Export PDF A3</button>
             </div>
@@ -388,14 +400,14 @@
                     <div class="flex-1 text-center">
                         <div class="flex justify-center items-center gap-6">
                             <button onclick="changeSemaine(-1)" class="text-2xl admin-only">◀</button>
-                            <div><span class="text-2xl font-black uppercase">Semaine n°<span id="header-semaine"></span> - <span id="header-mois-annee"></span></span><br><span id="header-flux-type" class="text-blue-600 font-black text-xs tracking-widest uppercase"></span></div>
+                            <div><span class="text-2xl font-black uppercase">Semaine n°<span id="header-semaine"></span> - <span id="header-mois-annee"></span></span><br><span id="header-flux-type" class="font-black text-xs tracking-widest uppercase" style="color: var(--bleu-clair)"></span></div>
                             <button onclick="changeSemaine(1)" class="text-2xl admin-only">▶</button>
                         </div>
                     </div>
                     <div class="w-1/3 text-right"><input type="number" value="2026" onchange="state.annee=parseInt(this.value); renderPlanning()" class="border p-2 w-24 text-center font-black text-xl"></div>
                 </div>
-                <table class="w-full text-left">
-                    <thead class="bg-slate-900 text-white">
+                <table class="w-full text-left border-collapse">
+                    <thead>
                         <tr><th style="width: 10%">Jour</th><th style="width: 12%">Tournée</th><th style="width: 6%">Flux</th><th style="width: 7%">Camion</th><th style="width: 9%">Chauffeur</th><th style="width: 9%">Ripeur 1</th><th style="width: 9%">Ripeur 2</th><th style="width: 7%">Vidage</th><th style="width: 10%">Info</th><th style="width: 12%">Autres missions</th><th class="col-dispo" style="width: 9%">Dispo</th></tr>
                     </thead>
                     <tbody id="plan-body"></tbody>
@@ -408,23 +420,22 @@
             <div id="pdf-area-conges" class="pdf-export-container bg-white border">
                 <div class="flex flex-col gap-6 mb-6">
                     <div class="flex items-center justify-between border-b pb-4">
-                        <h2 class="font-black text-xl uppercase text-slate-800 tracking-tighter w-1/3 text-left">PLANNING CONGÉS</h2>
+                        <h2 class="font-black text-xl uppercase tracking-tighter w-1/3 text-left" style="color: var(--bleu-principal)">PLANNING CONGÉS</h2>
                         <div class="flex items-center justify-center gap-8 w-1/3 nav-btn-conges">
-                            <button onclick="changeMoisConges(-1)" class="text-2xl font-black text-slate-400 hover:text-blue-600">◀</button>
-                            <span id="current-month-display" class="font-black text-lg uppercase text-blue-600 min-w-[150px] text-center"></span>
-                            <button onclick="changeMoisConges(1)" class="text-2xl font-black text-slate-400 hover:text-blue-600">▶</button>
+                            <button onclick="changeMoisConges(-1)" class="text-2xl font-black text-slate-400 hover:opacity-50">◀</button>
+                            <span id="current-month-display" class="font-black text-lg uppercase min-w-[150px] text-center" style="color: var(--bleu-clair)"></span>
+                            <button onclick="changeMoisConges(1)" class="text-2xl font-black text-slate-400 hover:opacity-50">▶</button>
                         </div>
                         <div class="w-1/3"></div>
                     </div>
                     <div class="flex flex-wrap gap-2 p-3 bg-slate-50 border rounded-xl admin-only">
-                        <span class="text-[10px] font-black uppercase text-slate-400 w-full mb-1">Motif :</span>
-                        <button onclick="setMotif('CA')" data-motif="CA" class="motif-btn active border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm">CA</button>
-                        <button onclick="setMotif('RH')" data-motif="RH" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm">RH</button>
-                        <button onclick="setMotif('ARTT')" data-motif="ARTT" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm">ARTT</button>
-                        <button onclick="setMotif('ASA')" data-motif="ASA" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm">ASA</button>
-                        <button onclick="setMotif('DAS')" data-motif="DAS" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm">DAS</button>
-                        <button onclick="setMotif('FOR')" data-motif="FOR" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm">FOR</button>
-                        <button onclick="setMotif('AM')" data-motif="AM" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-sm">AM</button>
+                        <button onclick="setMotif('CA')" data-motif="CA" class="motif-btn active border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">CA</button>
+                        <button onclick="setMotif('RH')" data-motif="RH" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">RH</button>
+                        <button onclick="setMotif('ARTT')" data-motif="ARTT" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">ARTT</button>
+                        <button onclick="setMotif('ASA')" data-motif="ASA" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">ASA</button>
+                        <button onclick="setMotif('DAS')" data-motif="DAS" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">DAS</button>
+                        <button onclick="setMotif('FOR')" data-motif="FOR" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">FOR</button>
+                        <button onclick="setMotif('AM')" data-motif="AM" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">AM</button>
                     </div>
                 </div>
                 <div id="conges-wrapper" class="overflow-x-auto"></div>
@@ -434,7 +445,7 @@
         <section id="tab-params" class="tab-content">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div class="bg-white p-6 border rounded-xl shadow-sm">
-                    <h3 class="font-black text-xs uppercase mb-1 text-blue-600 tracking-widest">Agents</h3>
+                    <h3 class="font-black text-xs uppercase mb-1 tracking-widest" style="color: var(--bleu-principal)">Agents</h3>
                     <div class="space-y-2 mb-4">
                         <input id="in-agents" placeholder="Nom Agent" class="w-full border p-2 rounded text-xs">
                         <select id="in-agent-role" class="w-full border p-2 rounded text-xs">
@@ -442,24 +453,23 @@
                             <option value="Ripeur">Ripeur</option>
                             <option value="Chauffeur / Ripeur">Chauffeur / Ripeur</option>
                         </select>
-                        <button onclick="addParam('agents')" class="w-full bg-blue-600 text-white py-2 rounded text-xs font-bold">Ajouter Agent</button>
+                        <button onclick="addParam('agents')" class="w-full text-white py-2 rounded text-xs font-bold uppercase" style="background-color: var(--bleu-principal)">Ajouter Agent</button>
                     </div>
                     <ul id="list-agents" class="mb-8"></ul>
                     
-                    <h3 class="font-black text-xs uppercase mb-1 text-slate-600 tracking-widest border-t pt-4">Camion</h3>
-                    <div class="flex gap-2 mb-4"><input id="in-camions" placeholder="N°" class="flex-1 border p-2 rounded text-xs"><button onclick="addParam('camions')" class="bg-blue-900 text-white px-3 rounded">+</button></div>
+                    <h3 class="font-black text-xs uppercase mb-1 tracking-widest border-t pt-4" style="color: var(--gris-gsc)">Camions</h3>
+                    <div class="flex gap-2 mb-4"><input id="in-camions" placeholder="N°" class="flex-1 border p-2 rounded text-xs"><button onclick="addParam('camions')" class="text-white px-3 rounded" style="background-color: var(--bleu-principal)">+</button></div>
                     <ul id="list-camions"></ul>
                 </div>
                 <div class="lg:col-span-2 space-y-8">
                     <div class="bg-white p-6 border rounded-xl shadow-sm">
-                        <h3 class="font-black text-xs uppercase mb-4 text-blue-600">Tournées permanentes</h3>
-                        <div class="grid grid-cols-5 gap-3 mb-4 bg-slate-50 p-4 rounded-lg">
+                        <h3 class="font-black text-xs uppercase mb-4" style="color: var(--bleu-principal)">Tournées permanentes</h3>
+                        <div class="grid grid-cols-4 gap-3 mb-4 bg-slate-50 p-4 rounded-lg">
                             <div><label class="text-[9px] font-black uppercase text-slate-400">Nom</label><input id="in-tournees" class="w-full border p-1 rounded"></div>
                             <div><label class="text-[9px] font-black uppercase text-slate-400">Flux</label><select id="in-flux" class="w-full border p-1 rounded"><option value="OM">OM</option><option value="CS">CS</option></select></div>
                             <div><label class="text-[9px] font-black uppercase text-slate-400">Jour</label><select id="in-jour" class="w-full border p-1 rounded"><option value="1">Lundi</option><option value="2">Mardi</option><option value="3">Mercredi</option><option value="4">Jeudi</option><option value="5">Vendredi</option><option value="6">Samedi</option></select></div>
                             <div><label class="text-[9px] font-black uppercase text-slate-400">Type</label><select id="in-freq" class="w-full border p-1 rounded"><option value="impaire">Impaire</option><option value="paire">Paire</option></select></div>
-                            <div><label class="text-[9px] font-black uppercase text-slate-400">Vidage</label><select id="in-vidage" class="w-full border p-1 rounded"><option value="Dépôt">Dépôt</option><option value="DRIMM">DRIMM</option></select></div>
-                            <button onclick="addParam('tournees')" class="col-span-5 bg-blue-900 text-white p-2 rounded font-bold uppercase text-xs">Ajouter Permanente</button>
+                            <button onclick="addParam('tournees')" class="col-span-4 text-white p-2 rounded font-bold uppercase text-xs" style="background-color: var(--bleu-principal)">Ajouter Permanente</button>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div><h4 class="text-[10px] font-black uppercase mb-2">Impaires</h4><div id="list-tournees-impaires"></div></div>
@@ -467,13 +477,12 @@
                         </div>
                     </div>
                     <div class="bg-white p-6 border rounded-xl shadow-sm">
-                        <h3 class="font-black text-xs uppercase mb-4 text-slate-900">Tournées occasionnelles</h3>
-                        <div class="grid grid-cols-5 gap-3 mb-4 bg-slate-50 p-4 rounded-lg">
-                            <div class="col-span-2"><label class="text-[9px] font-black uppercase text-slate-400">Nom</label><input id="occ-tournees" class="w-full border p-1 rounded"></div>
+                        <h3 class="font-black text-xs uppercase mb-4">Tournées occasionnelles</h3>
+                        <div class="grid grid-cols-3 gap-3 mb-4 bg-slate-50 p-4 rounded-lg">
+                            <div class="col-span-1"><label class="text-[9px] font-black uppercase text-slate-400">Nom</label><input id="occ-tournees" class="w-full border p-1 rounded"></div>
                             <div><label class="text-[9px] font-black uppercase text-slate-400">Flux</label><select id="occ-flux" class="w-full border p-1 rounded"><option value="OM">OM</option><option value="CS">CS</option></select></div>
                             <div><label class="text-[9px] font-black uppercase text-slate-400">Date</label><input type="date" id="occ-date" class="w-full border p-1 rounded text-[10px]"></div>
-                            <div><label class="text-[9px] font-black uppercase text-slate-400">Vidage</label><select id="occ-vidage" class="w-full border p-1 rounded"><option value="Dépôt">Dépôt</option><option value="DRIMM">DRIMM</option></select></div>
-                            <button onclick="addParam('tourneesOccas')" class="col-span-5 bg-slate-900 text-white p-2 rounded font-bold uppercase text-xs">Ajouter Occasionnelle</button>
+                            <button onclick="addParam('tourneesOccas')" class="col-span-3 bg-slate-900 text-white p-2 rounded font-bold uppercase text-xs">Ajouter Occasionnelle</button>
                         </div>
                         <div id="list-tournees-occas"></div>
                     </div>
@@ -484,13 +493,13 @@
         <section id="tab-users" class="tab-content">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div class="bg-white p-6 rounded-xl border shadow-sm">
-                    <h3 class="font-black text-blue-700 uppercase mb-4 text-xs">Nouveau compte</h3>
+                    <h3 class="font-black uppercase mb-4 text-xs" style="color: var(--bleu-principal)">Nouveau compte</h3>
                     <div class="space-y-3">
                         <div class="grid grid-cols-2 gap-2"><input id="new-u-prenom" placeholder="Prénom" class="border p-2 rounded text-sm"><input id="new-u-nom" placeholder="Nom" class="border p-2 rounded text-sm"></div>
                         <input id="new-u-email" placeholder="Email" class="w-full border p-2 rounded text-sm">
                         <input id="new-u-pass" placeholder="Mot de passe" class="w-full border p-2 rounded text-sm">
                         <select id="new-u-role" class="w-full border p-2 rounded text-sm"><option value="read">Lecteur</option><option value="admin">Admin</option></select>
-                        <button onclick="addUser()" class="w-full bg-blue-600 text-white font-black p-3 rounded-xl uppercase text-xs">Créer</button>
+                        <button onclick="addUser()" class="w-full text-white font-black p-3 rounded-xl uppercase text-xs" style="background-color: var(--bleu-principal)">Créer</button>
                     </div>
                 </div>
                 <div class="bg-white p-6 rounded-xl border shadow-sm"><h3 class="font-black text-slate-400 uppercase mb-4 text-xs">Comptes</h3><div id="list-users"></div></div>
