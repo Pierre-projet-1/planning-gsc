@@ -3,60 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planning Collecte GSC</title>
+    <title>Planning Collecte - Grand Sud Tarn & Garonne</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        :root {
+            --bleu-gsc: #5568A5; /* C=75, M=60, J=15, N=0 approx */
+            --jaune-gsc: #FFF200;
+            --gris-gsc: #939598;
+        }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        .flux-om { background-color: #f1f1f1; color: #666; display: flex; align-items: center; justify-content: center; height: 100%; width: 100%; min-height: 40px; font-weight: 900; border: 1px solid #ccc; }
-        .flux-cs { background-color: #ffed00; color: #000; display: flex; align-items: center; justify-content: center; height: 100%; width: 100%; min-height: 40px; font-weight: 900; border: 1px solid #d4c700; }
+        .flux-om { background-color: #f1f1f1; color: var(--gris-gsc); display: flex; align-items: center; justify-content: center; height: 100%; width: 100%; min-height: 40px; font-weight: 900; border: 1px solid var(--gris-gsc); }
+        .flux-cs { background-color: var(--jaune-gsc); color: #000; display: flex; align-items: center; justify-content: center; height: 100%; width: 100%; min-height: 40px; font-weight: 900; border: 1px solid #d4c700; }
         .is-conge { background-color: #ef4444 !important; color: white !important; font-weight: 900 !important; }
         .is-double { background-color: #ffedd5 !important; color: #9a3412; font-weight: bold; border: 2px solid #f97316 !important; }
-        th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; padding: 12px 8px; border: 1px solid #e2e8f0; background-color: #1e293b; color: white; }
+        th { font-size: 10px; text-transform: uppercase; padding: 12px 8px; border: 1px solid #e2e8f0; background-color: #1e293b; color: white; }
         td { font-size: 11px; padding: 6px; border: 1px solid #e2e8f0; }
         .cell-conge-active { background-color: #ef4444 !important; color: white !important; font-weight: 900; text-align: center; }
-        .weekend-bg { background-color: #f8fafc !important; color: #cbd5e1; }
-        #login-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(15, 23, 42, 0.9); display: flex; align-items: center; justify-content: center; }
-        #copy-modal { position: fixed; inset: 0; z-index: 200; background: rgba(15, 23, 42, 0.8); display: none; align-items: center; justify-content: center; }
-        #copy-modal.active { display: flex; }
+        .weekend-bg { background-color: #e5e7eb !important; color: #9ca3af; cursor: not-allowed !important; }
         .admin-only { display: none; }
         body.is-admin .admin-only { display: block; }
-        .motif-btn.active { border-color: #3b82f6; background-color: #3b82f6; color: white; transform: scale(1.05); }
-        .selectable-cell { user-select: none; transition: all 0.1s; }
+        .motif-btn.active { border-color: #3b82f6; background-color: #3b82f6; color: white; }
+        @media print { .no-print { display: none; } }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen font-sans text-slate-900">
 
-    <div id="login-overlay">
-        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
-            <div class="text-center mb-8">
-                <h2 class="text-3xl font-black uppercase tracking-tighter text-slate-900">GRAND SUD Tarn & Garonne</h2>
-                <p class="text-slate-400 text-sm font-bold uppercase tracking-widest">Espace Privé</p>
-            </div>
+    <div id="login-overlay" class="fixed inset-0 z-[100] bg-slate-900 flex items-center justify-center">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md text-center">
+            <h2 class="text-2xl font-black mb-6 uppercase tracking-tighter">GRAND SUD Tarn & Garonne</h2>
             <div class="space-y-4">
-                <input type="email" id="login-email" placeholder="Email" class="w-full border-2 p-3 rounded-xl outline-none focus:border-slate-900">
-                <input type="password" id="login-pass" placeholder="Mot de passe" class="w-full border-2 p-3 rounded-xl outline-none focus:border-slate-900">
-                <button onclick="handleLogin()" class="w-full bg-slate-900 text-white font-black p-4 rounded-xl shadow-xl hover:opacity-90 uppercase text-sm">Connexion</button>
-                <p id="login-error" class="text-red-500 text-xs font-bold text-center hidden">Identifiants incorrects.</p>
+                <input type="email" id="login-email" placeholder="Email" class="w-full border-2 p-3 rounded-xl outline-none focus:border-slate-400">
+                <input type="password" id="login-pass" placeholder="Mot de passe" class="w-full border-2 p-3 rounded-xl outline-none focus:border-slate-400">
+                <button onclick="handleLogin()" class="w-full bg-slate-900 text-white font-black p-4 rounded-xl uppercase">Connexion</button>
+                <p id="login-error" class="text-red-500 text-xs font-bold hidden">Identifiants incorrects.</p>
             </div>
-        </div>
-    </div>
-
-    <div id="copy-modal">
-        <div class="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm">
-            <h3 class="font-black uppercase text-lg mb-4">Options de collage</h3>
-            <p class="text-xs text-slate-500 mb-4 font-bold">Que souhaitez-vous coller sur la semaine <span id="target-week-num"></span> ?</p>
-            <div class="grid grid-cols-1 gap-2">
-                <button onclick="pasteData('all')" class="bg-slate-900 text-white p-2 rounded text-[10px] font-black uppercase">Tout coller</button>
-                <button onclick="pasteData('ch')" class="border p-2 rounded text-[10px] font-black uppercase">Chauffeurs</button>
-                <button onclick="pasteData('ripeurs')" class="border p-2 rounded text-[10px] font-black uppercase">Ripeurs</button>
-                <button onclick="pasteData('camion')" class="border p-2 rounded text-[10px] font-black uppercase">Camions</button>
-                <button onclick="pasteData('vidage')" class="border p-2 rounded text-[10px] font-black uppercase">Vidages</button>
-                <button onclick="pasteData('info')" class="border p-2 rounded text-[10px] font-black uppercase">Infos</button>
-                <button onclick="pasteData('autres')" class="border p-2 rounded text-[10px] font-black uppercase">Autres missions</button>
-            </div>
-            <button onclick="document.getElementById('copy-modal').classList.remove('active')" class="w-full mt-4 text-slate-400 font-bold text-[10px] uppercase underline">Annuler</button>
         </div>
     </div>
 
@@ -65,40 +48,50 @@
         <nav class="flex gap-4">
             <button onclick="showTab('tab-plan')" class="text-xs font-bold uppercase hover:opacity-70">Planning</button>
             <button onclick="showTab('tab-conges')" class="text-xs font-bold uppercase hover:opacity-70">Congés</button>
+            <button onclick="showTab('tab-stats')" class="text-xs font-bold uppercase hover:opacity-70">Stats</button>
             <button onclick="showTab('tab-params')" class="text-xs font-bold uppercase hover:opacity-70 admin-only">Configuration</button>
             <button onclick="showTab('tab-users')" class="text-xs font-bold uppercase hover:opacity-70 admin-only">Utilisateurs</button>
         </nav>
         <div class="flex items-center gap-4">
-            <div id="status" class="text-[9px] font-mono text-white/50">...</div>
-            <div onclick="showTab('tab-profil')" class="cursor-pointer px-3 py-1 rounded-lg border border-white/20 text-xs font-bold hover:bg-white/10">👤 <span id="user-display-name">Profil</span></div>
-            <button onclick="location.reload()" class="text-xs text-white/70 font-bold hover:text-white">Sortie</button>
+            <div id="status" class="text-[9px] font-mono opacity-50">...</div>
+            <div class="px-3 py-1 rounded-lg border border-white/20 text-xs font-bold">👤 <span id="user-display-name">Profil</span></div>
+            <button onclick="location.reload()" class="text-xs opacity-70">Sortie</button>
         </div>
     </header>
 
-    <main class="max-w-[1600px] mx-auto p-6">
+    <main class="max-w-[1750px] mx-auto p-6">
+        
         <section id="tab-plan" class="tab-content active">
-            <div class="flex justify-between items-end mb-4">
+            <div class="flex justify-between items-end mb-4 no-print">
                 <div class="flex gap-2 admin-only">
-                    <button onclick="copyWeek()" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase shadow">📋 Copier Semaine</button>
-                    <button onclick="openPasteModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase shadow">📥 Coller ici</button>
+                    <button onclick="copyWeek()" class="bg-slate-800 text-white px-4 py-2 rounded font-black text-[10px] uppercase">📋 Copier</button>
+                    <button onclick="openPasteModal()" class="bg-blue-600 text-white px-4 py-2 rounded font-black text-[10px] uppercase">📥 Coller</button>
                 </div>
-                <button onclick="exportPDF('pdf-area-plan', 'Planning', 'planning')" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-black text-xs uppercase shadow-lg">📄 Export PDF A3</button>
+                <button onclick="exportPDF('pdf-area-plan', 'Planning')" class="bg-emerald-600 text-white px-4 py-2 rounded font-black text-xs uppercase">PDF A3</button>
             </div>
-            <div id="pdf-area-plan" class="pdf-export-container bg-white border">
-                <div class="flex items-center justify-between mb-8 pb-4 border-b">
-                    <div class="w-1/3"><select id="week-selector" onchange="state.semaine=parseInt(this.value); renderPlanning();" class="p-3 bg-slate-50 border rounded-xl font-black uppercase text-sm"></select><div id="header-range" class="text-xs font-bold text-slate-400 mt-1"></div></div>
-                    <div class="flex-1 text-center">
-                        <div class="flex justify-center items-center gap-6">
-                            <button onclick="changeSemaine(-1)" class="text-2xl admin-only">◀</button>
-                            <div><span class="text-2xl font-black uppercase">Semaine n°<span id="header-semaine"></span> - <span id="header-mois-annee"></span></span><br><span id="header-flux-type" class="font-black text-xs tracking-widest uppercase text-blue-600"></span></div>
-                            <button onclick="changeSemaine(1)" class="text-2xl admin-only">▶</button>
-                        </div>
+
+            <div id="pdf-area-plan" class="bg-white p-6 border rounded-xl shadow-sm">
+                <div class="flex items-center justify-between mb-6 pb-4 border-b">
+                    <div class="w-1/3">
+                        <select id="week-selector" onchange="state.semaine=parseInt(this.value); renderPlanning();" class="p-2 border rounded font-black uppercase text-sm"></select>
                     </div>
-                    <div class="w-1/3 text-right"><input type="number" value="2026" onchange="state.annee=parseInt(this.value); renderPlanning()" class="border p-2 w-24 text-center font-black text-xl"></div>
+                    <div class="text-center flex-1">
+                        <div class="flex justify-center items-center gap-4">
+                            <button onclick="changeSemaine(-1)" class="text-xl admin-only">◀</button>
+                            <span class="text-2xl font-black uppercase italic">Semaine <span id="header-semaine"></span></span>
+                            <button onclick="changeSemaine(1)" class="text-xl admin-only">▶</button>
+                        </div>
+                        <div id="header-flux-type" class="text-xs font-bold text-blue-600 tracking-widest uppercase"></div>
+                    </div>
+                    <div class="w-1/3 text-right">
+                        <input type="number" id="plan-annee" value="2026" onchange="state.annee=parseInt(this.value); renderPlanning()" class="border p-2 w-20 text-center font-black">
+                    </div>
                 </div>
-                <table class="w-full text-left border-collapse">
+                <table class="w-full border-collapse">
                     <thead>
-                        <tr><th style="width: 10%">Jour</th><th style="width: 12%">Tournée</th><th style="width: 6%">Flux</th><th style="width: 7%">Camion</th><th style="width: 9%">Chauffeur</th><th style="width: 9%">Ripeur 1</th><th style="width: 9%">Ripeur 2</th><th style="width: 7%">Vidage</th><th style="width: 10%">Info</th><th style="width: 12%">Autres missions</th><th class="col-dispo" style="width: 9%">Dispo</th></tr>
+                        <tr>
+                            <th style="width: 10%">Jour</th><th style="width: 12%">Tournée</th><th style="width: 5%">Flux</th><th style="width: 8%">Camion</th><th style="width: 10%">Chauffeur</th><th style="width: 10%">Ripeur 1</th><th style="width: 10%">Ripeur 2</th><th style="width: 8%">Vidage</th><th style="width: 10%">Info</th><th style="width: 10%">Autres</th><th class="col-dispo" style="width: 7%">Dispo</th>
+                        </tr>
                     </thead>
                     <tbody id="plan-body"></tbody>
                 </table>
@@ -106,37 +99,46 @@
         </section>
 
         <section id="tab-conges" class="tab-content">
-            <div class="flex justify-end mb-4"><button onclick="exportPDF('pdf-area-conges', 'Conges', 'conges')" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-black text-xs uppercase shadow-lg">📄 Export PDF A3</button></div>
-            <div id="pdf-area-conges" class="pdf-export-container bg-white border">
-                <div class="flex flex-col gap-6 mb-6">
-                    <div class="flex items-center justify-between border-b pb-4">
-                        <h2 class="font-black text-xl uppercase tracking-tighter w-1/3 text-left">PLANNING CONGÉS</h2>
-                        <div class="flex items-center justify-center gap-8 w-1/3 nav-btn-conges">
-                            <button onclick="changeMoisConges(-1)" class="text-2xl font-black text-slate-400 hover:text-slate-900">◀</button>
-                            <span id="current-month-display" class="font-black text-lg uppercase min-w-[150px] text-center"></span>
-                            <button onclick="changeMoisConges(1)" class="text-2xl font-black text-slate-400 hover:text-slate-900">▶</button>
-                        </div>
-                        <div class="w-1/3"></div>
+            <div id="pdf-area-conges" class="bg-white p-6 border rounded-xl shadow-sm">
+                <div class="flex items-center justify-between mb-6 pb-4 border-b">
+                    <h2 class="font-black text-xl uppercase tracking-tighter">PLANNING CONGÉS</h2>
+                    <div class="flex items-center gap-8">
+                        <button onclick="changeMoisConges(-1)" class="text-2xl">◀</button>
+                        <span id="current-month-display" class="font-black text-lg uppercase"></span>
+                        <button onclick="changeMoisConges(1)" class="text-2xl">▶</button>
                     </div>
-                    <div class="flex flex-wrap gap-2 p-3 bg-slate-50 border rounded-xl admin-only">
-                        <button onclick="setMotif('CA')" data-motif="CA" class="motif-btn active border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">CA</button>
-                        <button onclick="setMotif('RH')" data-motif="RH" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">RH</button>
-                        <button onclick="setMotif('ARTT')" data-motif="ARTT" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">ARTT</button>
-                        <button onclick="setMotif('ASA')" data-motif="ASA" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">ASA</button>
-                        <button onclick="setMotif('DAS')" data-motif="DAS" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">DAS</button>
-                        <button onclick="setMotif('FOR')" data-motif="FOR" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">FOR</button>
-                        <button onclick="setMotif('AM')" data-motif="AM" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">AM</button>
+                    <div class="flex gap-2 admin-only">
+                        <button onclick="setMotif('CA')" data-motif="CA" class="motif-btn active border px-3 py-1 rounded font-bold text-xs">CA</button>
+                        <button onclick="setMotif('RH')" data-motif="RH" class="motif-btn border px-3 py-1 rounded font-bold text-xs">RH</button>
+                        <button onclick="setMotif('AM')" data-motif="AM" class="motif-btn border px-3 py-1 rounded font-bold text-xs">AM</button>
                     </div>
                 </div>
                 <div id="conges-wrapper" class="overflow-x-auto"></div>
             </div>
         </section>
 
+        <section id="tab-stats" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-xl border shadow-sm">
+                    <h3 class="font-black uppercase text-sm mb-4 border-b pb-2">Activité Agents (Conduite vs Ripeur)</h3>
+                    <div class="h-[300px]"><canvas id="chartAgents"></canvas></div>
+                </div>
+                <div class="bg-white p-6 rounded-xl border shadow-sm">
+                    <h3 class="font-black uppercase text-sm mb-4 border-b pb-2">Répartition par Tournée</h3>
+                    <div class="h-[300px]"><canvas id="chartTournees"></canvas></div>
+                </div>
+                <div class="lg:col-span-2 bg-white p-6 rounded-xl border shadow-sm">
+                    <h3 class="font-black uppercase text-sm mb-4 border-b pb-2">Tableau de Comparaison Annuel</h3>
+                    <div id="stats-table-container" class="overflow-x-auto"></div>
+                </div>
+            </div>
+        </section>
+
         <section id="tab-params" class="tab-content">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div class="bg-white p-6 border rounded-xl shadow-sm">
-                    <h3 class="font-black text-xs uppercase mb-1 tracking-widest text-slate-400">Agents</h3>
-                    <div class="space-y-2 mb-4">
+                    <h3 class="font-black text-xs uppercase mb-4 text-slate-400">Agents & Camions</h3>
+                    <div class="space-y-2 mb-6">
                         <input id="in-agents" placeholder="Nom Agent" class="w-full border p-2 rounded text-xs">
                         <select id="in-agent-role" class="w-full border p-2 rounded text-xs">
                             <option value="Chauffeur">Chauffeur</option>
@@ -145,69 +147,60 @@
                         </select>
                         <button onclick="addParam('agents')" class="w-full bg-slate-900 text-white py-2 rounded text-xs font-bold uppercase">Ajouter Agent</button>
                     </div>
-                    <ul id="list-agents" class="mb-8"></ul>
+                    <ul id="list-agents" class="mb-8 space-y-1"></ul>
                     
-                    <h3 class="font-black text-xs uppercase mb-1 tracking-widest text-slate-400 border-t pt-4">Camions</h3>
-                    <div class="flex gap-2 mb-4"><input id="in-camions" placeholder="N°" class="flex-1 border p-2 rounded text-xs"><button onclick="addParam('camions')" class="bg-slate-900 text-white px-3 rounded">+</button></div>
-                    <ul id="list-camions"></ul>
-                </div>
-                <div class="lg:col-span-2 space-y-8">
-                    <div class="bg-white p-6 border rounded-xl shadow-sm">
-                        <h3 class="font-black text-xs uppercase mb-4">Tournées permanentes</h3>
-                        <div class="grid grid-cols-4 gap-3 mb-4 bg-slate-50 p-4 rounded-lg">
-                            <div><label class="text-[9px] font-black uppercase text-slate-400">Nom</label><input id="in-tournees" class="w-full border p-1 rounded"></div>
-                            <div><label class="text-[9px] font-black uppercase text-slate-400">Flux</label><select id="in-flux" class="w-full border p-1 rounded"><option value="OM">OM</option><option value="CS">CS</option></select></div>
-                            <div><label class="text-[9px] font-black uppercase text-slate-400">Jour</label><select id="in-jour" class="w-full border p-1 rounded"><option value="1">Lundi</option><option value="2">Mardi</option><option value="3">Mercredi</option><option value="4">Jeudi</option><option value="5">Vendredi</option><option value="6">Samedi</option></select></div>
-                            <div><label class="text-[9px] font-black uppercase text-slate-400">Type</label><select id="in-freq" class="w-full border p-1 rounded"><option value="impaire">Impaire</option><option value="paire">Paire</option></select></div>
-                            <button onclick="addParam('tournees')" class="col-span-4 bg-slate-900 text-white p-2 rounded font-bold uppercase text-xs">Ajouter Permanente</button>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div><h4 class="text-[10px] font-black uppercase mb-2">Impaires</h4><div id="list-tournees-impaires"></div></div>
-                            <div><h4 class="text-[10px] font-black uppercase mb-2">Paires</h4><div id="list-tournees-paires"></div></div>
-                        </div>
+                    <div class="flex gap-2 mb-4">
+                        <input id="in-camions" placeholder="N° Camion" class="flex-1 border p-2 rounded text-xs">
+                        <button onclick="addParam('camions')" class="bg-slate-900 text-white px-4 rounded">+</button>
                     </div>
-                    <div class="bg-white p-6 border rounded-xl shadow-sm">
-                        <h3 class="font-black text-xs uppercase mb-4">Tournées occasionnelles</h3>
-                        <div class="grid grid-cols-3 gap-3 mb-4 bg-slate-50 p-4 rounded-lg">
-                            <div class="col-span-1"><label class="text-[9px] font-black uppercase text-slate-400">Nom</label><input id="occ-tournees" class="w-full border p-1 rounded"></div>
-                            <div><label class="text-[9px] font-black uppercase text-slate-400">Flux</label><select id="occ-flux" class="w-full border p-1 rounded"><option value="OM">OM</option><option value="CS">CS</option></select></div>
-                            <div><label class="text-[9px] font-black uppercase text-slate-400">Date</label><input type="date" id="occ-date" class="w-full border p-1 rounded text-[10px]"></div>
-                            <button onclick="addParam('tourneesOccas')" class="col-span-3 bg-slate-900 text-white p-2 rounded font-bold uppercase text-xs">Ajouter Occasionnelle</button>
-                        </div>
-                        <div id="list-tournees-occas"></div>
+                    <ul id="list-camions" class="space-y-1"></ul>
+                </div>
+
+                <div class="lg:col-span-2 bg-white p-6 border rounded-xl shadow-sm">
+                    <h3 class="font-black text-xs uppercase mb-4 text-slate-400">Gestion des Tournées</h3>
+                    <div class="grid grid-cols-5 gap-2 mb-6 bg-slate-50 p-4 rounded-lg">
+                        <input id="in-tournees" placeholder="Nom Tournée" class="border p-2 rounded text-xs col-span-2">
+                        <select id="in-flux" class="border p-2 rounded text-xs"><option value="OM">OM</option><option value="CS">CS</option></select>
+                        <select id="in-jour" class="border p-2 rounded text-xs"><option value="1">Lundi</option><option value="2">Mardi</option><option value="3">Mercredi</option><option value="4">Jeudi</option><option value="5">Vendredi</option><option value="6">Samedi</option></select>
+                        <select id="in-freq" class="border p-2 rounded text-xs"><option value="impaire">Impaire</option><option value="paire">Paire</option></select>
+                        <select id="in-vidage-def" class="border p-2 rounded text-xs col-span-2"><option value="Dépôt">Dépôt</option><option value="DRIMM">DRIMM</option></select>
+                        <button onclick="addParam('tournees')" class="col-span-3 bg-slate-900 text-white py-2 rounded font-black text-xs uppercase">Ajouter Permanente</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><h4 class="font-black text-[10px] uppercase mb-2">Semaines Impaires</h4><div id="list-tournees-impaires"></div></div>
+                        <div><h4 class="font-black text-[10px] uppercase mb-2">Semaines Paires</h4><div id="list-tournees-paires"></div></div>
                     </div>
                 </div>
             </div>
         </section>
 
         <section id="tab-users" class="tab-content">
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div class="bg-white p-6 rounded-xl border shadow-sm">
-                    <h3 class="font-black uppercase mb-4 text-xs">Nouveau compte</h3>
-                    <div class="space-y-3">
-                        <div class="grid grid-cols-2 gap-2"><input id="new-u-prenom" placeholder="Prénom" class="border p-2 rounded text-sm"><input id="new-u-nom" placeholder="Nom" class="border p-2 rounded text-sm"></div>
-                        <input id="new-u-email" placeholder="Email" class="w-full border p-2 rounded text-sm">
-                        <input id="new-u-pass" placeholder="Mot de passe" class="w-full border p-2 rounded text-sm">
-                        <select id="new-u-role" class="w-full border p-2 rounded text-sm"><option value="read">Lecteur</option><option value="admin">Admin</option></select>
-                        <button onclick="addUser()" class="w-full bg-slate-900 text-white font-black p-3 rounded-xl uppercase text-xs">Créer</button>
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded-xl border shadow-sm"><h3 class="font-black text-slate-400 uppercase mb-4 text-xs">Comptes</h3><div id="list-users"></div></div>
-            </div>
-        </section>
-
-        <section id="tab-profil" class="tab-content">
-            <div class="max-w-md mx-auto bg-white p-8 rounded-xl border">
-                <h2 class="font-black text-xl mb-6 uppercase">Mon Profil</h2>
-                <div class="space-y-4">
-                    <input type="text" id="prof-prenom" placeholder="Prénom" class="w-full border p-2 rounded">
-                    <input type="text" id="prof-nom" placeholder="Nom" class="w-full border p-2 rounded">
-                    <input type="password" id="prof-pass" placeholder="Nouveau mot de passe" class="w-full border p-2 rounded">
-                    <button onclick="currentUser.prenom=document.getElementById('prof-prenom').value; currentUser.nom=document.getElementById('prof-nom').value; if(document.getElementById('prof-pass').value) currentUser.pass=document.getElementById('prof-pass').value; sync(); alert('Profil mis à jour !'); renderAll();" class="w-full bg-slate-900 text-white p-3 rounded font-black uppercase text-xs">Sauvegarder</button>
+            <div class="max-w-2xl mx-auto bg-white p-6 border rounded-xl">
+                <h3 class="font-black uppercase mb-4">Utilisateurs</h3>
+                <div id="list-users" class="space-y-2 mb-6"></div>
+                <div class="grid grid-cols-2 gap-2 pt-4 border-t">
+                    <input id="new-u-prenom" placeholder="Prénom" class="border p-2 rounded text-sm">
+                    <input id="new-u-nom" placeholder="Nom" class="border p-2 rounded text-sm">
+                    <input id="new-u-email" placeholder="Email" class="border p-2 rounded text-sm col-span-2">
+                    <input id="new-u-pass" type="password" placeholder="Pass" class="border p-2 rounded text-sm col-span-2">
+                    <select id="new-u-role" class="border p-2 rounded text-sm col-span-2"><option value="read">Lecteur</option><option value="admin">Admin</option></select>
+                    <button onclick="addUser()" class="col-span-2 bg-slate-900 text-white py-3 rounded font-black uppercase text-xs">Créer le compte</button>
                 </div>
             </div>
         </section>
     </main>
+
+    <div id="copy-modal" class="fixed inset-0 z-[200] bg-black/50 hidden items-center justify-center">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-80">
+            <h3 class="font-black mb-4 uppercase text-center">Options de collage</h3>
+            <div class="flex flex-col gap-2">
+                <button onclick="pasteData('all')" class="bg-slate-900 text-white p-2 rounded font-bold uppercase text-xs">Tout Coller</button>
+                <button onclick="pasteData('ch')" class="border p-2 rounded font-bold uppercase text-xs">Chauffeurs uniquement</button>
+                <button onclick="pasteData('ripeurs')" class="border p-2 rounded font-bold uppercase text-xs">Ripeurs uniquement</button>
+                <button onclick="document.getElementById('copy-modal').classList.add('hidden')" class="mt-4 text-xs text-slate-400 underline uppercase">Annuler</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         const BIN_ID = "69b528beaa77b81da9e33a14"; 
@@ -217,107 +210,68 @@
         let currentUser = null;
         let isMouseDown = false;
         let currentMotif = "CA";
-        let clipboard = null; 
+        let clipboard = null;
+        let charts = {};
         let state = {
             annee: 2026, semaine: 1, moisConges: new Date().getMonth(), anneeConges: 2026,
-            data: { agents: [], agentRoles: {}, camions: [], tournees: [], tourneesOccas: [], planning: {}, conges: {}, users: [] }
+            data: { agents: [], agentRoles: {}, camions: [], tournees: [], planning: {}, conges: {}, users: [] }
         };
 
-        const JOURS_NOM = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+        // --- DATES & LOGIQUE ---
+        function getDatesOfWeek(w, y) {
+            let simple = new Date(y, 0, 1 + (w - 1) * 7);
+            let dow = simple.getDay();
+            let start = simple;
+            if (dow <= 4) start.setDate(simple.getDate() - simple.getDay() + 1);
+            else start.setDate(simple.getDate() + 8 - simple.getDay());
+            let days = [];
+            for (let i = 0; i < 6; i++) {
+                let d = new Date(start); d.setDate(d.getDate() + i);
+                days.push({ iso: d.toISOString().split('T')[0], texte: d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) });
+            }
+            return days;
+        }
 
         async function load() {
-            try {
-                const res = await fetch(`${URL}/latest`, { headers: { "X-Master-Key": API_KEY } });
-                const json = await res.json();
-                if (json.record) state.data = json.record;
-                if (!state.data.agentRoles) state.data.agentRoles = {};
-                document.getElementById('status').innerText = "✅ Connecté";
-                initWeekSelector();
-                renderAll();
-            } catch (err) { document.getElementById('status').innerText = "❌ Erreur"; }
+            const res = await fetch(`${URL}/latest`, { headers: { "X-Master-Key": API_KEY } });
+            const json = await res.json();
+            if (json.record) state.data = json.record;
+            if (!state.data.agentRoles) state.data.agentRoles = {};
+            initWeekSelector();
+            renderAll();
+            document.getElementById('status').innerText = "SYNCHRONISÉ";
         }
 
         async function sync() {
             if (!currentUser || currentUser.role !== 'admin') return;
-            document.getElementById('status').innerText = "⏳ Sauvegarde...";
             await fetch(URL, {
                 method: 'PUT',
                 headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
                 body: JSON.stringify(state.data)
             });
-            document.getElementById('status').innerText = "✅ Sauvegardé";
+            document.getElementById('status').innerText = "À JOUR";
         }
 
         function handleLogin() {
             const email = document.getElementById('login-email').value;
             const pass = document.getElementById('login-pass').value;
-            if (state.data.users.length === 0 && email === 'admin@gsc.fr' && pass === 'admin123') {
-                currentUser = { email, prenom: 'Admin', nom: 'GSC', role: 'admin', pass: 'admin123' };
-                state.data.users.push(currentUser);
-            } else {
-                currentUser = state.data.users.find(u => u.email === email && u.pass === pass);
-            }
+            currentUser = state.data.users.find(u => u.email === email && u.pass === pass) || (email === 'admin@gsc.fr' && pass === 'admin123' ? {prenom:'Admin', role:'admin'} : null);
             if (currentUser) {
                 document.getElementById('login-overlay').style.display = 'none';
-                document.getElementById('user-display-name').innerText = `${currentUser.prenom} ${currentUser.nom}`;
+                document.getElementById('user-display-name').innerText = currentUser.prenom;
                 if(currentUser.role === 'admin') document.body.classList.add('is-admin');
                 renderAll();
-            } else { document.getElementById('login-error').classList.remove('hidden'); }
+            } else document.getElementById('login-error').classList.remove('hidden');
         }
 
-        function initWeekSelector() {
-            const select = document.getElementById('week-selector');
-            select.innerHTML = "";
-            for(let i=1; i<=52; i++) {
-                let opt = document.createElement('option'); opt.value = i; opt.innerText = `Semaine ${i}`;
-                if(i === state.semaine) opt.selected = true;
-                select.appendChild(opt);
-            }
-        }
-
-        function changeSemaine(delta) {
-            let n = state.semaine + delta;
-            if (n < 1) n = 52; if (n > 52) n = 1;
-            state.semaine = n;
-            document.getElementById('week-selector').value = n;
-            renderPlanning();
-        }
-
-        function getDatesOfWeek(w, y) {
-            let simple = new Date(y, 0, 1 + (w - 1) * 7);
-            let dow = simple.getDay();
-            let ISOweekStart = simple;
-            if (dow <= 4) ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
-            else ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
-            let days = [];
-            for (let i = 0; i < 6; i++) {
-                let d = new Date(ISOweekStart);
-                d.setDate(d.getDate() + i);
-                const year = d.getFullYear();
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                days.push({ texte: d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }), iso: `${year}-${month}-${day}`, court: `${day}/${month}/${String(year).slice(-2)}` });
-            }
-            return days;
-        }
-
-        function exportPDF(elementId, fileName, tabType) {
-            const element = document.getElementById(elementId);
-            if(tabType === 'planning') element.querySelectorAll('.col-dispo').forEach(el => el.classList.add('no-export'));
-            const opt = { margin: 5, filename: fileName + '.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a3', orientation: 'landscape' } };
-            html2pdf().set(opt).from(element).save().then(() => {
-                element.querySelectorAll('.no-export').forEach(el => el.classList.remove('no-export'));
-            });
-        }
-
+        // --- RENDERING PLANNING ---
         function renderPlanning() {
             const isPaire = state.semaine % 2 === 0;
             const weekKey = `${state.annee}_W${state.semaine}`;
             const dates = getDatesOfWeek(state.semaine, state.annee);
-            document.getElementById('header-range').innerText = `${dates[0].court} au ${dates[5].court}`;
             document.getElementById('header-semaine').innerText = state.semaine;
-            document.getElementById('header-mois-annee').innerText = new Date(dates[0].iso).toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
-            document.getElementById('header-flux-type').innerText = isPaire ? "Semaine Paire" : "Semaine Impaire";
+            document.getElementById('header-flux-type').innerText = isPaire ? "SEMAINE PAIRE" : "SEMAINE IMPAIRE";
+            
             const body = document.getElementById('plan-body');
             body.innerHTML = "";
             const isLocked = currentUser.role !== 'admin';
@@ -326,47 +280,107 @@
             const ripeurs = state.data.agents.filter(a => (state.data.agentRoles[a]||'').includes('Ripeur'));
 
             dates.forEach((dateObj, dayIdx) => {
-                const perm = state.data.tournees.filter(t => t.type === (isPaire?'paire':'impaire') && t.jour == (dayIdx+1));
-                const occas = (state.data.tourneesOccas || []).filter(t => t.dateSpecifique === dateObj.iso);
-                const tourDuJour = [...perm, ...occas];
+                const tourDuJour = state.data.tournees.filter(t => t.type === (isPaire?'paire':'impaire') && parseInt(t.jour) === (dayIdx+1));
                 
-                let agentCounts = {};
-                let camionCounts = {};
-
+                let counts = {};
+                let camCounts = {};
                 tourDuJour.forEach(t => {
                     const c = state.data.planning[weekKey]?.[`${t.nom}_${dayIdx}`] || {};
-                    [c.ch, c.r1, c.r2, c.autres].forEach(n => { if(n && n !== "-") agentCounts[n] = (agentCounts[n] || 0) + 1; });
-                    if(c.camion && c.camion !== "-") camionCounts[c.camion] = (camionCounts[c.camion] || 0) + 1;
+                    [c.ch, c.r1, c.r2, c.autres].forEach(v => { if(v && v !== "-") counts[v] = (counts[v]||0)+1; });
+                    if(c.camion && c.camion !== "-") camCounts[c.camion] = (camCounts[c.camion]||0)+1;
                 });
 
                 tourDuJour.forEach((t, tIdx) => {
-                    const rowKey = `${t.nom}_${dayIdx}`;
-                    const cell = state.data.planning[weekKey]?.[rowKey] || {};
+                    const rk = `${t.nom}_${dayIdx}`;
+                    const val = state.data.planning[weekKey]?.[rk] || { vidage: t.vidageDefaut || "-" };
                     
-                    const checkAgent = (n) => (n && n !== "-" && state.data.conges[n] && state.data.conges[n][dateObj.iso]) ? 'is-conge' : (agentCounts[n]>1 ? 'is-double' : '');
-                    const checkCamion = (c) => (c && c !== "-" && camionCounts[c]>1) ? 'is-double' : '';
+                    const checkA = (n) => (n && n !== "-" && state.data.conges[n]?.[dateObj.iso]) ? 'is-conge' : (counts[n]>1 ? 'is-double' : '');
+                    const checkC = (c) => (c && c !== "-" && camCounts[c]>1) ? 'is-double' : '';
 
                     const tr = document.createElement('tr');
-                    tr.className = "bg-white";
-                    let dayCell = tIdx === 0 ? `<td rowspan="${tourDuJour.length}" class="font-bold text-slate-600 bg-slate-50 border-r">${dateObj.texte}</td>` : "";
-                    
                     tr.innerHTML = `
-                        ${dayCell}
-                        <td class="font-black uppercase text-slate-900">${t.nom}</td>
+                        ${tIdx===0?`<td rowspan="${tourDuJour.length}" class="bg-slate-50 font-bold border-r text-center uppercase">${dateObj.texte}</td>`:''}
+                        <td class="font-black uppercase text-slate-700">${t.nom}</td>
                         <td class="p-0"><div class="${t.flux==='OM'?'flux-om':'flux-cs'}">${t.flux}</div></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','camion',this.value)" class="w-full p-1 border rounded ${checkCamion(cell.camion)}"><option value="-">-</option>${state.data.camions.map(c => `<option ${cell.camion===c?'selected':''}>${c}</option>`).join('')}</select></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','ch',this.value)" class="w-full p-1 border rounded ${checkAgent(cell.ch)}"><option value="-">-</option>${chauffeurs.map(a => `<option ${cell.ch===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r1',this.value)" class="w-full p-1 border rounded ${checkAgent(cell.r1)}"><option value="-">-</option>${ripeurs.map(a => `<option ${cell.r1===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r2',this.value)" class="w-full p-1 border rounded ${checkAgent(cell.r2)}"><option value="-">-</option>${ripeurs.map(a => `<option ${cell.r2===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','vidage',this.value)" class="w-full p-1 border rounded font-bold"><option value="-">-</option><option ${cell.vidage==='Dépôt'?'selected':''}>Dépôt</option><option ${cell.vidage==='DRIMM'?'selected':''}>DRIMM</option></select></td>
-                        <td><input type="text" ${isLocked?'disabled':''} value="${cell.info||''}" onchange="updatePlan('${rowKey}','info',this.value)" class="w-full p-1 border rounded"></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','autres',this.value)" class="w-full p-1 border rounded ${checkAgent(cell.autres)}"><option value="-">-</option>${state.data.agents.map(a => `<option ${cell.autres===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                        ${tIdx === 0 ? `<td rowspan="${tourDuJour.length}" class="col-dispo text-[9px] text-emerald-600 font-bold bg-emerald-50 border-l">${state.data.agents.filter(a => !agentCounts[a] && !(state.data.conges[a] && state.data.conges[a][dateObj.iso])).join(', ')}</td>` : ''}`;
+                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rk}','camion',this.value)" class="w-full p-1 border rounded ${checkC(val.camion)}"><option value="-">-</option>${state.data.camions.map(c=>`<option ${val.camion===c?'selected':''}>${c}</option>`).join('')}</select></td>
+                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rk}','ch',this.value)" class="w-full p-1 border rounded ${checkA(val.ch)}"><option value="-">-</option>${chauffeurs.map(a=>`<option ${val.ch===a?'selected':''}>${a}</option>`).join('')}</select></td>
+                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rk}','r1',this.value)" class="w-full p-1 border rounded ${checkA(val.r1)}"><option value="-">-</option>${ripeurs.map(a=>`<option ${val.r1===a?'selected':''}>${a}</option>`).join('')}</select></td>
+                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rk}','r2',this.value)" class="w-full p-1 border rounded ${checkA(val.r2)}"><option value="-">-</option>${ripeurs.map(a=>`<option ${val.r2===a?'selected':''}>${a}</option>`).join('')}</select></td>
+                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rk}','vidage',this.value)" class="w-full p-1 border rounded font-bold"><option value="-">-</option><option ${val.vidage==='Dépôt'?'selected':''}>Dépôt</option><option ${val.vidage==='DRIMM'?'selected':''}>DRIMM</option></select></td>
+                        <td><input ${isLocked?'disabled':''} onchange="updatePlan('${rk}','info',this.value)" value="${val.info||''}" class="w-full p-1 border rounded text-[10px]"></td>
+                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rk}','autres',this.value)" class="w-full p-1 border rounded"><option value="-">-</option>${state.data.agents.map(a=>`<option ${val.autres===a?'selected':''}>${a}</option>`).join('')}</select></td>
+                        ${tIdx===0?`<td rowspan="${tourDuJour.length}" class="col-dispo text-[9px] text-emerald-600 font-bold bg-emerald-50">${state.data.agents.filter(a=>!counts[a] && !state.data.conges[a]?.[dateObj.iso]).join(', ')}</td>`:''}
+                    `;
                     body.appendChild(tr);
                 });
             });
         }
 
+        // --- RENDERING CONGÉS (BLOCAGE WE) ---
+        function renderConges() {
+            const wrap = document.getElementById('conges-wrapper');
+            const nbJours = new Date(state.anneeConges, state.moisConges + 1, 0).getDate();
+            document.getElementById('current-month-display').innerText = new Date(state.anneeConges, state.moisConges).toLocaleString('fr-FR', {month:'long', year:'numeric'}).toUpperCase();
+            
+            let h = `<table class="w-full border-collapse bg-white"><thead><tr class="bg-slate-900 text-white"><th class="sticky left-0 bg-slate-900">Agent</th>`;
+            for(let j=1; j<=nbJours; j++) {
+                const d = new Date(state.anneeConges, state.moisConges, j);
+                h += `<th class="p-1 border text-[9px] ${d.getDay()===0||d.getDay()===6?'opacity-50':''}">${j}</th>`;
+            }
+            h += `</tr></thead><tbody>`;
+            state.data.agents.sort().forEach(a => {
+                h += `<tr><td class="p-2 border font-bold text-[10px] bg-slate-50 sticky left-0">${a}</td>`;
+                for(let j=1; j<=nbJours; j++) {
+                    const d = new Date(state.anneeConges, state.moisConges, j);
+                    const iso = d.toISOString().split('T')[0];
+                    const isWE = d.getDay()===0 || d.getDay()===6;
+                    const motif = state.data.conges[a]?.[iso];
+                    h += `<td ${!isWE?`onclick="toggleConge('${a}','${iso}',this)"`:''} class="border text-center h-8 cursor-pointer ${motif?'cell-conge-active':''} ${isWE?'weekend-bg':''}">${motif||''}</td>`;
+                }
+                h += `</tr>`;
+            });
+            wrap.innerHTML = h + `</tbody></table>`;
+        }
+
+        // --- RENDERING STATS ---
+        function renderStats() {
+            let stats = {}; 
+            state.data.agents.forEach(a => stats[a] = { cond: 0, rip: 0, tour: {} });
+            
+            Object.values(state.data.planning).forEach(week => {
+                Object.values(week).forEach(row => {
+                    if(row.ch && stats[row.ch]) stats[row.ch].cond++;
+                    if(row.r1 && stats[row.r1]) stats[row.r1].rip++;
+                    if(row.r2 && stats[row.r2]) stats[row.r2].rip++;
+                });
+            });
+
+            // Chart Agents
+            const ctxA = document.getElementById('chartAgents').getContext('2d');
+            if(charts.agents) charts.agents.destroy();
+            charts.agents = new Chart(ctxA, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(stats),
+                    datasets: [
+                        { label: 'Conduite', data: Object.values(stats).map(s=>s.cond), backgroundColor: '#5568A5' },
+                        { label: 'Ripeur', data: Object.values(stats).map(s=>s.rip), backgroundColor: '#FFF200' }
+                    ]
+                },
+                options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+            });
+
+            // Tableau
+            let h = `<table class="w-full border text-xs"><thead><tr class="bg-slate-100"><th>Agent</th><th>Conduite</th><th>Ripeur</th><th>Total Missions</th><th>Ratio</th></tr></thead><tbody>`;
+            Object.keys(stats).sort().forEach(a => {
+                const total = stats[a].cond + stats[a].rip;
+                const ratio = total > 0 ? Math.round((stats[a].cond / total)*100) : 0;
+                h += `<tr><td class="p-2 border font-bold">${a}</td><td class="p-2 border">${stats[a].cond}</td><td class="p-2 border">${stats[a].rip}</td><td class="p-2 border">${total}</td><td class="p-2 border">${ratio}% Conduite</td></tr>`;
+            });
+            document.getElementById('stats-table-container').innerHTML = h + `</tbody></table>`;
+        }
+
+        // --- LOGIQUE CONFIG & SYNC ---
         function updatePlan(rk, f, v) {
             const wk = `${state.annee}_W${state.semaine}`;
             if(!state.data.planning[wk]) state.data.planning[wk] = {};
@@ -375,142 +389,82 @@
             sync(); renderPlanning();
         }
 
-        function renderConges() {
-            const container = document.getElementById('conges-wrapper');
-            const joursDansMois = new Date(state.anneeConges, state.moisConges + 1, 0).getDate();
-            const nomsMois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
-            document.getElementById('current-month-display').innerText = `${nomsMois[state.moisConges]} ${state.anneeConges}`;
-            
-            let html = `<table class="w-full border-collapse bg-white" onmousedown="isMouseDown=true" onmouseup="isMouseDown=false; sync();"><thead><tr class="bg-slate-900 text-white"><th>Agent</th>`;
-            for(let j=1; j<=joursDansMois; j++) {
-                const d = new Date(state.anneeConges, state.moisConges, j);
-                html += `<th class="text-[8px] border p-1 ${d.getDay()===0||d.getDay()===6?'opacity-70':''}">${d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })}</th>`;
-            }
-            html += `</tr></thead><tbody>`;
-            state.data.agents.forEach(agent => {
-                html += `<tr><td class="font-bold border p-2 text-[10px] bg-slate-50 sticky left-0 z-10">${agent}</td>`;
-                for(let j=1; j<=joursDansMois; j++) {
-                    const dIso = `${state.anneeConges}-${String(state.moisConges+1).padStart(2,'0')}-${String(j).padStart(2,'0')}`;
-                    const isWE = new Date(state.anneeConges, state.moisConges, j).getDay() % 6 === 0;
-                    const motif = state.data.conges[agent]?.[dIso];
-                    html += `<td onmousedown="if(currentUser.role==='admin') toggleConge('${agent}','${dIso}', this)" onmouseenter="if(isMouseDown && currentUser.role==='admin') toggleConge('${agent}','${dIso}', this)" class="selectable-cell border cursor-pointer h-8 ${motif?'cell-conge-active':''} ${isWE && !motif ? 'weekend-bg' : ''}">${motif || ''}</td>`;
-                }
-                html += `</tr>`;
-            });
-            container.innerHTML = html + `</tbody></table>`;
-        }
-
         function toggleConge(a, d, el) {
+            if(currentUser.role !== 'admin') return;
             if(!state.data.conges[a]) state.data.conges[a] = {};
-            if(state.data.conges[a][d]) { delete state.data.conges[a][d]; el.innerText = ""; el.classList.remove('cell-conge-active'); }
-            else { state.data.conges[a][d] = currentMotif; el.innerText = currentMotif; el.classList.add('cell-conge-active'); }
-            renderPlanning();
-        }
-
-        function changeMoisConges(delta) {
-            state.moisConges += delta;
-            if(state.moisConges > 11) { state.moisConges = 0; state.anneeConges++; }
-            if(state.moisConges < 0) { state.moisConges = 11; state.anneeConges--; }
-            renderConges();
-        }
-
-        function setMotif(m) {
-            currentMotif = m;
-            document.querySelectorAll('.motif-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.motif === m));
+            if(state.data.conges[a][d]) delete state.data.conges[a][d];
+            else state.data.conges[a][d] = currentMotif;
+            renderConges(); renderPlanning(); sync();
         }
 
         function addParam(t) {
             if(t==='tournees') {
-                state.data.tournees.push({ nom: document.getElementById('in-tournees').value, flux: document.getElementById('in-flux').value, type: document.getElementById('in-freq').value, jour: document.getElementById('in-jour').value });
-            } else if(t==='tourneesOccas') {
-                state.data.tourneesOccas.push({ nom: document.getElementById('occ-tournees').value, flux: document.getElementById('occ-flux').value, dateSpecifique: document.getElementById('occ-date').value });
+                state.data.tournees.push({
+                    nom: document.getElementById('in-tournees').value,
+                    flux: document.getElementById('in-flux').value,
+                    jour: document.getElementById('in-jour').value,
+                    type: document.getElementById('in-freq').value,
+                    vidageDefaut: document.getElementById('in-vidage-def').value
+                });
             } else if(t==='agents') {
-                const name = document.getElementById('in-agents').value;
-                if(name) { state.data.agents.push(name); state.data.agentRoles[name] = document.getElementById('in-agent-role').value; }
-            } else state.data[t].push(document.getElementById(`in-${t}`).value);
+                const n = document.getElementById('in-agents').value;
+                state.data.agents.push(n);
+                state.data.agentRoles[n] = document.getElementById('in-agent-role').value;
+            } else if(t==='camions') {
+                state.data.camions.push(document.getElementById('in-camions').value);
+            }
             renderAll(); sync();
         }
 
-        // --- CORRECTION : MODIFICATION STATUT AGENT ---
-        function updateAgentRole(agent, role) {
-            state.data.agentRoles[agent] = role;
-            sync(); renderPlanning();
-        }
-
         function renderAll() {
-            if(!currentUser) return;
-            renderPlanning(); renderConges(); renderUsers();
-            
-            document.getElementById('list-agents').innerHTML = state.data.agents.map((item, i) => `
-                <li class="flex justify-between items-center text-xs p-2 bg-slate-50 mb-1 border rounded">
-                    <div class="font-bold">${item}</div>
-                    <div class="flex gap-2 items-center">
-                        <select onchange="updateAgentRole('${item}', this.value)" class="text-[9px] border rounded p-1">
-                            <option value="Chauffeur" ${state.data.agentRoles[item]==='Chauffeur'?'selected':''}>Chauffeur</option>
-                            <option value="Ripeur" ${state.data.agentRoles[item]==='Ripeur'?'selected':''}>Ripeur</option>
-                            <option value="Chauffeur / Ripeur" ${state.data.agentRoles[item]==='Chauffeur / Ripeur'?'selected':''}>Chauffeur / Ripeur</option>
-                        </select>
-                        <button onclick="state.data.agents.splice(${i},1);renderAll();sync();" class="text-red-500 admin-only">✕</button>
-                    </div>
+            renderPlanning(); renderConges();
+            document.getElementById('list-agents').innerHTML = state.data.agents.map((a,i)=>`
+                <li class="flex justify-between p-2 bg-slate-50 border rounded text-[10px]">
+                    <span class="font-bold">${a}</span>
+                    <select onchange="state.data.agentRoles['${a}']=this.value;sync();renderPlanning()" class="border px-1">
+                        <option value="Chauffeur" ${state.data.agentRoles[a]==='Chauffeur'?'selected':''}>Chauffeur</option>
+                        <option value="Ripeur" ${state.data.agentRoles[a]==='Ripeur'?'selected':''}>Ripeur</option>
+                        <option value="Chauffeur / Ripeur" ${state.data.agentRoles[a]==='Chauffeur / Ripeur'?'selected':''}>Mixte</option>
+                    </select>
+                    <button onclick="state.data.agents.splice(${i},1);sync();renderAll()" class="text-red-500">✕</button>
                 </li>`).join('');
+            
+            document.getElementById('list-camions').innerHTML = state.data.camions.map((c,i)=>`<li class="flex justify-between p-1 border text-[10px]">${c} <button onclick="state.data.camions.splice(${i},1);sync();renderAll()">✕</button></li>`).join('');
 
-            document.getElementById('list-camions').innerHTML = state.data.camions.map((item, i) => `<li class="flex justify-between text-xs p-2 bg-slate-50 mb-1 border rounded">${item} <button onclick="state.data.camions.splice(${i},1);renderAll();sync();" class="text-red-500 admin-only">✕</button></li>`).join('');
-
-            const tHTML = (t, i, list) => {
-                const bg = t.flux==='CS'?'background-color: #ffed00; border-color: #d4c700;':'background-color: #f1f1f1; border-color: #ccc;';
-                let dateTxt = t.dateSpecifique ? `[${new Date(t.dateSpecifique).toLocaleDateString('fr-FR')}] ` : `<b>${JOURS_NOM[t.jour-1]}</b> : `;
-                return `<div class="flex justify-between p-2 mb-1 border text-[11px] font-bold rounded shadow-sm" style="${bg}"><span>${dateTxt}${t.nom}</span><button onclick="state.data.${list}.splice(${i},1);renderAll();sync();" class="text-red-600 admin-only">✕</button></div>`;
-            };
-            document.getElementById('list-tournees-impaires').innerHTML = state.data.tournees.map((t, i) => t.type==='impaire'?tHTML(t,i,'tournees'):'').join('');
-            document.getElementById('list-tournees-paires').innerHTML = state.data.tournees.map((t, i) => t.type==='paire'?tHTML(t,i,'tournees'):'').join('');
-            document.getElementById('list-tournees-occas').innerHTML = (state.data.tourneesOccas||[]).map((t, i) => tHTML(t,i,'tourneesOccas')).join('');
+            const tHTML = (t, i) => `<div class="p-2 border bg-white mb-1 rounded text-[10px] flex justify-between items-center">
+                <span><b>${["Lun","Mar","Mer","Jeu","Ven","Sam"][t.jour-1]}</b> : ${t.nom} - ${t.vidageDefaut}</span>
+                <button onclick="state.data.tournees.splice(${i},1);sync();renderAll()" class="text-red-500 font-bold ml-2">✕</button></div>`;
+            document.getElementById('list-tournees-impaires').innerHTML = state.data.tournees.map((t,i)=>t.type==='impaire'?tHTML(t,i):'').join('');
+            document.getElementById('list-tournees-paires').innerHTML = state.data.tournees.map((t,i)=>t.type==='paire'?tHTML(t,i):'').join('');
+            
+            document.getElementById('list-users').innerHTML = state.data.users.map((u,i)=>`<div class="flex justify-between p-2 border rounded text-xs"><span>${u.prenom} ${u.nom} (${u.role})</span><button onclick="state.data.users.splice(${i},1);sync();renderAll()" class="text-red-500 font-bold">✕</button></div>`).join('');
         }
 
-        function renderUsers() {
-            document.getElementById('list-users').innerHTML = state.data.users.map((u, i) => `
-                <div class="flex justify-between items-center bg-slate-50 p-3 rounded border mb-2">
-                    <div><p class="font-black text-sm">${u.prenom} ${u.nom}</p><p class="text-[10px] text-slate-400 font-bold uppercase">${u.email}</p></div>
-                    <div class="flex gap-2">
-                        <select onchange="updateUserRole(${i}, this.value)" class="text-[10px] font-bold border rounded p-1"><option value="read" ${u.role==='read'?'selected':''}>Lecteur</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select>
-                        <button onclick="removeUser(${i})" class="text-red-500 font-bold text-xs">✕</button>
-                    </div>
-                </div>`).join('');
-        }
-        function updateUserRole(i, r) { state.data.users[i].role = r; sync(); }
-        function removeUser(i) { if(state.data.users[i].email === currentUser.email) return; state.data.users.splice(i, 1); renderUsers(); sync(); }
-        function addUser() {
-            state.data.users.push({ prenom: document.getElementById('new-u-prenom').value, nom: document.getElementById('new-u-nom').value, email: document.getElementById('new-u-email').value, pass: document.getElementById('new-u-pass').value, role: document.getElementById('new-u-role').value });
-            renderUsers(); sync();
-        }
-        function showTab(id) { document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active')); document.getElementById(id).classList.add('active'); renderAll(); }
-        window.onload = load;
-
-        function copyWeek() {
-            const wk = `${state.annee}_W${state.semaine}`;
-            clipboard = JSON.parse(JSON.stringify(state.data.planning[wk] || {}));
-            alert(`Semaine ${state.semaine} copiée !`);
-        }
-        function openPasteModal() {
-            if(!clipboard) return alert("Presse-papier vide.");
-            document.getElementById('target-week-num').innerText = state.semaine;
-            document.getElementById('copy-modal').classList.add('active');
-        }
+        // --- UTILITAIRES ---
+        function showTab(id) { document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active')); document.getElementById(id).classList.add('active'); if(id==='tab-stats') renderStats(); }
+        function changeSemaine(d) { state.semaine = Math.max(1, Math.min(52, state.semaine + d)); document.getElementById('week-selector').value = state.semaine; renderPlanning(); }
+        function changeMoisConges(d) { state.moisConges += d; if(state.moisConges>11){state.moisConges=0;state.anneeConges++;} if(state.moisConges<0){state.moisConges=11;state.anneeConges--;} renderConges(); }
+        function setMotif(m) { currentMotif=m; document.querySelectorAll('.motif-btn').forEach(b=>b.classList.toggle('active', b.dataset.motif===m)); }
+        function initWeekSelector() { const s = document.getElementById('week-selector'); for(let i=1;i<=52;i++) s.add(new Option(`Semaine ${i}`, i)); s.value=state.semaine; }
+        function exportPDF(id, name) { html2pdf().from(document.getElementById(id)).set({margin:5, filename:name+'.pdf', jsPDF:{unit:'mm', format:'a3', orientation:'landscape'}}).save(); }
+        function copyWeek() { clipboard = JSON.parse(JSON.stringify(state.data.planning[`${state.annee}_W${state.semaine}`] || {})); alert("Semaine copiée !"); }
+        function openPasteModal() { if(clipboard) document.getElementById('copy-modal').classList.remove('hidden'); }
         function pasteData(type) {
             const wk = `${state.annee}_W${state.semaine}`;
             if(!state.data.planning[wk]) state.data.planning[wk] = {};
-            Object.keys(clipboard).forEach(rowKey => {
-                if(!state.data.planning[wk][rowKey]) state.data.planning[wk][rowKey] = {};
-                const src = clipboard[rowKey]; const trg = state.data.planning[wk][rowKey];
-                if(type === 'all' || type === 'ch') trg.ch = src.ch;
-                if(type === 'all' || type === 'ripeurs') { trg.r1 = src.r1; trg.r2 = src.r2; }
-                if(type === 'all' || type === 'camion') trg.camion = src.camion;
-                if(type === 'all' || type === 'vidage') trg.vidage = src.vidage;
-                if(type === 'all' || type === 'info') trg.info = src.info;
-                if(type === 'all' || type === 'autres') trg.autres = src.autres;
-            });
-            document.getElementById('copy-modal').classList.remove('active');
-            sync(); renderPlanning();
+            for(let rk in clipboard) {
+                if(!state.data.planning[wk][rk]) state.data.planning[wk][rk] = {};
+                if(type==='all' || type==='ch') state.data.planning[wk][rk].ch = clipboard[rk].ch;
+                if(type==='all' || type==='ripeurs') { state.data.planning[wk][rk].r1 = clipboard[rk].r1; state.data.planning[wk][rk].r2 = clipboard[rk].r2; }
+            }
+            document.getElementById('copy-modal').classList.add('hidden'); renderPlanning(); sync();
         }
+        function addUser() {
+            state.data.users.push({ prenom: document.getElementById('new-u-prenom').value, nom: document.getElementById('new-u-nom').value, email: document.getElementById('new-u-email').value, pass: document.getElementById('new-u-pass').value, role: document.getElementById('new-u-role').value });
+            renderAll(); sync();
+        }
+
+        window.onload = load;
     </script>
 </body>
 </html>
