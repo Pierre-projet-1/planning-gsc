@@ -16,7 +16,7 @@
         th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; padding: 12px 8px; border: 1px solid #e2e8f0; background-color: #1e293b; color: white; }
         td { font-size: 11px; padding: 6px; border: 1px solid #e2e8f0; }
         .cell-conge-active { background-color: #ef4444 !important; color: white !important; font-weight: 900; text-align: center; }
-        .weekend-bg { background-color: #f8fafc !important; color: #cbd5e1; }
+        .weekend-bg { background-color: #f1f5f9 !important; color: #cbd5e1; pointer-events: none; cursor: not-allowed; }
         #login-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(15, 23, 42, 0.9); display: flex; align-items: center; justify-content: center; }
         #copy-modal { position: fixed; inset: 0; z-index: 200; background: rgba(15, 23, 42, 0.8); display: none; align-items: center; justify-content: center; }
         #copy-modal.active { display: flex; }
@@ -24,10 +24,45 @@
         body.is-admin .admin-only { display: block; }
         .motif-btn.active { border-color: #3b82f6; background-color: #3b82f6; color: white; transform: scale(1.05); }
         .selectable-cell { user-select: none; transition: all 0.1s; }
+
+        /* ── STATS ── */
+        .stat-cat-btn {
+            padding: 9px 22px; border-radius: 10px; font-size: 11px; font-weight: 800;
+            text-transform: uppercase; letter-spacing: .06em;
+            border: 2px solid #e2e8f0; color: #64748b; background: white;
+            cursor: pointer; transition: all .15s;
+        }
+        .stat-cat-btn.active { background: #1e293b; color: white; border-color: #1e293b; }
+        .stat-sub-btn {
+            padding: 6px 16px; border-radius: 8px; font-size: 10px; font-weight: 800;
+            text-transform: uppercase; letter-spacing: .05em;
+            border: 1.5px solid #e2e8f0; color: #94a3b8; background: white;
+            cursor: pointer; transition: all .12s;
+        }
+        .stat-sub-btn.active { background: #334155; color: white; border-color: #334155; }
+        .stat-card { background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px; }
+        .stat-bar-bg { background: #f1f5f9; border-radius: 99px; height: 7px; width: 100%; overflow: hidden; }
+        .stat-bar-fill { height: 7px; border-radius: 99px; background: #334155; transition: width .45s cubic-bezier(.4,0,.2,1); }
+        .stat-bar-fill.accent { background: #64748b; }
+        .stat-bar-fill.light { background: #94a3b8; }
+        .agent-pill {
+            padding: 5px 14px; border-radius: 99px; font-size: 10px; font-weight: 800;
+            text-transform: uppercase; letter-spacing: .04em;
+            border: 1.5px solid #e2e8f0; color: #475569; background: #f8fafc;
+            cursor: pointer; transition: all .12s; white-space: nowrap;
+        }
+        .agent-pill.active { background: #1e293b; color: white; border-color: #1e293b; }
+        .rank-dot { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 900; flex-shrink: 0; }
+        .rank-1 { background: #1e293b; color: white; }
+        .rank-2 { background: #475569; color: white; }
+        .rank-3 { background: #94a3b8; color: white; }
+        .rank-n { background: #f1f5f9; color: #64748b; }
+        .zero-row { opacity: .45; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen font-sans text-slate-900">
 
+    <!-- LOGIN -->
     <div id="login-overlay">
         <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
             <div class="text-center mb-8">
@@ -43,6 +78,7 @@
         </div>
     </div>
 
+    <!-- COPY MODAL -->
     <div id="copy-modal">
         <div class="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm">
             <h3 class="font-black uppercase text-lg mb-4">Options de collage</h3>
@@ -60,11 +96,13 @@
         </div>
     </div>
 
+    <!-- HEADER -->
     <header class="bg-slate-900 text-white p-4 sticky top-0 z-50 flex justify-between items-center shadow-xl">
         <h1 class="font-black text-xl tracking-tighter uppercase">GRAND SUD Tarn & Garonne</h1>
         <nav class="flex gap-4">
             <button onclick="showTab('tab-plan')" class="text-xs font-bold uppercase hover:opacity-70">Planning</button>
             <button onclick="showTab('tab-conges')" class="text-xs font-bold uppercase hover:opacity-70">Congés</button>
+            <button onclick="showTab('tab-stats')" class="text-xs font-bold uppercase hover:opacity-70">Stats</button>
             <button onclick="showTab('tab-params')" class="text-xs font-bold uppercase hover:opacity-70 admin-only">Configuration</button>
             <button onclick="showTab('tab-users')" class="text-xs font-bold uppercase hover:opacity-70 admin-only">Utilisateurs</button>
         </nav>
@@ -76,6 +114,8 @@
     </header>
 
     <main class="max-w-[1600px] mx-auto p-6">
+
+        <!-- ═══════ PLANNING ═══════ -->
         <section id="tab-plan" class="tab-content active">
             <div class="flex justify-between items-end mb-4">
                 <div class="flex gap-2 admin-only">
@@ -86,7 +126,10 @@
             </div>
             <div id="pdf-area-plan" class="pdf-export-container bg-white border">
                 <div class="flex items-center justify-between mb-8 pb-4 border-b">
-                    <div class="w-1/3"><select id="week-selector" onchange="state.semaine=parseInt(this.value); renderPlanning();" class="p-3 bg-slate-50 border rounded-xl font-black uppercase text-sm"></select><div id="header-range" class="text-xs font-bold text-slate-400 mt-1"></div></div>
+                    <div class="w-1/3">
+                        <select id="week-selector" onchange="state.semaine=parseInt(this.value); renderPlanning();" class="p-3 bg-slate-50 border rounded-xl font-black uppercase text-sm"></select>
+                        <div id="header-range" class="text-xs font-bold text-slate-400 mt-1"></div>
+                    </div>
                     <div class="flex-1 text-center">
                         <div class="flex justify-center items-center gap-6">
                             <button onclick="changeSemaine(-1)" class="text-2xl admin-only">◀</button>
@@ -98,13 +141,14 @@
                 </div>
                 <table class="w-full text-left border-collapse">
                     <thead>
-                        <tr><th style="width: 10%">Jour</th><th style="width: 12%">Tournée</th><th style="width: 6%">Flux</th><th style="width: 7%">Camion</th><th style="width: 9%">Chauffeur</th><th style="width: 9%">Ripeur 1</th><th style="width: 9%">Ripeur 2</th><th style="width: 7%">Vidage</th><th style="width: 10%">Info</th><th style="width: 12%">Autres missions</th><th class="col-dispo" style="width: 9%">Dispo</th></tr>
+                        <tr><th style="width:10%">Jour</th><th style="width:12%">Tournée</th><th style="width:6%">Flux</th><th style="width:7%">Camion</th><th style="width:9%">Chauffeur</th><th style="width:9%">Ripeur 1</th><th style="width:9%">Ripeur 2</th><th style="width:7%">Vidage</th><th style="width:10%">Info</th><th style="width:12%">Autres missions</th><th class="col-dispo" style="width:9%">Dispo</th></tr>
                     </thead>
                     <tbody id="plan-body"></tbody>
                 </table>
             </div>
         </section>
 
+        <!-- ═══════ CONGÉS ═══════ -->
         <section id="tab-conges" class="tab-content">
             <div class="flex justify-end mb-4"><button onclick="exportPDF('pdf-area-conges', 'Conges', 'conges')" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-black text-xs uppercase shadow-lg">📄 Export PDF A3</button></div>
             <div id="pdf-area-conges" class="pdf-export-container bg-white border">
@@ -132,10 +176,43 @@
             </div>
         </section>
 
+        <!-- ═══════ STATS ═══════ -->
+        <section id="tab-stats" class="tab-content">
+            <div class="mb-6">
+                <div class="flex items-center justify-between mb-5">
+                    <div>
+                        <h2 class="font-black text-2xl uppercase tracking-tighter">Statistiques</h2>
+                        <p class="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-1">Analyse de la collecte — toutes semaines confondues</p>
+                    </div>
+                    <button onclick="renderStats()" class="bg-slate-900 text-white px-4 py-2 rounded-lg font-black text-xs uppercase">↺ Actualiser</button>
+                </div>
+
+                <!-- Catégorie principale -->
+                <div class="flex gap-2 flex-wrap mb-4" id="stats-cat-btns">
+                    <button class="stat-cat-btn active" data-cat="chauffeur" onclick="setStatCat('chauffeur')">🚛 Chauffeurs</button>
+                    <button class="stat-cat-btn" data-cat="ripeur" onclick="setStatCat('ripeur')">🦺 Ripeurs</button>
+                    <button class="stat-cat-btn" data-cat="poly" onclick="setStatCat('poly')">🔄 Chauffeurs / Ripeurs</button>
+                </div>
+
+                <!-- Sous-onglets -->
+                <div class="flex gap-2 flex-wrap mb-1" id="stats-sub-btns">
+                    <button class="stat-sub-btn active" data-sub="top" onclick="setStatSub('top')">+ souvent réalisées</button>
+                    <button class="stat-sub-btn" data-sub="bottom" onclick="setStatSub('bottom')">— souvent réalisées</button>
+                    <button class="stat-sub-btn" data-sub="agent" onclick="setStatSub('agent')">Détail agent</button>
+                </div>
+
+                <!-- Sélecteur agent (visible seulement en mode 'agent') -->
+                <div id="stats-agent-picker" class="hidden flex flex-wrap gap-2 mt-3 p-3 bg-white border rounded-xl"></div>
+            </div>
+
+            <div id="stats-content"></div>
+        </section>
+
+        <!-- ═══════ CONFIGURATION ═══════ -->
         <section id="tab-params" class="tab-content">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div class="bg-white p-6 border rounded-xl shadow-sm">
-                    <h3 class="font-black text-xs uppercase mb-1 tracking-widest text-slate-400">Agents</h3>
+                    <h3 class="font-black text-xs uppercase mb-1 tracking-widest text-slate-400">Agents actifs</h3>
                     <div class="space-y-2 mb-4">
                         <input id="in-agents" placeholder="Nom Agent" class="w-full border p-2 rounded text-xs">
                         <select id="in-agent-role" class="w-full border p-2 rounded text-xs">
@@ -145,8 +222,11 @@
                         </select>
                         <button onclick="addParam('agents')" class="w-full bg-slate-900 text-white py-2 rounded text-xs font-bold uppercase">Ajouter Agent</button>
                     </div>
-                    <ul id="list-agents" class="mb-8"></ul>
-                    
+                    <ul id="list-agents" class="mb-6"></ul>
+
+                    <h3 class="font-black text-xs uppercase mb-1 tracking-widest text-slate-400 border-t pt-4">Agents archivés</h3>
+                    <ul id="list-agents-archived" class="mb-8"></ul>
+
                     <h3 class="font-black text-xs uppercase mb-1 tracking-widest text-slate-400 border-t pt-4">Camions</h3>
                     <div class="flex gap-2 mb-4"><input id="in-camions" placeholder="N°" class="flex-1 border p-2 rounded text-xs"><button onclick="addParam('camions')" class="bg-slate-900 text-white px-3 rounded">+</button></div>
                     <ul id="list-camions"></ul>
@@ -158,7 +238,8 @@
                             <div><label class="text-[9px] font-black uppercase text-slate-400">Nom</label><input id="in-tournees" class="w-full border p-1 rounded"></div>
                             <div><label class="text-[9px] font-black uppercase text-slate-400">Flux</label><select id="in-flux" class="w-full border p-1 rounded"><option value="OM">OM</option><option value="CS">CS</option></select></div>
                             <div><label class="text-[9px] font-black uppercase text-slate-400">Jour</label><select id="in-jour" class="w-full border p-1 rounded"><option value="1">Lundi</option><option value="2">Mardi</option><option value="3">Mercredi</option><option value="4">Jeudi</option><option value="5">Vendredi</option><option value="6">Samedi</option></select></div>
-                            <div><label class="text-[9px] font-black uppercase text-slate-400">Type</label><select id="in-freq" class="w-full border p-1 rounded"><option value="impaire">Impaire</option><option value="paire">Paire</option></select></div>
+                            <div><label class="text-[9px] font-black uppercase text-slate-400">Semaine</label><select id="in-freq" class="w-full border p-1 rounded"><option value="impaire">Impaire</option><option value="paire">Paire</option></select></div>
+                            <div class="col-span-4"><label class="text-[9px] font-black uppercase text-slate-400">Vidage</label><select id="in-vidage-perm" class="w-full border p-1 rounded text-xs"><option value="">— Aucun —</option><option value="Dépôt">Dépôt</option><option value="DRIMM">DRIMM</option></select></div>
                             <button onclick="addParam('tournees')" class="col-span-4 bg-slate-900 text-white p-2 rounded font-bold uppercase text-xs">Ajouter Permanente</button>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
@@ -172,6 +253,7 @@
                             <div class="col-span-1"><label class="text-[9px] font-black uppercase text-slate-400">Nom</label><input id="occ-tournees" class="w-full border p-1 rounded"></div>
                             <div><label class="text-[9px] font-black uppercase text-slate-400">Flux</label><select id="occ-flux" class="w-full border p-1 rounded"><option value="OM">OM</option><option value="CS">CS</option></select></div>
                             <div><label class="text-[9px] font-black uppercase text-slate-400">Date</label><input type="date" id="occ-date" class="w-full border p-1 rounded text-[10px]"></div>
+                            <div class="col-span-3"><label class="text-[9px] font-black uppercase text-slate-400">Vidage</label><select id="occ-vidage" class="w-full border p-1 rounded text-xs"><option value="">— Aucun —</option><option value="Dépôt">Dépôt</option><option value="DRIMM">DRIMM</option></select></div>
                             <button onclick="addParam('tourneesOccas')" class="col-span-3 bg-slate-900 text-white p-2 rounded font-bold uppercase text-xs">Ajouter Occasionnelle</button>
                         </div>
                         <div id="list-tournees-occas"></div>
@@ -180,6 +262,7 @@
             </div>
         </section>
 
+        <!-- ═══════ UTILISATEURS ═══════ -->
         <section id="tab-users" class="tab-content">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div class="bg-white p-6 rounded-xl border shadow-sm">
@@ -196,6 +279,7 @@
             </div>
         </section>
 
+        <!-- ═══════ PROFIL ═══════ -->
         <section id="tab-profil" class="tab-content">
             <div class="max-w-md mx-auto bg-white p-8 rounded-xl border">
                 <h2 class="font-black text-xl mb-6 uppercase">Mon Profil</h2>
@@ -209,308 +293,595 @@
         </section>
     </main>
 
-    <script>
-        const BIN_ID = "69b528beaa77b81da9e33a14"; 
-        const API_KEY = "$2a$10$KM0Bk26gr5ZNVIpvSKTSIOs57V3dBxtizW1IjdbER1L/yjh24vaEq"; 
-        const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+<script>
+const BIN_ID = "69b528beaa77b81da9e33a14";
+const API_KEY = "$2a$10$KM0Bk26gr5ZNVIpvSKTSIOs57V3dBxtizW1IjdbER1L/yjh24vaEq";
+const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
-        let currentUser = null;
-        let isMouseDown = false;
-        let currentMotif = "CA";
-        let clipboard = null; 
-        let state = {
-            annee: 2026, semaine: 1, moisConges: new Date().getMonth(), anneeConges: 2026,
-            data: { agents: [], agentRoles: {}, camions: [], tournees: [], tourneesOccas: [], planning: {}, conges: {}, users: [] }
-        };
+let currentUser = null;
+let isMouseDown = false;
+let currentMotif = "CA";
+let clipboard = null;
+let state = {
+    annee: 2026, semaine: 1, moisConges: new Date().getMonth(), anneeConges: 2026,
+    data: { agents: [], agentRoles: {}, agentsArchived: [], camions: [], tournees: [], tourneesOccas: [], planning: {}, conges: {}, users: [] }
+};
 
-        const JOURS_NOM = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+// Stats UI state
+let statCat = 'chauffeur'; // chauffeur | ripeur | poly
+let statSub = 'top';       // top | bottom | agent
+let statAgent = null;
 
-        async function load() {
-            try {
-                const res = await fetch(`${URL}/latest`, { headers: { "X-Master-Key": API_KEY } });
-                const json = await res.json();
-                if (json.record) state.data = json.record;
-                if (!state.data.agentRoles) state.data.agentRoles = {};
-                document.getElementById('status').innerText = "✅ Connecté";
-                initWeekSelector();
-                renderAll();
-            } catch (err) { document.getElementById('status').innerText = "❌ Erreur"; }
-        }
+const JOURS_NOM = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
 
-        async function sync() {
-            if (!currentUser || currentUser.role !== 'admin') return;
-            document.getElementById('status').innerText = "⏳ Sauvegarde...";
-            await fetch(URL, {
-                method: 'PUT',
-                headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
-                body: JSON.stringify(state.data)
-            });
-            document.getElementById('status').innerText = "✅ Sauvegardé";
-        }
+/* ═══════════════════════════ LOAD / SYNC ═══════════════════════════ */
+async function load() {
+    try {
+        const res = await fetch(`${URL}/latest`, { headers: { "X-Master-Key": API_KEY } });
+        const json = await res.json();
+        if (json.record) state.data = json.record;
+        if (!state.data.agentRoles) state.data.agentRoles = {};
+        if (!state.data.agentsArchived) state.data.agentsArchived = [];
+        document.getElementById('status').innerText = "✅ Connecté";
+        initWeekSelector();
+        renderAll();
+    } catch(e) { document.getElementById('status').innerText = "❌ Erreur"; }
+}
+async function sync() {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    document.getElementById('status').innerText = "⏳ Sauvegarde...";
+    await fetch(URL, { method:'PUT', headers:{"Content-Type":"application/json","X-Master-Key":API_KEY}, body: JSON.stringify(state.data) });
+    document.getElementById('status').innerText = "✅ Sauvegardé";
+}
 
-        function handleLogin() {
-            const email = document.getElementById('login-email').value;
-            const pass = document.getElementById('login-pass').value;
-            if (state.data.users.length === 0 && email === 'admin@gsc.fr' && pass === 'admin123') {
-                currentUser = { email, prenom: 'Admin', nom: 'GSC', role: 'admin', pass: 'admin123' };
-                state.data.users.push(currentUser);
+/* ═══════════════════════════ LOGIN ═══════════════════════════ */
+function handleLogin() {
+    const email = document.getElementById('login-email').value;
+    const pass  = document.getElementById('login-pass').value;
+    if (state.data.users.length === 0 && email === 'admin@gsc.fr' && pass === 'admin123') {
+        currentUser = { email, prenom:'Admin', nom:'GSC', role:'admin', pass:'admin123' };
+        state.data.users.push(currentUser);
+    } else {
+        currentUser = state.data.users.find(u => u.email === email && u.pass === pass);
+    }
+    if (currentUser) {
+        document.getElementById('login-overlay').style.display = 'none';
+        document.getElementById('user-display-name').innerText = `${currentUser.prenom} ${currentUser.nom}`;
+        if (currentUser.role === 'admin') document.body.classList.add('is-admin');
+        renderAll();
+    } else { document.getElementById('login-error').classList.remove('hidden'); }
+}
+
+/* ═══════════════════════════ WEEK SELECTOR ═══════════════════════════ */
+function initWeekSelector() {
+    const sel = document.getElementById('week-selector');
+    sel.innerHTML = "";
+    for (let i=1; i<=52; i++) {
+        let o = document.createElement('option'); o.value=i; o.innerText=`Semaine ${i}`;
+        if (i===state.semaine) o.selected=true;
+        sel.appendChild(o);
+    }
+}
+function changeSemaine(delta) {
+    let n = state.semaine + delta;
+    if (n<1) n=52; if (n>52) n=1;
+    state.semaine = n;
+    document.getElementById('week-selector').value = n;
+    renderPlanning();
+}
+function getDatesOfWeek(w, y) {
+    let simple = new Date(y, 0, 1 + (w-1)*7);
+    let dow = simple.getDay();
+    let start = simple;
+    if (dow<=4) start.setDate(simple.getDate() - simple.getDay() + 1);
+    else start.setDate(simple.getDate() + 8 - simple.getDay());
+    let days=[];
+    for (let i=0; i<6; i++) {
+        let d = new Date(start); d.setDate(d.getDate()+i);
+        const y2=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+        days.push({ texte: d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}), iso:`${y2}-${m}-${day}`, court:`${day}/${m}/${String(y2).slice(-2)}` });
+    }
+    return days;
+}
+
+/* ═══════════════════════════ PDF ═══════════════════════════ */
+function exportPDF(elementId, fileName, tabType) {
+    const el = document.getElementById(elementId);
+    if (tabType==='planning') el.querySelectorAll('.col-dispo').forEach(e=>e.classList.add('no-export'));
+    const opt = { margin:5, filename:fileName+'.pdf', image:{type:'jpeg',quality:.98}, html2canvas:{scale:2}, jsPDF:{unit:'mm',format:'a3',orientation:'landscape'} };
+    html2pdf().set(opt).from(el).save().then(()=>{ el.querySelectorAll('.no-export').forEach(e=>e.classList.remove('no-export')); });
+}
+
+/* ═══════════════════════════ PLANNING ═══════════════════════════ */
+function renderPlanning() {
+    const isPaire = state.semaine % 2 === 0;
+    const weekKey = `${state.annee}_W${state.semaine}`;
+    const dates = getDatesOfWeek(state.semaine, state.annee);
+    document.getElementById('header-range').innerText = `${dates[0].court} au ${dates[5].court}`;
+    document.getElementById('header-semaine').innerText = state.semaine;
+    document.getElementById('header-mois-annee').innerText = new Date(dates[0].iso).toLocaleString('fr-FR',{month:'long',year:'numeric'});
+    document.getElementById('header-flux-type').innerText = isPaire ? "Semaine Paire" : "Semaine Impaire";
+    const body = document.getElementById('plan-body');
+    body.innerHTML = "";
+    const isLocked = currentUser.role !== 'admin';
+
+    const activeAgents = state.data.agents; // archived excluded
+    const chauffeurs = activeAgents.filter(a => (state.data.agentRoles[a]||'').includes('Chauffeur'));
+    const ripeurs    = activeAgents.filter(a => (state.data.agentRoles[a]||'').includes('Ripeur'));
+
+    dates.forEach((dateObj, dayIdx) => {
+        const perm  = state.data.tournees.filter(t => t.type===(isPaire?'paire':'impaire') && t.jour==(dayIdx+1));
+        const occas = (state.data.tourneesOccas||[]).filter(t => t.dateSpecifique===dateObj.iso);
+        const tourDuJour = [...perm, ...occas];
+        let agentCounts={}, camionCounts={};
+        tourDuJour.forEach(t => {
+            const c = state.data.planning[weekKey]?.[`${t.nom}_${dayIdx}`] || {};
+            [c.ch,c.r1,c.r2,c.autres].forEach(n=>{ if(n&&n!=='-') agentCounts[n]=(agentCounts[n]||0)+1; });
+            if(c.camion&&c.camion!=='-') camionCounts[c.camion]=(camionCounts[c.camion]||0)+1;
+        });
+        tourDuJour.forEach((t, tIdx) => {
+            const rowKey = `${t.nom}_${dayIdx}`;
+            const cell = state.data.planning[weekKey]?.[rowKey] || {};
+            const chkA = n => (n&&n!=='-'&&state.data.conges[n]?.[dateObj.iso]) ? 'is-conge' : (agentCounts[n]>1?'is-double':'');
+            const chkC = c => (c&&c!=='-'&&camionCounts[c]>1) ? 'is-double' : '';
+            const tr = document.createElement('tr'); tr.className="bg-white";
+            let dayCell = tIdx===0 ? `<td rowspan="${tourDuJour.length}" class="font-bold text-slate-600 bg-slate-50 border-r">${dateObj.texte}</td>` : "";
+            tr.innerHTML = `${dayCell}
+                <td class="font-black uppercase text-slate-900">${t.nom}</td>
+                <td class="p-0"><div class="${t.flux==='OM'?'flux-om':'flux-cs'}">${t.flux}</div></td>
+                <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','camion',this.value)" class="w-full p-1 border rounded ${chkC(cell.camion)}"><option value="-">-</option>${state.data.camions.map(c=>`<option ${cell.camion===c?'selected':''}>${c}</option>`).join('')}</select></td>
+                <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','ch',this.value)" class="w-full p-1 border rounded ${chkA(cell.ch)}"><option value="-">-</option>${chauffeurs.map(a=>`<option ${cell.ch===a?'selected':''}>${a}</option>`).join('')}</select></td>
+                <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r1',this.value)" class="w-full p-1 border rounded ${chkA(cell.r1)}"><option value="-">-</option>${ripeurs.map(a=>`<option ${cell.r1===a?'selected':''}>${a}</option>`).join('')}</select></td>
+                <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r2',this.value)" class="w-full p-1 border rounded ${chkA(cell.r2)}"><option value="-">-</option>${ripeurs.map(a=>`<option ${cell.r2===a?'selected':''}>${a}</option>`).join('')}</select></td>
+                <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','vidage',this.value)" class="w-full p-1 border rounded font-bold"><option value="-">-</option><option ${cell.vidage==='Dépôt'?'selected':''}>Dépôt</option><option ${cell.vidage==='DRIMM'?'selected':''}>DRIMM</option></select></td>
+                <td><input type="text" ${isLocked?'disabled':''} value="${cell.info||''}" onchange="updatePlan('${rowKey}','info',this.value)" class="w-full p-1 border rounded"></td>
+                <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','autres',this.value)" class="w-full p-1 border rounded ${chkA(cell.autres)}"><option value="-">-</option>${activeAgents.map(a=>`<option ${cell.autres===a?'selected':''}>${a}</option>`).join('')}</select></td>
+                ${tIdx===0?`<td rowspan="${tourDuJour.length}" class="col-dispo text-[9px] text-emerald-600 font-bold bg-emerald-50 border-l">${activeAgents.filter(a=>!agentCounts[a]&&!(state.data.conges[a]?.[dateObj.iso])).join(', ')}</td>`:''}`;
+            body.appendChild(tr);
+        });
+    });
+}
+function updatePlan(rk, f, v) {
+    const wk = `${state.annee}_W${state.semaine}`;
+    if (!state.data.planning[wk]) state.data.planning[wk]={};
+    if (!state.data.planning[wk][rk]) state.data.planning[wk][rk]={};
+    state.data.planning[wk][rk][f] = v;
+    sync(); renderPlanning();
+}
+
+/* ═══════════════════════════ CONGÉS ═══════════════════════════ */
+function renderConges() {
+    const container = document.getElementById('conges-wrapper');
+    const joursDansMois = new Date(state.anneeConges, state.moisConges+1, 0).getDate();
+    const nomsMois = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+    document.getElementById('current-month-display').innerText = `${nomsMois[state.moisConges]} ${state.anneeConges}`;
+    let html = `<table class="w-full border-collapse bg-white" onmousedown="isMouseDown=true" onmouseup="isMouseDown=false;sync();"><thead><tr class="bg-slate-900 text-white"><th>Agent</th>`;
+    for (let j=1; j<=joursDansMois; j++) {
+        const d = new Date(state.anneeConges, state.moisConges, j);
+        const isWE = d.getDay()===0||d.getDay()===6;
+        html += `<th class="text-[8px] border p-1${isWE?' opacity-50':''}">${d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric'})}</th>`;
+    }
+    html += `</tr></thead><tbody>`;
+    state.data.agents.forEach(agent => {
+        html += `<tr><td class="font-bold border p-2 text-[10px] bg-slate-50 sticky left-0 z-10">${agent}</td>`;
+        for (let j=1; j<=joursDansMois; j++) {
+            const dIso = `${state.anneeConges}-${String(state.moisConges+1).padStart(2,'0')}-${String(j).padStart(2,'0')}`;
+            const dow = new Date(state.anneeConges, state.moisConges, j).getDay();
+            const isWE = dow===0||dow===6;
+            const motif = state.data.conges[agent]?.[dIso];
+            if (isWE) {
+                html += `<td class="selectable-cell border h-8 weekend-bg"></td>`;
             } else {
-                currentUser = state.data.users.find(u => u.email === email && u.pass === pass);
-            }
-            if (currentUser) {
-                document.getElementById('login-overlay').style.display = 'none';
-                document.getElementById('user-display-name').innerText = `${currentUser.prenom} ${currentUser.nom}`;
-                if(currentUser.role === 'admin') document.body.classList.add('is-admin');
-                renderAll();
-            } else { document.getElementById('login-error').classList.remove('hidden'); }
-        }
-
-        function initWeekSelector() {
-            const select = document.getElementById('week-selector');
-            select.innerHTML = "";
-            for(let i=1; i<=52; i++) {
-                let opt = document.createElement('option'); opt.value = i; opt.innerText = `Semaine ${i}`;
-                if(i === state.semaine) opt.selected = true;
-                select.appendChild(opt);
+                html += `<td onmousedown="if(currentUser.role==='admin')toggleConge('${agent}','${dIso}',this)" onmouseenter="if(isMouseDown&&currentUser.role==='admin')toggleConge('${agent}','${dIso}',this)" class="selectable-cell border cursor-pointer h-8${motif?' cell-conge-active':''}">${motif||''}</td>`;
             }
         }
+        html += `</tr>`;
+    });
+    container.innerHTML = html + `</tbody></table>`;
+}
+function toggleConge(a, d, el) {
+    if (!state.data.conges[a]) state.data.conges[a]={};
+    if (state.data.conges[a][d]) { delete state.data.conges[a][d]; el.innerText=""; el.classList.remove('cell-conge-active'); }
+    else { state.data.conges[a][d]=currentMotif; el.innerText=currentMotif; el.classList.add('cell-conge-active'); }
+    renderPlanning();
+}
+function changeMoisConges(delta) {
+    state.moisConges += delta;
+    if (state.moisConges>11) { state.moisConges=0; state.anneeConges++; }
+    if (state.moisConges<0)  { state.moisConges=11; state.anneeConges--; }
+    renderConges();
+}
+function setMotif(m) {
+    currentMotif = m;
+    document.querySelectorAll('.motif-btn').forEach(b=>b.classList.toggle('active', b.dataset.motif===m));
+}
 
-        function changeSemaine(delta) {
-            let n = state.semaine + delta;
-            if (n < 1) n = 52; if (n > 52) n = 1;
-            state.semaine = n;
-            document.getElementById('week-selector').value = n;
-            renderPlanning();
-        }
+/* ═══════════════════════════ CONFIG ═══════════════════════════ */
+function addParam(t) {
+    if (t==='tournees') {
+        const vidage = document.getElementById('in-vidage-perm').value;
+        state.data.tournees.push({ nom:document.getElementById('in-tournees').value, flux:document.getElementById('in-flux').value, type:document.getElementById('in-freq').value, jour:document.getElementById('in-jour').value, vidage });
+    } else if (t==='tourneesOccas') {
+        const vidage = document.getElementById('occ-vidage').value;
+        state.data.tourneesOccas.push({ nom:document.getElementById('occ-tournees').value, flux:document.getElementById('occ-flux').value, dateSpecifique:document.getElementById('occ-date').value, vidage });
+    } else if (t==='agents') {
+        const name = document.getElementById('in-agents').value.trim();
+        if (name) { state.data.agents.push(name); state.data.agentRoles[name]=document.getElementById('in-agent-role').value; }
+    } else state.data[t].push(document.getElementById(`in-${t}`).value);
+    renderAll(); sync();
+}
+function updateAgentRole(agent, role) { state.data.agentRoles[agent]=role; sync(); renderPlanning(); }
 
-        function getDatesOfWeek(w, y) {
-            let simple = new Date(y, 0, 1 + (w - 1) * 7);
-            let dow = simple.getDay();
-            let ISOweekStart = simple;
-            if (dow <= 4) ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
-            else ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
-            let days = [];
-            for (let i = 0; i < 6; i++) {
-                let d = new Date(ISOweekStart);
-                d.setDate(d.getDate() + i);
-                const year = d.getFullYear();
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                days.push({ texte: d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }), iso: `${year}-${month}-${day}`, court: `${day}/${month}/${String(year).slice(-2)}` });
+function archiveAgent(i) {
+    const name = state.data.agents[i];
+    state.data.agents.splice(i,1);
+    if (!state.data.agentsArchived) state.data.agentsArchived=[];
+    state.data.agentsArchived.push(name);
+    renderAll(); sync();
+}
+function restoreAgent(i) {
+    const name = state.data.agentsArchived[i];
+    state.data.agentsArchived.splice(i,1);
+    state.data.agents.push(name);
+    renderAll(); sync();
+}
+function deleteAgentPermanent(i) {
+    if (!confirm("Supprimer définitivement cet agent et toutes ses données ?")) return;
+    state.data.agentsArchived.splice(i,1);
+    renderAll(); sync();
+}
+
+function renderAll() {
+    if (!currentUser) return;
+    renderPlanning(); renderConges(); renderUsers(); renderStats();
+
+    // Active agents list
+    document.getElementById('list-agents').innerHTML = state.data.agents.map((item,i) => `
+        <li class="flex justify-between items-center text-xs p-2 bg-slate-50 mb-1 border rounded">
+            <div class="font-bold">${item}</div>
+            <div class="flex gap-2 items-center">
+                <select onchange="updateAgentRole('${item}',this.value)" class="text-[9px] border rounded p-1">
+                    <option value="Chauffeur" ${state.data.agentRoles[item]==='Chauffeur'?'selected':''}>Chauffeur</option>
+                    <option value="Ripeur" ${state.data.agentRoles[item]==='Ripeur'?'selected':''}>Ripeur</option>
+                    <option value="Chauffeur / Ripeur" ${state.data.agentRoles[item]==='Chauffeur / Ripeur'?'selected':''}>Chauffeur / Ripeur</option>
+                </select>
+                <button onclick="archiveAgent(${i})" title="Archiver" class="text-amber-500 font-black text-xs admin-only px-1 border border-amber-200 rounded hover:bg-amber-50">↓ Archiver</button>
+            </div>
+        </li>`).join('');
+
+    // Archived agents list
+    document.getElementById('list-agents-archived').innerHTML = (state.data.agentsArchived||[]).length===0
+        ? `<li class="text-[10px] text-slate-300 italic p-1">Aucun agent archivé</li>`
+        : (state.data.agentsArchived||[]).map((item,i) => `
+        <li class="flex justify-between items-center text-xs p-2 bg-amber-50 mb-1 border border-amber-200 rounded opacity-70">
+            <div class="font-bold text-slate-500">${item} <span class="text-[9px] font-normal text-amber-600">(archivé)</span></div>
+            <div class="flex gap-2 items-center admin-only">
+                <button onclick="restoreAgent(${i})" class="text-emerald-600 font-bold text-[9px] border border-emerald-200 rounded px-1 hover:bg-emerald-50">↑ Réactiver</button>
+                <button onclick="deleteAgentPermanent(${i})" class="text-red-500 font-bold text-[9px]">✕</button>
+            </div>
+        </li>`).join('');
+
+    document.getElementById('list-camions').innerHTML = state.data.camions.map((item,i) => `<li class="flex justify-between text-xs p-2 bg-slate-50 mb-1 border rounded">${item} <button onclick="state.data.camions.splice(${i},1);renderAll();sync();" class="text-red-500 admin-only">✕</button></li>`).join('');
+
+    const tHTML = (t,i,list) => {
+        const bg = t.flux==='CS'?'background-color:#ffed00;border-color:#d4c700;':'background-color:#f1f1f1;border-color:#ccc;';
+        let dateTxt = t.dateSpecifique ? `[${new Date(t.dateSpecifique).toLocaleDateString('fr-FR')}] ` : `<b>${JOURS_NOM[t.jour-1]}</b> : `;
+        const vidageTxt = t.vidage ? ` <span style="font-weight:400;color:#64748b">— Vidage ${t.vidage}</span>` : '';
+        return `<div class="flex justify-between p-2 mb-1 border text-[11px] font-bold rounded shadow-sm" style="${bg}"><span>${dateTxt}${t.nom}${vidageTxt}</span><button onclick="state.data.${list}.splice(${i},1);renderAll();sync();" class="text-red-600 admin-only">✕</button></div>`;
+    };
+    document.getElementById('list-tournees-impaires').innerHTML = state.data.tournees.map((t,i)=>t.type==='impaire'?tHTML(t,i,'tournees'):'').join('');
+    document.getElementById('list-tournees-paires').innerHTML   = state.data.tournees.map((t,i)=>t.type==='paire'?tHTML(t,i,'tournees'):'').join('');
+    document.getElementById('list-tournees-occas').innerHTML    = (state.data.tourneesOccas||[]).map((t,i)=>tHTML(t,i,'tourneesOccas')).join('');
+}
+
+/* ═══════════════════════════ USERS ═══════════════════════════ */
+function renderUsers() {
+    document.getElementById('list-users').innerHTML = state.data.users.map((u,i) => `
+        <div class="flex justify-between items-center bg-slate-50 p-3 rounded border mb-2">
+            <div><p class="font-black text-sm">${u.prenom} ${u.nom}</p><p class="text-[10px] text-slate-400 font-bold uppercase">${u.email}</p></div>
+            <div class="flex gap-2">
+                <select onchange="updateUserRole(${i},this.value)" class="text-[10px] font-bold border rounded p-1"><option value="read" ${u.role==='read'?'selected':''}>Lecteur</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select>
+                <button onclick="removeUser(${i})" class="text-red-500 font-bold text-xs">✕</button>
+            </div>
+        </div>`).join('');
+}
+function updateUserRole(i,r) { state.data.users[i].role=r; sync(); }
+function removeUser(i) { if(state.data.users[i].email===currentUser.email) return; state.data.users.splice(i,1); renderUsers(); sync(); }
+function addUser() {
+    state.data.users.push({ prenom:document.getElementById('new-u-prenom').value, nom:document.getElementById('new-u-nom').value, email:document.getElementById('new-u-email').value, pass:document.getElementById('new-u-pass').value, role:document.getElementById('new-u-role').value });
+    renderUsers(); sync();
+}
+
+/* ═══════════════════════════ TAB NAV ═══════════════════════════ */
+function showTab(id) {
+    document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    renderAll();
+}
+window.onload = load;
+
+/* ═══════════════════════════ COPY/PASTE ═══════════════════════════ */
+function copyWeek() {
+    const wk = `${state.annee}_W${state.semaine}`;
+    clipboard = JSON.parse(JSON.stringify(state.data.planning[wk]||{}));
+    alert(`Semaine ${state.semaine} copiée !`);
+}
+function openPasteModal() {
+    if (!clipboard) return alert("Presse-papier vide.");
+    document.getElementById('target-week-num').innerText = state.semaine;
+    document.getElementById('copy-modal').classList.add('active');
+}
+function pasteData(type) {
+    const wk = `${state.annee}_W${state.semaine}`;
+    if (!state.data.planning[wk]) state.data.planning[wk]={};
+    Object.keys(clipboard).forEach(rk => {
+        if (!state.data.planning[wk][rk]) state.data.planning[wk][rk]={};
+        const src=clipboard[rk], trg=state.data.planning[wk][rk];
+        if(type==='all'||type==='ch') trg.ch=src.ch;
+        if(type==='all'||type==='ripeurs') { trg.r1=src.r1; trg.r2=src.r2; }
+        if(type==='all'||type==='camion') trg.camion=src.camion;
+        if(type==='all'||type==='vidage') trg.vidage=src.vidage;
+        if(type==='all'||type==='info') trg.info=src.info;
+        if(type==='all'||type==='autres') trg.autres=src.autres;
+    });
+    document.getElementById('copy-modal').classList.remove('active');
+    sync(); renderPlanning();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STATS ENGINE
+═══════════════════════════════════════════════════════════════ */
+
+function setStatCat(cat) {
+    statCat = cat;
+    statSub = 'top';
+    statAgent = null;
+    document.querySelectorAll('.stat-cat-btn').forEach(b=>b.classList.toggle('active', b.dataset.cat===cat));
+    document.querySelectorAll('.stat-sub-btn').forEach(b=>b.classList.toggle('active', b.dataset.sub==='top'));
+    renderStats();
+}
+function setStatSub(sub) {
+    statSub = sub;
+    if (sub !== 'agent') statAgent = null;
+    document.querySelectorAll('.stat-sub-btn').forEach(b=>b.classList.toggle('active', b.dataset.sub===sub));
+    renderStats();
+}
+function setStatAgent(name) {
+    statAgent = (statAgent === name) ? null : name;
+    renderStats();
+}
+
+/* Build stat maps from planning data */
+function buildStatMaps() {
+    // perAgent[agent] = { ch: {tourneeName: count}, rip: {tourneeName: count} }
+    const perAgent = {};
+    const allAgents = [...state.data.agents, ...(state.data.agentsArchived||[])];
+    allAgents.forEach(a => { perAgent[a] = { ch:{}, rip:{} }; });
+
+    Object.values(state.data.planning||{}).forEach(weekData => {
+        Object.entries(weekData||{}).forEach(([rowKey, cell]) => {
+            const parts = rowKey.split('_');
+            const tName = parts.slice(0, parts.length-1).join('_');
+            if (cell.ch && cell.ch!=='-') {
+                if (!perAgent[cell.ch]) perAgent[cell.ch]={ch:{},rip:{}};
+                perAgent[cell.ch].ch[tName] = (perAgent[cell.ch].ch[tName]||0)+1;
             }
-            return days;
-        }
-
-        function exportPDF(elementId, fileName, tabType) {
-            const element = document.getElementById(elementId);
-            if(tabType === 'planning') element.querySelectorAll('.col-dispo').forEach(el => el.classList.add('no-export'));
-            const opt = { margin: 5, filename: fileName + '.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a3', orientation: 'landscape' } };
-            html2pdf().set(opt).from(element).save().then(() => {
-                element.querySelectorAll('.no-export').forEach(el => el.classList.remove('no-export'));
-            });
-        }
-
-        function renderPlanning() {
-            const isPaire = state.semaine % 2 === 0;
-            const weekKey = `${state.annee}_W${state.semaine}`;
-            const dates = getDatesOfWeek(state.semaine, state.annee);
-            document.getElementById('header-range').innerText = `${dates[0].court} au ${dates[5].court}`;
-            document.getElementById('header-semaine').innerText = state.semaine;
-            document.getElementById('header-mois-annee').innerText = new Date(dates[0].iso).toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
-            document.getElementById('header-flux-type').innerText = isPaire ? "Semaine Paire" : "Semaine Impaire";
-            const body = document.getElementById('plan-body');
-            body.innerHTML = "";
-            const isLocked = currentUser.role !== 'admin';
-
-            const chauffeurs = state.data.agents.filter(a => (state.data.agentRoles[a]||'').includes('Chauffeur'));
-            const ripeurs = state.data.agents.filter(a => (state.data.agentRoles[a]||'').includes('Ripeur'));
-
-            dates.forEach((dateObj, dayIdx) => {
-                const perm = state.data.tournees.filter(t => t.type === (isPaire?'paire':'impaire') && t.jour == (dayIdx+1));
-                const occas = (state.data.tourneesOccas || []).filter(t => t.dateSpecifique === dateObj.iso);
-                const tourDuJour = [...perm, ...occas];
-                
-                let agentCounts = {};
-                let camionCounts = {};
-
-                tourDuJour.forEach(t => {
-                    const c = state.data.planning[weekKey]?.[`${t.nom}_${dayIdx}`] || {};
-                    [c.ch, c.r1, c.r2, c.autres].forEach(n => { if(n && n !== "-") agentCounts[n] = (agentCounts[n] || 0) + 1; });
-                    if(c.camion && c.camion !== "-") camionCounts[c.camion] = (camionCounts[c.camion] || 0) + 1;
-                });
-
-                tourDuJour.forEach((t, tIdx) => {
-                    const rowKey = `${t.nom}_${dayIdx}`;
-                    const cell = state.data.planning[weekKey]?.[rowKey] || {};
-                    
-                    const checkAgent = (n) => (n && n !== "-" && state.data.conges[n] && state.data.conges[n][dateObj.iso]) ? 'is-conge' : (agentCounts[n]>1 ? 'is-double' : '');
-                    const checkCamion = (c) => (c && c !== "-" && camionCounts[c]>1) ? 'is-double' : '';
-
-                    const tr = document.createElement('tr');
-                    tr.className = "bg-white";
-                    let dayCell = tIdx === 0 ? `<td rowspan="${tourDuJour.length}" class="font-bold text-slate-600 bg-slate-50 border-r">${dateObj.texte}</td>` : "";
-                    
-                    tr.innerHTML = `
-                        ${dayCell}
-                        <td class="font-black uppercase text-slate-900">${t.nom}</td>
-                        <td class="p-0"><div class="${t.flux==='OM'?'flux-om':'flux-cs'}">${t.flux}</div></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','camion',this.value)" class="w-full p-1 border rounded ${checkCamion(cell.camion)}"><option value="-">-</option>${state.data.camions.map(c => `<option ${cell.camion===c?'selected':''}>${c}</option>`).join('')}</select></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','ch',this.value)" class="w-full p-1 border rounded ${checkAgent(cell.ch)}"><option value="-">-</option>${chauffeurs.map(a => `<option ${cell.ch===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r1',this.value)" class="w-full p-1 border rounded ${checkAgent(cell.r1)}"><option value="-">-</option>${ripeurs.map(a => `<option ${cell.r1===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r2',this.value)" class="w-full p-1 border rounded ${checkAgent(cell.r2)}"><option value="-">-</option>${ripeurs.map(a => `<option ${cell.r2===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','vidage',this.value)" class="w-full p-1 border rounded font-bold"><option value="-">-</option><option ${cell.vidage==='Dépôt'?'selected':''}>Dépôt</option><option ${cell.vidage==='DRIMM'?'selected':''}>DRIMM</option></select></td>
-                        <td><input type="text" ${isLocked?'disabled':''} value="${cell.info||''}" onchange="updatePlan('${rowKey}','info',this.value)" class="w-full p-1 border rounded"></td>
-                        <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','autres',this.value)" class="w-full p-1 border rounded ${checkAgent(cell.autres)}"><option value="-">-</option>${state.data.agents.map(a => `<option ${cell.autres===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                        ${tIdx === 0 ? `<td rowspan="${tourDuJour.length}" class="col-dispo text-[9px] text-emerald-600 font-bold bg-emerald-50 border-l">${state.data.agents.filter(a => !agentCounts[a] && !(state.data.conges[a] && state.data.conges[a][dateObj.iso])).join(', ')}</td>` : ''}`;
-                    body.appendChild(tr);
-                });
-            });
-        }
-
-        function updatePlan(rk, f, v) {
-            const wk = `${state.annee}_W${state.semaine}`;
-            if(!state.data.planning[wk]) state.data.planning[wk] = {};
-            if(!state.data.planning[wk][rk]) state.data.planning[wk][rk] = {};
-            state.data.planning[wk][rk][f] = v;
-            sync(); renderPlanning();
-        }
-
-        function renderConges() {
-            const container = document.getElementById('conges-wrapper');
-            const joursDansMois = new Date(state.anneeConges, state.moisConges + 1, 0).getDate();
-            const nomsMois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
-            document.getElementById('current-month-display').innerText = `${nomsMois[state.moisConges]} ${state.anneeConges}`;
-            
-            let html = `<table class="w-full border-collapse bg-white" onmousedown="isMouseDown=true" onmouseup="isMouseDown=false; sync();"><thead><tr class="bg-slate-900 text-white"><th>Agent</th>`;
-            for(let j=1; j<=joursDansMois; j++) {
-                const d = new Date(state.anneeConges, state.moisConges, j);
-                html += `<th class="text-[8px] border p-1 ${d.getDay()===0||d.getDay()===6?'opacity-70':''}">${d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })}</th>`;
-            }
-            html += `</tr></thead><tbody>`;
-            state.data.agents.forEach(agent => {
-                html += `<tr><td class="font-bold border p-2 text-[10px] bg-slate-50 sticky left-0 z-10">${agent}</td>`;
-                for(let j=1; j<=joursDansMois; j++) {
-                    const dIso = `${state.anneeConges}-${String(state.moisConges+1).padStart(2,'0')}-${String(j).padStart(2,'0')}`;
-                    const isWE = new Date(state.anneeConges, state.moisConges, j).getDay() % 6 === 0;
-                    const motif = state.data.conges[agent]?.[dIso];
-                    html += `<td onmousedown="if(currentUser.role==='admin') toggleConge('${agent}','${dIso}', this)" onmouseenter="if(isMouseDown && currentUser.role==='admin') toggleConge('${agent}','${dIso}', this)" class="selectable-cell border cursor-pointer h-8 ${motif?'cell-conge-active':''} ${isWE && !motif ? 'weekend-bg' : ''}">${motif || ''}</td>`;
+            [cell.r1, cell.r2].forEach(r => {
+                if (r && r!=='-') {
+                    if (!perAgent[r]) perAgent[r]={ch:{},rip:{}};
+                    perAgent[r].rip[tName] = (perAgent[r].rip[tName]||0)+1;
                 }
-                html += `</tr>`;
             });
-            container.innerHTML = html + `</tbody></table>`;
+        });
+    });
+    return perAgent;
+}
+
+/* Get all unique tournee names from config + planning */
+function getAllTourneeNames() {
+    const fromConfig = [
+        ...(state.data.tournees||[]).map(t=>t.nom),
+        ...(state.data.tourneesOccas||[]).map(t=>t.nom)
+    ];
+    const fromPlanning = [];
+    Object.values(state.data.planning||{}).forEach(wk => {
+        Object.keys(wk||{}).forEach(rk => {
+            const parts = rk.split('_');
+            fromPlanning.push(parts.slice(0,parts.length-1).join('_'));
+        });
+    });
+    return [...new Set([...fromConfig,...fromPlanning])].filter(Boolean).sort();
+}
+
+/* Render stat bar (monochrome) */
+function bar(val, max, cls='') {
+    const pct = max>0 ? Math.round(val/max*100) : 0;
+    return `<div class="stat-bar-bg mt-1"><div class="stat-bar-fill${cls?' '+cls:''}" style="width:${pct}%"></div></div>`;
+}
+
+/* Rank dot */
+function rankDot(idx) {
+    const cls = idx===0?'rank-1':idx===1?'rank-2':idx===2?'rank-3':'rank-n';
+    return `<span class="rank-dot ${cls}">${idx+1}</span>`;
+}
+
+function renderStats() {
+    if (!currentUser) return;
+    const perAgent = buildStatMaps();
+    const allTournees = getAllTourneeNames();
+
+    // Determine which agents belong to this category
+    let agents = [];
+    if (statCat === 'chauffeur') {
+        agents = [...state.data.agents, ...(state.data.agentsArchived||[])].filter(a => {
+            const r = state.data.agentRoles[a]||'';
+            return r==='Chauffeur' || r==='Chauffeur / Ripeur';
+        });
+    } else if (statCat === 'ripeur') {
+        agents = [...state.data.agents, ...(state.data.agentsArchived||[])].filter(a => {
+            const r = state.data.agentRoles[a]||'';
+            return r==='Ripeur' || r==='Chauffeur / Ripeur';
+        });
+    } else { // poly
+        agents = [...state.data.agents, ...(state.data.agentsArchived||[])].filter(a =>
+            state.data.agentRoles[a]==='Chauffeur / Ripeur'
+        );
+    }
+
+    // Build agent picker
+    const picker = document.getElementById('stats-agent-picker');
+    if (statSub === 'agent') {
+        picker.classList.remove('hidden');
+        picker.innerHTML = agents.map(a =>
+            `<button class="agent-pill${statAgent===a?' active':''}" onclick="setStatAgent('${a}')">${a}</button>`
+        ).join('');
+    } else {
+        picker.classList.add('hidden');
+    }
+
+    const content = document.getElementById('stats-content');
+
+    /* ── MODE : détail agent ── */
+    if (statSub === 'agent') {
+        if (!statAgent) {
+            content.innerHTML = `<div class="text-center py-20 text-slate-300 font-black uppercase text-sm">Sélectionnez un agent ci-dessus</div>`;
+            return;
+        }
+        const map = statCat==='ripeur' ? (perAgent[statAgent]?.rip||{}) :
+                    statCat==='chauffeur' ? (perAgent[statAgent]?.ch||{}) :
+                    null; // poly handled separately
+
+        if (statCat === 'poly') {
+            // Show both ch and rip for this agent across all tournees
+            const chMap = perAgent[statAgent]?.ch||{};
+            const ripMap = perAgent[statAgent]?.rip||{};
+            const maxVal = Math.max(...allTournees.map(t=>(chMap[t]||0)+(ripMap[t]||0)),1);
+            const rows = allTournees.map(t => ({ t, ch:chMap[t]||0, rip:ripMap[t]||0 }));
+            rows.sort((a,b)=>(b.ch+b.rip)-(a.ch+a.rip));
+            content.innerHTML = `
+            <div class="stat-card max-w-2xl">
+                <div class="font-black text-base uppercase mb-1">${statAgent}</div>
+                <div class="text-[10px] text-slate-400 font-bold uppercase mb-5">Participation par tournée — conduit & ripé</div>
+                <div class="space-y-4">
+                    ${rows.map(({t,ch,rip}) => {
+                        const total=ch+rip;
+                        const isZero = total===0;
+                        return `<div class="${isZero?'zero-row':''}">
+                            <div class="flex justify-between mb-1">
+                                <span class="text-xs font-bold text-slate-700">${t}</span>
+                                <span class="text-[10px] font-black text-slate-400">${total===0?'—':`${ch?ch+'× ch':''}${ch&&rip?' · ':''}${rip?rip+'× rip':''}`}</span>
+                            </div>
+                            ${total>0 ? `<div class="flex rounded-full overflow-hidden h-2 w-full bg-slate-100">
+                                <div style="width:${Math.round(ch/maxVal*100)}%" class="stat-bar-fill"></div>
+                                <div style="width:${Math.round(rip/maxVal*100)}%" class="stat-bar-fill accent"></div>
+                            </div>
+                            <div class="flex gap-3 mt-0.5">
+                                <span class="text-[8px] text-slate-400 font-bold">■ conduit</span>
+                                <span class="text-[8px] text-slate-300 font-bold">■ ripé</span>
+                            </div>` : `<div class="stat-bar-bg"><div class="stat-bar-fill" style="width:0%"></div></div>`}
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
+            return;
         }
 
-        function toggleConge(a, d, el) {
-            if(!state.data.conges[a]) state.data.conges[a] = {};
-            if(state.data.conges[a][d]) { delete state.data.conges[a][d]; el.innerText = ""; el.classList.remove('cell-conge-active'); }
-            else { state.data.conges[a][d] = currentMotif; el.innerText = currentMotif; el.classList.add('cell-conge-active'); }
-            renderPlanning();
-        }
-
-        function changeMoisConges(delta) {
-            state.moisConges += delta;
-            if(state.moisConges > 11) { state.moisConges = 0; state.anneeConges++; }
-            if(state.moisConges < 0) { state.moisConges = 11; state.anneeConges--; }
-            renderConges();
-        }
-
-        function setMotif(m) {
-            currentMotif = m;
-            document.querySelectorAll('.motif-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.motif === m));
-        }
-
-        function addParam(t) {
-            if(t==='tournees') {
-                state.data.tournees.push({ nom: document.getElementById('in-tournees').value, flux: document.getElementById('in-flux').value, type: document.getElementById('in-freq').value, jour: document.getElementById('in-jour').value });
-            } else if(t==='tourneesOccas') {
-                state.data.tourneesOccas.push({ nom: document.getElementById('occ-tournees').value, flux: document.getElementById('occ-flux').value, dateSpecifique: document.getElementById('occ-date').value });
-            } else if(t==='agents') {
-                const name = document.getElementById('in-agents').value;
-                if(name) { state.data.agents.push(name); state.data.agentRoles[name] = document.getElementById('in-agent-role').value; }
-            } else state.data[t].push(document.getElementById(`in-${t}`).value);
-            renderAll(); sync();
-        }
-
-        // --- CORRECTION : MODIFICATION STATUT AGENT ---
-        function updateAgentRole(agent, role) {
-            state.data.agentRoles[agent] = role;
-            sync(); renderPlanning();
-        }
-
-        function renderAll() {
-            if(!currentUser) return;
-            renderPlanning(); renderConges(); renderUsers();
-            
-            document.getElementById('list-agents').innerHTML = state.data.agents.map((item, i) => `
-                <li class="flex justify-between items-center text-xs p-2 bg-slate-50 mb-1 border rounded">
-                    <div class="font-bold">${item}</div>
-                    <div class="flex gap-2 items-center">
-                        <select onchange="updateAgentRole('${item}', this.value)" class="text-[9px] border rounded p-1">
-                            <option value="Chauffeur" ${state.data.agentRoles[item]==='Chauffeur'?'selected':''}>Chauffeur</option>
-                            <option value="Ripeur" ${state.data.agentRoles[item]==='Ripeur'?'selected':''}>Ripeur</option>
-                            <option value="Chauffeur / Ripeur" ${state.data.agentRoles[item]==='Chauffeur / Ripeur'?'selected':''}>Chauffeur / Ripeur</option>
-                        </select>
-                        <button onclick="state.data.agents.splice(${i},1);renderAll();sync();" class="text-red-500 admin-only">✕</button>
+        const rows = allTournees.map(t => ({ t, val: map[t]||0 }));
+        rows.sort((a,b)=>b.val-a.val);
+        const maxVal = rows[0]?.val||1;
+        content.innerHTML = `
+        <div class="stat-card max-w-2xl">
+            <div class="font-black text-base uppercase mb-1">${statAgent}</div>
+            <div class="text-[10px] text-slate-400 font-bold uppercase mb-5">
+                Participation par tournée — ${statCat==='chauffeur'?'en tant que chauffeur':'en tant que ripeur'}
+            </div>
+            <div class="space-y-3">
+                ${rows.map(({t,val}) => `
+                <div class="${val===0?'zero-row':''}">
+                    <div class="flex justify-between mb-0.5">
+                        <span class="text-xs font-bold text-slate-700">${t}</span>
+                        <span class="text-[11px] font-black text-slate-500">${val===0?'—':val+'×'}</span>
                     </div>
-                </li>`).join('');
+                    ${bar(val, maxVal)}
+                </div>`).join('')}
+            </div>
+        </div>`;
+        return;
+    }
 
-            document.getElementById('list-camions').innerHTML = state.data.camions.map((item, i) => `<li class="flex justify-between text-xs p-2 bg-slate-50 mb-1 border rounded">${item} <button onclick="state.data.camions.splice(${i},1);renderAll();sync();" class="text-red-500 admin-only">✕</button></li>`).join('');
+    /* ── MODE : top / bottom ── */
+    if (!agents.length) {
+        content.innerHTML = `<div class="text-center py-20 text-slate-300 font-black uppercase text-sm">Aucun agent dans cette catégorie</div>`;
+        return;
+    }
 
-            const tHTML = (t, i, list) => {
-                const bg = t.flux==='CS'?'background-color: #ffed00; border-color: #d4c700;':'background-color: #f1f1f1; border-color: #ccc;';
-                let dateTxt = t.dateSpecifique ? `[${new Date(t.dateSpecifique).toLocaleDateString('fr-FR')}] ` : `<b>${JOURS_NOM[t.jour-1]}</b> : `;
-                return `<div class="flex justify-between p-2 mb-1 border text-[11px] font-bold rounded shadow-sm" style="${bg}"><span>${dateTxt}${t.nom}</span><button onclick="state.data.${list}.splice(${i},1);renderAll();sync();" class="text-red-600 admin-only">✕</button></div>`;
-            };
-            document.getElementById('list-tournees-impaires').innerHTML = state.data.tournees.map((t, i) => t.type==='impaire'?tHTML(t,i,'tournees'):'').join('');
-            document.getElementById('list-tournees-paires').innerHTML = state.data.tournees.map((t, i) => t.type==='paire'?tHTML(t,i,'tournees'):'').join('');
-            document.getElementById('list-tournees-occas').innerHTML = (state.data.tourneesOccas||[]).map((t, i) => tHTML(t,i,'tourneesOccas')).join('');
-        }
-
-        function renderUsers() {
-            document.getElementById('list-users').innerHTML = state.data.users.map((u, i) => `
-                <div class="flex justify-between items-center bg-slate-50 p-3 rounded border mb-2">
-                    <div><p class="font-black text-sm">${u.prenom} ${u.nom}</p><p class="text-[10px] text-slate-400 font-bold uppercase">${u.email}</p></div>
-                    <div class="flex gap-2">
-                        <select onchange="updateUserRole(${i}, this.value)" class="text-[10px] font-bold border rounded p-1"><option value="read" ${u.role==='read'?'selected':''}>Lecteur</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select>
-                        <button onclick="removeUser(${i})" class="text-red-500 font-bold text-xs">✕</button>
-                    </div>
-                </div>`).join('');
-        }
-        function updateUserRole(i, r) { state.data.users[i].role = r; sync(); }
-        function removeUser(i) { if(state.data.users[i].email === currentUser.email) return; state.data.users.splice(i, 1); renderUsers(); sync(); }
-        function addUser() {
-            state.data.users.push({ prenom: document.getElementById('new-u-prenom').value, nom: document.getElementById('new-u-nom').value, email: document.getElementById('new-u-email').value, pass: document.getElementById('new-u-pass').value, role: document.getElementById('new-u-role').value });
-            renderUsers(); sync();
-        }
-        function showTab(id) { document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active')); document.getElementById(id).classList.add('active'); renderAll(); }
-        window.onload = load;
-
-        function copyWeek() {
-            const wk = `${state.annee}_W${state.semaine}`;
-            clipboard = JSON.parse(JSON.stringify(state.data.planning[wk] || {}));
-            alert(`Semaine ${state.semaine} copiée !`);
-        }
-        function openPasteModal() {
-            if(!clipboard) return alert("Presse-papier vide.");
-            document.getElementById('target-week-num').innerText = state.semaine;
-            document.getElementById('copy-modal').classList.add('active');
-        }
-        function pasteData(type) {
-            const wk = `${state.annee}_W${state.semaine}`;
-            if(!state.data.planning[wk]) state.data.planning[wk] = {};
-            Object.keys(clipboard).forEach(rowKey => {
-                if(!state.data.planning[wk][rowKey]) state.data.planning[wk][rowKey] = {};
-                const src = clipboard[rowKey]; const trg = state.data.planning[wk][rowKey];
-                if(type === 'all' || type === 'ch') trg.ch = src.ch;
-                if(type === 'all' || type === 'ripeurs') { trg.r1 = src.r1; trg.r2 = src.r2; }
-                if(type === 'all' || type === 'camion') trg.camion = src.camion;
-                if(type === 'all' || type === 'vidage') trg.vidage = src.vidage;
-                if(type === 'all' || type === 'info') trg.info = src.info;
-                if(type === 'all' || type === 'autres') trg.autres = src.autres;
+    // For each agent, build sorted top-3
+    const cards = agents.map(agent => {
+        let entries;
+        if (statCat==='chauffeur') {
+            entries = Object.entries(perAgent[agent]?.ch||{});
+        } else if (statCat==='ripeur') {
+            entries = Object.entries(perAgent[agent]?.rip||{});
+        } else {
+            // poly: merge ch + rip
+            const ch = perAgent[agent]?.ch||{};
+            const rip = perAgent[agent]?.rip||{};
+            const merged = {};
+            [...Object.keys(ch),...Object.keys(rip)].forEach(k => {
+                merged[k] = { ch: ch[k]||0, rip: rip[k]||0 };
             });
-            document.getElementById('copy-modal').classList.remove('active');
-            sync(); renderPlanning();
+            entries = Object.entries(merged).map(([k,v])=>[k,v.ch+v.rip, v]);
         }
-    </script>
+
+        // Sort
+        if (statSub==='top') entries.sort((a,b)=>b[1]-a[1]);
+        else entries.sort((a,b)=>a[1]-b[1]);
+
+        const top3 = entries.slice(0,3);
+        const maxVal = Math.max(...(statSub==='top'?entries.slice(0,3):entries).map(e=>e[1]||0),1);
+        const totalInterventions = entries.reduce((s,e)=>s+(typeof e[1]==='number'?e[1]:0),0);
+
+        const isArchived = (state.data.agentsArchived||[]).includes(agent);
+
+        return `
+        <div class="stat-card flex flex-col gap-4${isArchived?' opacity-60 border-dashed':''}">
+            <div class="flex items-start justify-between">
+                <div>
+                    <div class="font-black text-sm uppercase tracking-tight">${agent}${isArchived?' <span class="text-[9px] text-amber-500 font-bold">(archivé)</span>':''}</div>
+                    <div class="text-[10px] text-slate-400 font-bold mt-0.5">${state.data.agentRoles[agent]||''}</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-xl font-black text-slate-700">${totalInterventions}</div>
+                    <div class="text-[9px] text-slate-400 font-bold uppercase">${statCat==='chauffeur'?'conduites':statCat==='ripeur'?'ripages':'total'}</div>
+                </div>
+            </div>
+            <div>
+                <div class="text-[9px] font-black uppercase text-slate-400 mb-3">
+                    ${statSub==='top'?'3 tournées les + réalisées':'3 tournées les - réalisées'}
+                </div>
+                ${top3.length===0
+                    ? `<p class="text-[11px] text-slate-300 font-bold">Aucune donnée</p>`
+                    : top3.map(([tName, val], idx) => {
+                        const displayVal = typeof val==='number' ? val : (val?.ch||0)+(val?.rip||0);
+                        return `
+                        <div class="flex items-center gap-3 mb-3">
+                            ${rankDot(idx)}
+                            <div class="flex-1 min-w-0">
+                                <div class="flex justify-between mb-0.5">
+                                    <span class="text-[11px] font-bold text-slate-700 truncate">${tName}</span>
+                                    <span class="text-[11px] font-black text-slate-500 ml-2">${displayVal}×</span>
+                                </div>
+                                ${bar(displayVal, maxVal, idx===0?'':(idx===1?'accent':'light'))}
+                            </div>
+                        </div>`;
+                    }).join('')}
+            </div>
+        </div>`;
+    });
+
+    content.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">${cards.join('')}</div>`;
+}
+
+</script>
 </body>
 </html>
