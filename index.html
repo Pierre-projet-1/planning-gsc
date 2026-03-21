@@ -1,887 +1,1482 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planning Collecte GSC</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <style>
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        .flux-om { background-color: #f1f1f1; color: #666; display: flex; align-items: center; justify-content: center; height: 100%; width: 100%; min-height: 40px; font-weight: 900; border: 1px solid #ccc; }
-        .flux-cs { background-color: #ffed00; color: #000; display: flex; align-items: center; justify-content: center; height: 100%; width: 100%; min-height: 40px; font-weight: 900; border: 1px solid #d4c700; }
-        .is-conge { background-color: #ef4444 !important; color: white !important; font-weight: 900 !important; }
-        .is-double { background-color: #ffedd5 !important; color: #9a3412; font-weight: bold; border: 2px solid #f97316 !important; }
-        th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; padding: 12px 8px; border: 1px solid #e2e8f0; background-color: #1e293b; color: white; }
-        td { font-size: 11px; padding: 6px; border: 1px solid #e2e8f0; }
-        .cell-conge-active { background-color: #ef4444 !important; color: white !important; font-weight: 900; text-align: center; }
-        .weekend-bg { background-color: #f1f5f9 !important; color: #cbd5e1; pointer-events: none; cursor: not-allowed; }
-        #login-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(15, 23, 42, 0.9); display: flex; align-items: center; justify-content: center; }
-        #copy-modal { position: fixed; inset: 0; z-index: 200; background: rgba(15, 23, 42, 0.8); display: none; align-items: center; justify-content: center; }
-        #copy-modal.active { display: flex; }
-        .admin-only { display: none; }
-        body.is-admin .admin-only { display: block; }
-        .motif-btn.active { border-color: #3b82f6; background-color: #3b82f6; color: white; transform: scale(1.05); }
-        .selectable-cell { user-select: none; transition: all 0.1s; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planning Collecte GSC</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ── GLOBALS ── */
+.tab-content{display:none}.tab-content.active{display:block}
+.admin-only{display:none}body.is-admin .admin-only{display:block}
+.selectable-cell{user-select:none;transition:all .1s}
+.motif-btn.active{border-color:#3b82f6;background-color:#3b82f6;color:white;transform:scale(1.05)}
 
-        /* ── STATS ── */
-        .stat-cat-btn {
-            padding: 9px 22px; border-radius: 10px; font-size: 11px; font-weight: 800;
-            text-transform: uppercase; letter-spacing: .06em;
-            border: 2px solid #e2e8f0; color: #64748b; background: white;
-            cursor: pointer; transition: all .15s;
-        }
-        .stat-cat-btn.active { background: #1e293b; color: white; border-color: #1e293b; }
-        .stat-sub-btn {
-            padding: 6px 16px; border-radius: 8px; font-size: 10px; font-weight: 800;
-            text-transform: uppercase; letter-spacing: .05em;
-            border: 1.5px solid #e2e8f0; color: #94a3b8; background: white;
-            cursor: pointer; transition: all .12s;
-        }
-        .stat-sub-btn.active { background: #334155; color: white; border-color: #334155; }
-        .stat-card { background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px; }
-        .stat-bar-bg { background: #f1f5f9; border-radius: 99px; height: 7px; width: 100%; overflow: hidden; }
-        .stat-bar-fill { height: 7px; border-radius: 99px; background: #334155; transition: width .45s cubic-bezier(.4,0,.2,1); }
-        .stat-bar-fill.accent { background: #64748b; }
-        .stat-bar-fill.light { background: #94a3b8; }
-        .agent-pill {
-            padding: 5px 14px; border-radius: 99px; font-size: 10px; font-weight: 800;
-            text-transform: uppercase; letter-spacing: .04em;
-            border: 1.5px solid #e2e8f0; color: #475569; background: #f8fafc;
-            cursor: pointer; transition: all .12s; white-space: nowrap;
-        }
-        .agent-pill.active { background: #1e293b; color: white; border-color: #1e293b; }
-        .rank-dot { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 900; flex-shrink: 0; }
-        .rank-1 { background: #1e293b; color: white; }
-        .rank-2 { background: #475569; color: white; }
-        .rank-3 { background: #94a3b8; color: white; }
-        .rank-n { background: #f1f5f9; color: #64748b; }
-        .zero-row { opacity: .45; }
-    </style>
+/* ── MODALS ── */
+#login-overlay{position:fixed;inset:0;z-index:100;background:rgba(15,23,42,.92);display:flex;align-items:center;justify-content:center}
+.modal-bg{position:fixed;inset:0;z-index:200;background:rgba(15,23,42,.82);display:none;align-items:center;justify-content:center}
+.modal-bg.active{display:flex}
+
+/* ── PLANNING TABLE ── */
+.plan-th{font-size:10px;text-transform:uppercase;letter-spacing:.05em;padding:10px 8px;border:1px solid #cbd5e1;background-color:#1e293b;color:white;font-weight:700}
+.plan-td{font-size:11px;padding:4px 5px;border:1px solid #cbd5e1}
+.row-om{background-color:#f5f5f5}
+.row-cs{background-color:#fefce8}
+.day-sep .plan-td,.day-sep .day-cell{border-top:3px solid #334155!important}
+/* Day cell: neutral, clean */
+.day-cell{background:#f8fafc!important;color:#1e293b;font-weight:700;font-size:12px;border-right:2px solid #cbd5e1;vertical-align:middle;padding:6px 10px;white-space:nowrap;min-width:120px}
+/* Flux cell harmonised with row */
+.flux-cell-om{background:#e8e8e8;color:#555;display:flex;align-items:center;justify-content:center;height:100%;width:100%;min-height:36px;font-weight:900;font-size:11px;border:1px solid #d0d0d0}
+.flux-cell-cs{background:#fef08a;color:#713f12;display:flex;align-items:center;justify-content:center;height:100%;width:100%;min-height:36px;font-weight:900;font-size:11px;border:1px solid #fde047}
+/* Selects / inputs: clean, no visible border box */
+.plan-select{width:100%;padding:4px 6px;border:none;border-radius:5px;background:transparent;font-size:11px;font-weight:600;color:#1e293b;outline:none;cursor:pointer;appearance:none;-webkit-appearance:none}
+.plan-select:hover:not(:disabled){background:rgba(0,0,0,.05)}
+.plan-select:disabled{color:#94a3b8;cursor:default}
+.plan-input{width:100%;padding:4px 6px;border:none;border-radius:5px;background:transparent;font-size:11px;font-weight:600;color:#1e293b;outline:none}
+.plan-input:hover:not(:disabled){background:rgba(0,0,0,.05)}
+.plan-input:disabled{color:#94a3b8}
+.is-conge{background-color:#fecaca!important;color:#b91c1c!important;font-weight:900!important}
+.is-double{background-color:#ffedd5!important;color:#9a3412;font-weight:bold;border:2px solid #f97316!important}
+/* Conges / Maintenance */
+.cell-conge-active{background-color:#ef4444!important;color:white!important;font-weight:900;text-align:center}
+.cell-maint-active{background-color:#f59e0b!important;color:white!important;font-weight:900;text-align:center}
+.weekend-bg{background-color:#f1f5f9!important;color:#cbd5e1;pointer-events:none;cursor:not-allowed}
+.is-maint-warn{background-color:#fef08a!important;color:#92400e!important;font-weight:900!important}
+
+/* ── CONFIG SUB-TABS ── */
+.cfg-tab-btn{padding:8px 20px;border-radius:10px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;border:2px solid #e2e8f0;color:#64748b;background:white;cursor:pointer;transition:all .15s}
+.cfg-tab-btn.active{background:#1e293b;color:white;border-color:#1e293b}
+
+/* ── TOURNEE CALENDAR ── */
+.tcal-cell{min-height:54px;border:1px solid #e2e8f0;border-radius:10px;padding:5px;background:#f8fafc;display:flex;flex-direction:column;gap:3px}
+.tcal-chip{padding:3px 7px;border-radius:6px;font-size:10px;font-weight:800;cursor:pointer;transition:all .12s;display:flex;align-items:center;gap:3px}
+.tcal-chip:hover{opacity:.8}
+.tcal-chip-om{background:#e2e8f0;color:#334155}
+.tcal-chip-cs{background:#fef08a;color:#713f12;border:1px solid #fde047}
+
+/* ── STATS ── */
+.stat-cat-btn{padding:9px 22px;border-radius:10px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;border:2px solid #e2e8f0;color:#64748b;background:white;cursor:pointer;transition:all .15s}
+.stat-cat-btn.active{background:#1e293b;color:white;border-color:#1e293b}
+.stat-sub-btn{padding:6px 16px;border-radius:8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;border:1.5px solid #e2e8f0;color:#94a3b8;background:white;cursor:pointer;transition:all .12s}
+.stat-sub-btn.active{background:#334155;color:white;border-color:#334155}
+.stat-day-btn{padding:5px 12px;border-radius:8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border:1.5px solid #e2e8f0;color:#94a3b8;background:white;cursor:pointer;transition:all .12s}
+.stat-day-btn.active{background:#475569;color:white;border-color:#475569}
+.stat-flux-btn{padding:5px 12px;border-radius:8px;font-size:10px;font-weight:800;text-transform:uppercase;border:1.5px solid #e2e8f0;color:#94a3b8;background:white;cursor:pointer;transition:all .12s}
+.stat-flux-btn.active{background:#475569;color:white;border-color:#475569}
+.stat-card{background:white;border:1px solid #e2e8f0;border-radius:14px;padding:20px}
+.stat-bar-bg{background:#f1f5f9;border-radius:99px;height:7px;width:100%;overflow:hidden}
+.stat-bar-fill{height:7px;border-radius:99px;background:#334155;transition:width .45s cubic-bezier(.4,0,.2,1)}
+.stat-bar-fill.accent{background:#64748b}
+.stat-bar-fill.light{background:#94a3b8}
+.agent-pill{padding:5px 14px;border-radius:99px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border:1.5px solid #e2e8f0;color:#475569;background:#f8fafc;cursor:pointer;transition:all .12s;white-space:nowrap}
+.agent-pill.active{background:#1e293b;color:white;border-color:#1e293b}
+.rank-dot{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;flex-shrink:0}
+.rank-1{background:#1e293b;color:white}.rank-2{background:#475569;color:white}.rank-3{background:#94a3b8;color:white}.rank-n{background:#f1f5f9;color:#64748b}
+.zero-row{opacity:.38}
+.donut-wrap{position:relative;width:80px;height:80px;flex-shrink:0}
+.donut-wrap svg{transform:rotate(-90deg)}
+.donut-label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:9px;font-weight:900;line-height:1.2;pointer-events:none}
+.day-group-header{background:#f1f5f9;font-size:10px;font-weight:900;color:#334155;text-transform:uppercase;letter-spacing:.06em;padding:6px 12px;border-radius:6px;margin-bottom:4px;margin-top:12px}
+
+/* ── PDF ── */
+@media print{.no-export{display:none!important}}
+</style>
 </head>
 <body class="bg-slate-50 min-h-screen font-sans text-slate-900">
 
-    <!-- LOGIN -->
-    <div id="login-overlay">
-        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
-            <div class="text-center mb-8">
-                <h2 class="text-3xl font-black uppercase tracking-tighter text-slate-900">GRAND SUD Tarn & Garonne</h2>
-                <p class="text-slate-400 text-sm font-bold uppercase tracking-widest">Espace Privé</p>
-            </div>
-            <div class="space-y-4">
-                <input type="email" id="login-email" placeholder="Email" class="w-full border-2 p-3 rounded-xl outline-none focus:border-slate-900">
-                <input type="password" id="login-pass" placeholder="Mot de passe" class="w-full border-2 p-3 rounded-xl outline-none focus:border-slate-900">
-                <button onclick="handleLogin()" class="w-full bg-slate-900 text-white font-black p-4 rounded-xl shadow-xl hover:opacity-90 uppercase text-sm">Connexion</button>
-                <p id="login-error" class="text-red-500 text-xs font-bold text-center hidden">Identifiants incorrects.</p>
-            </div>
-        </div>
+<!-- LOGIN -->
+<div id="login-overlay">
+  <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
+    <div class="text-center mb-8">
+      <h2 class="text-3xl font-black uppercase tracking-tighter">GRAND SUD Tarn & Garonne</h2>
+      <p class="text-slate-400 text-sm font-bold uppercase tracking-widest">Espace Privé</p>
     </div>
-
-    <!-- COPY MODAL -->
-    <div id="copy-modal">
-        <div class="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm">
-            <h3 class="font-black uppercase text-lg mb-4">Options de collage</h3>
-            <p class="text-xs text-slate-500 mb-4 font-bold">Que souhaitez-vous coller sur la semaine <span id="target-week-num"></span> ?</p>
-            <div class="grid grid-cols-1 gap-2">
-                <button onclick="pasteData('all')" class="bg-slate-900 text-white p-2 rounded text-[10px] font-black uppercase">Tout coller</button>
-                <button onclick="pasteData('ch')" class="border p-2 rounded text-[10px] font-black uppercase">Chauffeurs</button>
-                <button onclick="pasteData('ripeurs')" class="border p-2 rounded text-[10px] font-black uppercase">Ripeurs</button>
-                <button onclick="pasteData('camion')" class="border p-2 rounded text-[10px] font-black uppercase">Camions</button>
-                <button onclick="pasteData('vidage')" class="border p-2 rounded text-[10px] font-black uppercase">Vidages</button>
-                <button onclick="pasteData('info')" class="border p-2 rounded text-[10px] font-black uppercase">Infos</button>
-                <button onclick="pasteData('autres')" class="border p-2 rounded text-[10px] font-black uppercase">Autres missions</button>
-            </div>
-            <button onclick="document.getElementById('copy-modal').classList.remove('active')" class="w-full mt-4 text-slate-400 font-bold text-[10px] uppercase underline">Annuler</button>
-        </div>
+    <div class="space-y-4">
+      <input type="email" id="login-email" placeholder="Email" class="w-full border-2 p-3 rounded-xl outline-none focus:border-slate-900">
+      <input type="password" id="login-pass" placeholder="Mot de passe" class="w-full border-2 p-3 rounded-xl outline-none focus:border-slate-900">
+      <button onclick="handleLogin()" class="w-full bg-slate-900 text-white font-black p-4 rounded-xl shadow-xl hover:opacity-90 uppercase text-sm">Connexion</button>
+      <p id="login-error" class="text-red-500 text-xs font-bold text-center hidden">Identifiants incorrects.</p>
     </div>
+  </div>
+</div>
 
-    <!-- HEADER -->
-    <header class="bg-slate-900 text-white p-4 sticky top-0 z-50 flex justify-between items-center shadow-xl">
-        <h1 class="font-black text-xl tracking-tighter uppercase">GRAND SUD Tarn & Garonne</h1>
-        <nav class="flex gap-4">
-            <button onclick="showTab('tab-plan')" class="text-xs font-bold uppercase hover:opacity-70">Planning</button>
-            <button onclick="showTab('tab-conges')" class="text-xs font-bold uppercase hover:opacity-70">Congés</button>
-            <button onclick="showTab('tab-stats')" class="text-xs font-bold uppercase hover:opacity-70">Stats</button>
-            <button onclick="showTab('tab-params')" class="text-xs font-bold uppercase hover:opacity-70 admin-only">Configuration</button>
-            <button onclick="showTab('tab-users')" class="text-xs font-bold uppercase hover:opacity-70 admin-only">Utilisateurs</button>
-        </nav>
-        <div class="flex items-center gap-4">
-            <div id="status" class="text-[9px] font-mono text-white/50">...</div>
-            <div onclick="showTab('tab-profil')" class="cursor-pointer px-3 py-1 rounded-lg border border-white/20 text-xs font-bold hover:bg-white/10">👤 <span id="user-display-name">Profil</span></div>
-            <button onclick="location.reload()" class="text-xs text-white/70 font-bold hover:text-white">Sortie</button>
+<!-- COPY MODAL -->
+<div id="copy-modal" class="modal-bg">
+  <div class="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm">
+    <h3 class="font-black uppercase text-lg mb-4">Options de collage</h3>
+    <p class="text-xs text-slate-500 mb-4 font-bold">Que souhaitez-vous coller sur la semaine <span id="target-week-num"></span> ?</p>
+    <div class="grid grid-cols-1 gap-2">
+      <button onclick="pasteData('all')"    class="bg-slate-900 text-white p-2 rounded text-[10px] font-black uppercase">Tout coller</button>
+      <button onclick="pasteData('ch')"     class="border p-2 rounded text-[10px] font-black uppercase">Chauffeurs</button>
+      <button onclick="pasteData('ripeurs')"class="border p-2 rounded text-[10px] font-black uppercase">Ripeurs</button>
+      <button onclick="pasteData('camion')" class="border p-2 rounded text-[10px] font-black uppercase">Camions</button>
+      <button onclick="pasteData('vidage')" class="border p-2 rounded text-[10px] font-black uppercase">Vidages</button>
+      <button onclick="pasteData('info')"   class="border p-2 rounded text-[10px] font-black uppercase">Infos</button>
+      <button onclick="pasteData('autres')" class="border p-2 rounded text-[10px] font-black uppercase">Autres missions</button>
+    </div>
+    <button onclick="closeModal('copy-modal')" class="w-full mt-4 text-slate-400 font-bold text-[10px] uppercase underline">Annuler</button>
+  </div>
+</div>
+
+<!-- EDIT TOURNEE MODAL -->
+<div id="edit-tournee-modal" class="modal-bg">
+  <div class="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm">
+    <h3 class="font-black uppercase text-base mb-5">Modifier la tournée</h3>
+    <input type="hidden" id="edit-t-index">
+    <div class="space-y-3">
+      <div><label class="text-[9px] font-black uppercase text-slate-400">Nom</label><input id="edit-t-nom" class="w-full border p-2 rounded text-sm mt-1"></div>
+      <div><label class="text-[9px] font-black uppercase text-slate-400">Flux</label>
+        <select id="edit-t-flux" class="w-full border p-2 rounded text-sm mt-1"><option value="OM">OM</option><option value="CS">CS</option></select></div>
+      <div><label class="text-[9px] font-black uppercase text-slate-400">Jour</label>
+        <select id="edit-t-jour" class="w-full border p-2 rounded text-sm mt-1">
+          <option value="1">Lundi</option><option value="2">Mardi</option><option value="3">Mercredi</option>
+          <option value="4">Jeudi</option><option value="5">Vendredi</option><option value="6">Samedi</option>
+        </select></div>
+      <div><label class="text-[9px] font-black uppercase text-slate-400">Semaine</label>
+        <select id="edit-t-freq" class="w-full border p-2 rounded text-sm mt-1"><option value="impaire">Impaire</option><option value="paire">Paire</option></select></div>
+      <div><label class="text-[9px] font-black uppercase text-slate-400">Vidage</label>
+        <select id="edit-t-vidage" class="w-full border p-2 rounded text-sm mt-1"><option value="">— Aucun —</option><option value="Dépôt">Dépôt</option><option value="DRIMM">DRIMM</option></select></div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button onclick="saveTourneeEdit()" class="flex-1 bg-slate-900 text-white font-black p-2 rounded text-xs uppercase">Enregistrer</button>
+      <button onclick="closeModal('edit-tournee-modal')" class="flex-1 border font-bold p-2 rounded text-xs uppercase text-slate-500">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT AGENT MODAL -->
+<div id="edit-agent-modal" class="modal-bg">
+  <div class="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm">
+    <h3 class="font-black uppercase text-base mb-5">Modifier l'agent</h3>
+    <input type="hidden" id="edit-a-index">
+    <div class="space-y-3">
+      <div><label class="text-[9px] font-black uppercase text-slate-400">Nom</label><input id="edit-a-nom" class="w-full border p-2 rounded text-sm mt-1"></div>
+      <div><label class="text-[9px] font-black uppercase text-slate-400">Statut</label>
+        <select id="edit-a-role" class="w-full border p-2 rounded text-sm mt-1">
+          <option value="Chauffeur">Chauffeur</option><option value="Ripeur">Ripeur</option><option value="Chauffeur / Ripeur">Chauffeur / Ripeur</option>
+        </select></div>
+      <div><label class="text-[9px] font-black uppercase text-slate-400">Camion de préférence</label>
+        <select id="edit-a-camion" class="w-full border p-2 rounded text-sm mt-1">
+          <option value="">— Aucun —</option>
+        </select></div>
+      <div>
+        <label class="text-[9px] font-black uppercase text-slate-400">Autres missions permanentes</label>
+        <p class="text-[9px] text-slate-400 mt-1 mb-2">Cochez les jours où cet agent est automatiquement affecté en « Autres missions »</p>
+        <div class="flex flex-wrap gap-2" id="edit-a-autres-jours">
+          <label class="flex items-center gap-1 text-xs font-bold cursor-pointer"><input type="checkbox" value="1" class="autres-jour-cb"> Lun</label>
+          <label class="flex items-center gap-1 text-xs font-bold cursor-pointer"><input type="checkbox" value="2" class="autres-jour-cb"> Mar</label>
+          <label class="flex items-center gap-1 text-xs font-bold cursor-pointer"><input type="checkbox" value="3" class="autres-jour-cb"> Mer</label>
+          <label class="flex items-center gap-1 text-xs font-bold cursor-pointer"><input type="checkbox" value="4" class="autres-jour-cb"> Jeu</label>
+          <label class="flex items-center gap-1 text-xs font-bold cursor-pointer"><input type="checkbox" value="5" class="autres-jour-cb"> Ven</label>
+          <label class="flex items-center gap-1 text-xs font-bold cursor-pointer"><input type="checkbox" value="6" class="autres-jour-cb"> Sam</label>
         </div>
-    </header>
+      </div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button onclick="saveAgentEdit()" class="flex-1 bg-slate-900 text-white font-black p-2 rounded text-xs uppercase">Enregistrer</button>
+      <button onclick="closeModal('edit-agent-modal')" class="flex-1 border font-bold p-2 rounded text-xs uppercase text-slate-500">Annuler</button>
+    </div>
+  </div>
+</div>
 
-    <main class="max-w-[1600px] mx-auto p-6">
+<!-- HEADER -->
+<header class="bg-slate-900 text-white p-4 sticky top-0 z-50 flex justify-between items-center shadow-xl">
+  <h1 class="font-black text-xl tracking-tighter uppercase">GRAND SUD Tarn & Garonne</h1>
+  <nav class="flex gap-4">
+    <button onclick="showTab('tab-plan')"        class="text-xs font-bold uppercase hover:opacity-70">Planning</button>
+    <button onclick="showTab('tab-conges')"       class="text-xs font-bold uppercase hover:opacity-70">Congés</button>
+    <button onclick="showTab('tab-maintenance')"  class="text-xs font-bold uppercase hover:opacity-70">Maintenance</button>
+    <button onclick="showTab('tab-stats')"        class="text-xs font-bold uppercase hover:opacity-70">Stats</button>
+    <button onclick="showTab('tab-params')"       class="text-xs font-bold uppercase hover:opacity-70 admin-only">Configuration</button>
+    <button onclick="showTab('tab-users')"        class="text-xs font-bold uppercase hover:opacity-70 admin-only">Utilisateurs</button>
+  </nav>
+  <div class="flex items-center gap-4">
+    <div id="status" class="text-[9px] font-mono text-white/50">...</div>
+    <div onclick="showTab('tab-profil')" class="cursor-pointer px-3 py-1 rounded-lg border border-white/20 text-xs font-bold hover:bg-white/10">👤 <span id="user-display-name">Profil</span></div>
+    <button onclick="location.reload()" class="text-xs text-white/70 font-bold hover:text-white">Sortie</button>
+  </div>
+</header>
 
-        <!-- ═══════ PLANNING ═══════ -->
-        <section id="tab-plan" class="tab-content active">
-            <div class="flex justify-between items-end mb-4">
-                <div class="flex gap-2 admin-only">
-                    <button onclick="copyWeek()" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase shadow">📋 Copier Semaine</button>
-                    <button onclick="openPasteModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase shadow">📥 Coller ici</button>
-                </div>
-                <button onclick="exportPDF('pdf-area-plan', 'Planning', 'planning')" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-black text-xs uppercase shadow-lg">📄 Export PDF A3</button>
-            </div>
-            <div id="pdf-area-plan" class="pdf-export-container bg-white border">
-                <div class="flex items-center justify-between mb-8 pb-4 border-b">
-                    <div class="w-1/3">
-                        <select id="week-selector" onchange="state.semaine=parseInt(this.value); renderPlanning();" class="p-3 bg-slate-50 border rounded-xl font-black uppercase text-sm"></select>
-                        <div id="header-range" class="text-xs font-bold text-slate-400 mt-1"></div>
-                    </div>
-                    <div class="flex-1 text-center">
-                        <div class="flex justify-center items-center gap-6">
-                            <button onclick="changeSemaine(-1)" class="text-2xl admin-only">◀</button>
-                            <div><span class="text-2xl font-black uppercase">Semaine n°<span id="header-semaine"></span> - <span id="header-mois-annee"></span></span><br><span id="header-flux-type" class="font-black text-xs tracking-widest uppercase text-blue-600"></span></div>
-                            <button onclick="changeSemaine(1)" class="text-2xl admin-only">▶</button>
-                        </div>
-                    </div>
-                    <div class="w-1/3 text-right"><input type="number" value="2026" onchange="state.annee=parseInt(this.value); renderPlanning()" class="border p-2 w-24 text-center font-black text-xl"></div>
-                </div>
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr><th style="width:10%">Jour</th><th style="width:12%">Tournée</th><th style="width:6%">Flux</th><th style="width:7%">Camion</th><th style="width:9%">Chauffeur</th><th style="width:9%">Ripeur 1</th><th style="width:9%">Ripeur 2</th><th style="width:7%">Vidage</th><th style="width:10%">Info</th><th style="width:12%">Autres missions</th><th class="col-dispo" style="width:9%">Dispo</th></tr>
-                    </thead>
-                    <tbody id="plan-body"></tbody>
-                </table>
-            </div>
-        </section>
+<main class="max-w-[1600px] mx-auto p-6">
 
-        <!-- ═══════ CONGÉS ═══════ -->
-        <section id="tab-conges" class="tab-content">
-            <div class="flex justify-end mb-4"><button onclick="exportPDF('pdf-area-conges', 'Conges', 'conges')" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-black text-xs uppercase shadow-lg">📄 Export PDF A3</button></div>
-            <div id="pdf-area-conges" class="pdf-export-container bg-white border">
-                <div class="flex flex-col gap-6 mb-6">
-                    <div class="flex items-center justify-between border-b pb-4">
-                        <h2 class="font-black text-xl uppercase tracking-tighter w-1/3 text-left">PLANNING CONGÉS</h2>
-                        <div class="flex items-center justify-center gap-8 w-1/3 nav-btn-conges">
-                            <button onclick="changeMoisConges(-1)" class="text-2xl font-black text-slate-400 hover:text-slate-900">◀</button>
-                            <span id="current-month-display" class="font-black text-lg uppercase min-w-[150px] text-center"></span>
-                            <button onclick="changeMoisConges(1)" class="text-2xl font-black text-slate-400 hover:text-slate-900">▶</button>
-                        </div>
-                        <div class="w-1/3"></div>
-                    </div>
-                    <div class="flex flex-wrap gap-2 p-3 bg-slate-50 border rounded-xl admin-only">
-                        <button onclick="setMotif('CA')" data-motif="CA" class="motif-btn active border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">CA</button>
-                        <button onclick="setMotif('RH')" data-motif="RH" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">RH</button>
-                        <button onclick="setMotif('ARTT')" data-motif="ARTT" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">ARTT</button>
-                        <button onclick="setMotif('ASA')" data-motif="ASA" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">ASA</button>
-                        <button onclick="setMotif('DAS')" data-motif="DAS" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">DAS</button>
-                        <button onclick="setMotif('FOR')" data-motif="FOR" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">FOR</button>
-                        <button onclick="setMotif('AM')" data-motif="AM" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">AM</button>
-                    </div>
-                </div>
-                <div id="conges-wrapper" class="overflow-x-auto"></div>
-            </div>
-        </section>
+<!-- ══════ PLANNING ══════ -->
+<section id="tab-plan" class="tab-content active">
+  <div class="flex justify-between items-end mb-4">
+    <div class="flex gap-2 admin-only">
+      <button onclick="copyWeek()"       class="bg-slate-800 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase shadow">📋 Copier Semaine</button>
+      <button onclick="openPasteModal()" class="bg-blue-600  text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase shadow">📥 Coller ici</button>
+    </div>
+    <button onclick="exportPDF('pdf-area-plan','Planning','planning')" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-black text-xs uppercase shadow-lg">📄 Export PDF A3</button>
+  </div>
+  <div id="pdf-area-plan" class="bg-white border p-4" style="min-width:900px">
+    <div class="flex items-center justify-between mb-5 pb-4 border-b">
+      <div class="w-1/3">
+        <select id="week-selector" onchange="state.semaine=parseInt(this.value);renderPlanning();" class="p-3 bg-slate-50 border rounded-xl font-black uppercase text-sm"></select>
+        <div id="header-range" class="text-xs font-bold text-slate-400 mt-1"></div>
+      </div>
+      <div class="flex-1 text-center">
+        <div class="flex justify-center items-center gap-6">
+          <button onclick="changeSemaine(-1)" class="text-2xl admin-only">◀</button>
+          <div>
+            <span class="text-xl font-black uppercase">Semaine n°<span id="header-semaine"></span> — <span id="header-mois-annee"></span></span><br>
+            <span id="header-flux-type" class="font-black text-xs tracking-widest uppercase text-blue-600"></span>
+          </div>
+          <button onclick="changeSemaine(1)" class="text-2xl admin-only">▶</button>
+        </div>
+      </div>
+      <div class="w-1/3 text-right"><input type="number" value="2026" onchange="state.annee=parseInt(this.value);renderPlanning()" class="border p-2 w-24 text-center font-black text-xl"></div>
+    </div>
+    <table class="w-full text-left border-collapse" style="table-layout:fixed">
+      <thead>
+        <tr>
+          <th class="plan-th" style="width:11%">Jour</th>
+          <th class="plan-th" style="width:12%">Tournée</th>
+          <th class="plan-th" style="width:5%">Flux</th>
+          <th class="plan-th" style="width:7%">Camion</th>
+          <th class="plan-th" style="width:9%">Chauffeur</th>
+          <th class="plan-th" style="width:9%">Ripeur 1</th>
+          <th class="plan-th" style="width:9%">Ripeur 2</th>
+          <th class="plan-th" style="width:7%">Vidage</th>
+          <th class="plan-th" style="width:10%">Info</th>
+          <th class="plan-th" style="width:12%">Autres missions</th>
+          <th class="plan-th col-dispo" style="width:9%">Dispo</th>
+        </tr>
+      </thead>
+      <tbody id="plan-body"></tbody>
+    </table>
+  </div>
+</section>
 
-        <!-- ═══════ STATS ═══════ -->
-        <section id="tab-stats" class="tab-content">
-            <div class="mb-6">
-                <div class="flex items-center justify-between mb-5">
-                    <div>
-                        <h2 class="font-black text-2xl uppercase tracking-tighter">Statistiques</h2>
-                        <p class="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-1">Analyse de la collecte — toutes semaines confondues</p>
-                    </div>
-                    <button onclick="renderStats()" class="bg-slate-900 text-white px-4 py-2 rounded-lg font-black text-xs uppercase">↺ Actualiser</button>
-                </div>
+<!-- ══════ CONGÉS ══════ -->
+<section id="tab-conges" class="tab-content">
+  <div class="flex justify-end mb-4">
+    <button onclick="exportPDF('pdf-area-conges','Conges','conges')" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-black text-xs uppercase shadow-lg">📄 Export PDF A3</button>
+  </div>
+  <div id="pdf-area-conges" class="bg-white border p-5">
+    <div class="flex flex-col gap-6 mb-6">
+      <div class="flex items-center justify-between border-b pb-4">
+        <h2 class="font-black text-xl uppercase tracking-tighter w-1/3">PLANNING CONGÉS</h2>
+        <div class="flex items-center justify-center gap-8 w-1/3">
+          <button onclick="changeMoisConges(-1)" class="text-2xl font-black text-slate-400 hover:text-slate-900">◀</button>
+          <span id="current-month-display" class="font-black text-lg uppercase min-w-[150px] text-center"></span>
+          <button onclick="changeMoisConges(1)"  class="text-2xl font-black text-slate-400 hover:text-slate-900">▶</button>
+        </div>
+        <div class="w-1/3"></div>
+      </div>
+      <div class="flex flex-wrap gap-2 p-3 bg-slate-50 border rounded-xl admin-only">
+        <button onclick="setMotif('CA')"   data-motif="CA"   class="motif-btn active border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">CA</button>
+        <button onclick="setMotif('RH')"   data-motif="RH"   class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">RH</button>
+        <button onclick="setMotif('ARTT')" data-motif="ARTT" class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">ARTT</button>
+        <button onclick="setMotif('ASA')"  data-motif="ASA"  class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">ASA</button>
+        <button onclick="setMotif('DAS')"  data-motif="DAS"  class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">DAS</button>
+        <button onclick="setMotif('FOR')"  data-motif="FOR"  class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">FOR</button>
+        <button onclick="setMotif('AM')"   data-motif="AM"   class="motif-btn border-2 border-slate-200 px-4 py-2 rounded-lg font-black text-xs uppercase">AM</button>
+      </div>
+    </div>
+    <div id="conges-wrapper" class="overflow-x-auto"></div>
+  </div>
+</section>
 
-                <!-- Catégorie principale -->
-                <div class="flex gap-2 flex-wrap mb-4" id="stats-cat-btns">
-                    <button class="stat-cat-btn active" data-cat="chauffeur" onclick="setStatCat('chauffeur')">🚛 Chauffeurs</button>
-                    <button class="stat-cat-btn" data-cat="ripeur" onclick="setStatCat('ripeur')">🦺 Ripeurs</button>
-                    <button class="stat-cat-btn" data-cat="poly" onclick="setStatCat('poly')">🔄 Chauffeurs / Ripeurs</button>
-                </div>
+<!-- ══════ MAINTENANCE ══════ -->
+<section id="tab-maintenance" class="tab-content">
+  <div class="flex justify-end mb-4">
+    <button onclick="exportPDF('pdf-area-maint','Maintenance','maintenance')" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-black text-xs uppercase shadow-lg">📄 Export PDF A3</button>
+  </div>
+  <div id="pdf-area-maint" class="bg-white border p-5">
+    <div class="flex items-center justify-between border-b pb-4 mb-6">
+      <h2 class="font-black text-xl uppercase tracking-tighter w-1/3">PLANNING MAINTENANCE</h2>
+      <div class="flex items-center justify-center gap-8 w-1/3">
+        <button onclick="changeMoisMaint(-1)" class="text-2xl font-black text-slate-400 hover:text-slate-900">◀</button>
+        <span id="maint-month-display" class="font-black text-lg uppercase min-w-[150px] text-center"></span>
+        <button onclick="changeMoisMaint(1)"  class="text-2xl font-black text-slate-400 hover:text-slate-900">▶</button>
+      </div>
+      <div class="w-1/3"></div>
+    </div>
+    <div id="maint-wrapper" class="overflow-x-auto"></div>
+  </div>
+</section>
 
-                <!-- Sous-onglets -->
-                <div class="flex gap-2 flex-wrap mb-1" id="stats-sub-btns">
-                    <button class="stat-sub-btn active" data-sub="top" onclick="setStatSub('top')">+ souvent réalisées</button>
-                    <button class="stat-sub-btn" data-sub="bottom" onclick="setStatSub('bottom')">— souvent réalisées</button>
-                    <button class="stat-sub-btn" data-sub="agent" onclick="setStatSub('agent')">Détail agent</button>
-                </div>
+<!-- ══════ STATS ══════ -->
+<section id="tab-stats" class="tab-content">
+  <div class="mb-6">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <h2 class="font-black text-2xl uppercase tracking-tighter">Statistiques</h2>
+        <p class="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-1">Analyse de la collecte — toutes semaines confondues</p>
+      </div>
+      <button onclick="renderStats()" class="bg-slate-900 text-white px-4 py-2 rounded-lg font-black text-xs uppercase">↺ Actualiser</button>
+    </div>
+    <!-- Catégories -->
+    <div class="flex gap-2 flex-wrap mb-4">
+      <button class="stat-cat-btn active" data-cat="chauffeur" onclick="setStatCat('chauffeur')">🚛 Chauffeurs</button>
+      <button class="stat-cat-btn"        data-cat="ripeur"    onclick="setStatCat('ripeur')">🦺 Ripeurs</button>
+      <button class="stat-cat-btn"        data-cat="poly"      onclick="setStatCat('poly')">🔄 Chauffeurs / Ripeurs</button>
+      <button class="stat-cat-btn"        data-cat="synthese"  onclick="setStatCat('synthese')">📊 Synthèse</button>
+    </div>
+    <!-- Sous-onglets (masqués pour synthèse et poly) -->
+    <div class="flex gap-2 flex-wrap mb-2" id="stats-sub-row">
+      <button class="stat-sub-btn active" data-sub="top"    onclick="setStatSub('top')">+ souvent réalisées</button>
+      <button class="stat-sub-btn"        data-sub="bottom" onclick="setStatSub('bottom')">— souvent réalisées</button>
+      <button class="stat-sub-btn"        data-sub="agent"  onclick="setStatSub('agent')">Détail agent</button>
+    </div>
+    <!-- Agent picker -->
+    <div id="stats-agent-picker" class="hidden flex flex-wrap gap-2 mt-2 p-3 bg-white border rounded-xl"></div>
+    <!-- Day filter (detail agent) -->
+    <div id="stats-day-filter" class="hidden flex flex-wrap gap-2 mt-2 p-3 bg-slate-50 border rounded-xl items-center"></div>
+    <!-- Flux filter (detail agent) -->
+    <div id="stats-flux-filter" class="hidden flex gap-2 mt-2 p-3 bg-slate-50 border rounded-xl items-center"></div>
+    <!-- Synthèse filters -->
+    <div id="stats-synthese-filters" class="hidden mt-2 p-4 bg-white border rounded-xl space-y-3"></div>
+  </div>
+  <div id="stats-content"></div>
+</section>
 
-                <!-- Sélecteur agent (visible seulement en mode 'agent') -->
-                <div id="stats-agent-picker" class="hidden flex flex-wrap gap-2 mt-3 p-3 bg-white border rounded-xl"></div>
-            </div>
+<!-- ══════ CONFIGURATION ══════ -->
+<section id="tab-params" class="tab-content">
+  <div class="flex gap-2 mb-6">
+    <button class="cfg-tab-btn active" data-cfgtab="agents"   onclick="showCfgTab('agents')">👤 Agents</button>
+    <button class="cfg-tab-btn"        data-cfgtab="vehicules" onclick="showCfgTab('vehicules')">🚛 Véhicules</button>
+    <button class="cfg-tab-btn"        data-cfgtab="tournees" onclick="showCfgTab('tournees')">🗺 Tournées</button>
+  </div>
 
-            <div id="stats-content"></div>
-        </section>
+  <!-- AGENTS -->
+  <div id="cfg-agents" class="cfg-tab-content">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div class="bg-white p-6 border rounded-xl shadow-sm">
+        <h3 class="font-black text-xs uppercase mb-3 tracking-widest text-slate-400">Ajouter un agent</h3>
+        <div class="space-y-2">
+          <input id="in-agents" placeholder="Nom Agent" class="w-full border p-2 rounded text-xs">
+          <select id="in-agent-role" class="w-full border p-2 rounded text-xs">
+            <option value="Chauffeur">Chauffeur</option>
+            <option value="Ripeur">Ripeur</option>
+            <option value="Chauffeur / Ripeur">Chauffeur / Ripeur</option>
+          </select>
+          <button onclick="addParam('agents')" class="w-full bg-slate-900 text-white py-2 rounded text-xs font-bold uppercase">Ajouter Agent</button>
+        </div>
+      </div>
+      <div class="space-y-4">
+        <div class="bg-white p-6 border rounded-xl shadow-sm">
+          <h3 class="font-black text-xs uppercase mb-3 tracking-widest text-slate-400">Agents actifs</h3>
+          <ul id="list-agents"></ul>
+        </div>
+        <div class="bg-white p-6 border border-amber-200 rounded-xl shadow-sm">
+          <h3 class="font-black text-xs uppercase mb-3 tracking-widest text-amber-500">Agents archivés</h3>
+          <ul id="list-agents-archived"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
 
-        <!-- ═══════ CONFIGURATION ═══════ -->
-        <section id="tab-params" class="tab-content">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div class="bg-white p-6 border rounded-xl shadow-sm">
-                    <h3 class="font-black text-xs uppercase mb-1 tracking-widest text-slate-400">Agents actifs</h3>
-                    <div class="space-y-2 mb-4">
-                        <input id="in-agents" placeholder="Nom Agent" class="w-full border p-2 rounded text-xs">
-                        <select id="in-agent-role" class="w-full border p-2 rounded text-xs">
-                            <option value="Chauffeur">Chauffeur</option>
-                            <option value="Ripeur">Ripeur</option>
-                            <option value="Chauffeur / Ripeur">Chauffeur / Ripeur</option>
-                        </select>
-                        <button onclick="addParam('agents')" class="w-full bg-slate-900 text-white py-2 rounded text-xs font-bold uppercase">Ajouter Agent</button>
-                    </div>
-                    <ul id="list-agents" class="mb-6"></ul>
+  <!-- VEHICULES -->
+  <div id="cfg-vehicules" class="cfg-tab-content hidden">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div class="bg-white p-6 border rounded-xl shadow-sm">
+        <h3 class="font-black text-xs uppercase mb-3 tracking-widest text-slate-400">Ajouter un camion</h3>
+        <div class="flex gap-2 mb-4">
+          <input id="in-camions" placeholder="N° immatriculation" class="flex-1 border p-2 rounded text-xs">
+          <button onclick="addParam('camions')" class="bg-slate-900 text-white px-4 rounded font-black text-xs">+</button>
+        </div>
+      </div>
+      <div class="space-y-4">
+        <div class="bg-white p-6 border rounded-xl shadow-sm">
+          <h3 class="font-black text-xs uppercase mb-3 tracking-widest text-slate-400">Camions actifs</h3>
+          <ul id="list-camions"></ul>
+        </div>
+        <div class="bg-white p-6 border border-amber-200 rounded-xl shadow-sm">
+          <h3 class="font-black text-xs uppercase mb-3 tracking-widest text-amber-500">Camions archivés</h3>
+          <ul id="list-camions-archived"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
 
-                    <h3 class="font-black text-xs uppercase mb-1 tracking-widest text-slate-400 border-t pt-4">Agents archivés</h3>
-                    <ul id="list-agents-archived" class="mb-8"></ul>
+  <!-- TOURNÉES -->
+  <div id="cfg-tournees" class="cfg-tab-content hidden">
+    <div class="space-y-8">
+      <div class="bg-white p-6 border rounded-xl shadow-sm">
+        <h3 class="font-black text-xs uppercase mb-4">Ajouter une tournée permanente</h3>
+        <div class="grid grid-cols-5 gap-3 bg-slate-50 p-4 rounded-lg">
+          <div><label class="text-[9px] font-black uppercase text-slate-400">Nom</label><input id="in-tournees" class="w-full border p-1 rounded mt-1 text-xs"></div>
+          <div><label class="text-[9px] font-black uppercase text-slate-400">Flux</label><select id="in-flux" class="w-full border p-1 rounded mt-1 text-xs"><option value="OM">OM</option><option value="CS">CS</option></select></div>
+          <div><label class="text-[9px] font-black uppercase text-slate-400">Jour</label><select id="in-jour" class="w-full border p-1 rounded mt-1 text-xs"><option value="1">Lundi</option><option value="2">Mardi</option><option value="3">Mercredi</option><option value="4">Jeudi</option><option value="5">Vendredi</option><option value="6">Samedi</option></select></div>
+          <div><label class="text-[9px] font-black uppercase text-slate-400">Semaine</label><select id="in-freq" class="w-full border p-1 rounded mt-1 text-xs"><option value="impaire">Impaire</option><option value="paire">Paire</option></select></div>
+          <div><label class="text-[9px] font-black uppercase text-slate-400">Vidage</label><select id="in-vidage-perm" class="w-full border p-1 rounded mt-1 text-xs"><option value="">— Aucun —</option><option value="Dépôt">Dépôt</option><option value="DRIMM">DRIMM</option></select></div>
+          <button onclick="addParam('tournees')" class="col-span-5 bg-slate-900 text-white p-2 rounded font-bold uppercase text-xs mt-1">Ajouter Tournée Permanente</button>
+        </div>
+      </div>
+      <!-- Calendrier -->
+      <div class="bg-white p-6 border rounded-xl shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-black text-xs uppercase">Calendrier des tournées permanentes</h3>
+          <p class="text-[10px] text-slate-400 font-bold">Cliquez pour modifier · ✕ pour supprimer</p>
+        </div>
+        <div class="space-y-6">
+          <div>
+            <div class="mb-3"><span class="bg-slate-800 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full">Semaines Impaires</span></div>
+            <div id="tcal-impaire" class="grid grid-cols-5 gap-3"></div>
+          </div>
+          <div>
+            <div class="mb-3"><span class="bg-slate-500 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full">Semaines Paires</span></div>
+            <div id="tcal-paire" class="grid grid-cols-5 gap-3"></div>
+          </div>
+        </div>
+      </div>
+      <!-- Tournées fantômes -->
+      <div class="bg-white p-6 border border-red-100 rounded-xl shadow-sm">
+        <h3 class="font-black text-xs uppercase mb-2 text-red-500">Tournées « fantômes » dans le planning</h3>
+        <p class="text-[10px] text-slate-400 font-bold mb-4">Tournées présentes dans le planning mais non configurées (supprimées ou renommées).</p>
+        <div id="list-ghost-tournees"></div>
+      </div>
+      <!-- Occasionnelles -->
+      <div class="bg-white p-6 border rounded-xl shadow-sm">
+        <h3 class="font-black text-xs uppercase mb-4">Tournées occasionnelles</h3>
+        <div class="grid grid-cols-4 gap-3 bg-slate-50 p-4 rounded-lg mb-4">
+          <div><label class="text-[9px] font-black uppercase text-slate-400">Nom</label><input id="occ-tournees" class="w-full border p-1 rounded mt-1 text-xs"></div>
+          <div><label class="text-[9px] font-black uppercase text-slate-400">Flux</label><select id="occ-flux" class="w-full border p-1 rounded mt-1 text-xs"><option value="OM">OM</option><option value="CS">CS</option></select></div>
+          <div><label class="text-[9px] font-black uppercase text-slate-400">Date</label><input type="date" id="occ-date" class="w-full border p-1 rounded mt-1 text-[10px]"></div>
+          <div><label class="text-[9px] font-black uppercase text-slate-400">Vidage</label><select id="occ-vidage" class="w-full border p-1 rounded mt-1 text-xs"><option value="">— Aucun —</option><option value="Dépôt">Dépôt</option><option value="DRIMM">DRIMM</option></select></div>
+          <button onclick="addParam('tourneesOccas')" class="col-span-4 bg-slate-900 text-white p-2 rounded font-bold uppercase text-xs">Ajouter Occasionnelle</button>
+        </div>
+        <div id="list-tournees-occas"></div>
+      </div>
+    </div>
+  </div>
+</section>
 
-                    <h3 class="font-black text-xs uppercase mb-1 tracking-widest text-slate-400 border-t pt-4">Camions</h3>
-                    <div class="flex gap-2 mb-4"><input id="in-camions" placeholder="N°" class="flex-1 border p-2 rounded text-xs"><button onclick="addParam('camions')" class="bg-slate-900 text-white px-3 rounded">+</button></div>
-                    <ul id="list-camions"></ul>
-                </div>
-                <div class="lg:col-span-2 space-y-8">
-                    <div class="bg-white p-6 border rounded-xl shadow-sm">
-                        <h3 class="font-black text-xs uppercase mb-4">Tournées permanentes</h3>
-                        <div class="grid grid-cols-4 gap-3 mb-4 bg-slate-50 p-4 rounded-lg">
-                            <div><label class="text-[9px] font-black uppercase text-slate-400">Nom</label><input id="in-tournees" class="w-full border p-1 rounded"></div>
-                            <div><label class="text-[9px] font-black uppercase text-slate-400">Flux</label><select id="in-flux" class="w-full border p-1 rounded"><option value="OM">OM</option><option value="CS">CS</option></select></div>
-                            <div><label class="text-[9px] font-black uppercase text-slate-400">Jour</label><select id="in-jour" class="w-full border p-1 rounded"><option value="1">Lundi</option><option value="2">Mardi</option><option value="3">Mercredi</option><option value="4">Jeudi</option><option value="5">Vendredi</option><option value="6">Samedi</option></select></div>
-                            <div><label class="text-[9px] font-black uppercase text-slate-400">Semaine</label><select id="in-freq" class="w-full border p-1 rounded"><option value="impaire">Impaire</option><option value="paire">Paire</option></select></div>
-                            <div class="col-span-4"><label class="text-[9px] font-black uppercase text-slate-400">Vidage</label><select id="in-vidage-perm" class="w-full border p-1 rounded text-xs"><option value="">— Aucun —</option><option value="Dépôt">Dépôt</option><option value="DRIMM">DRIMM</option></select></div>
-                            <button onclick="addParam('tournees')" class="col-span-4 bg-slate-900 text-white p-2 rounded font-bold uppercase text-xs">Ajouter Permanente</button>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div><h4 class="text-[10px] font-black uppercase mb-2">Impaires</h4><div id="list-tournees-impaires"></div></div>
-                            <div><h4 class="text-[10px] font-black uppercase mb-2">Paires</h4><div id="list-tournees-paires"></div></div>
-                        </div>
-                    </div>
-                    <div class="bg-white p-6 border rounded-xl shadow-sm">
-                        <h3 class="font-black text-xs uppercase mb-4">Tournées occasionnelles</h3>
-                        <div class="grid grid-cols-3 gap-3 mb-4 bg-slate-50 p-4 rounded-lg">
-                            <div class="col-span-1"><label class="text-[9px] font-black uppercase text-slate-400">Nom</label><input id="occ-tournees" class="w-full border p-1 rounded"></div>
-                            <div><label class="text-[9px] font-black uppercase text-slate-400">Flux</label><select id="occ-flux" class="w-full border p-1 rounded"><option value="OM">OM</option><option value="CS">CS</option></select></div>
-                            <div><label class="text-[9px] font-black uppercase text-slate-400">Date</label><input type="date" id="occ-date" class="w-full border p-1 rounded text-[10px]"></div>
-                            <div class="col-span-3"><label class="text-[9px] font-black uppercase text-slate-400">Vidage</label><select id="occ-vidage" class="w-full border p-1 rounded text-xs"><option value="">— Aucun —</option><option value="Dépôt">Dépôt</option><option value="DRIMM">DRIMM</option></select></div>
-                            <button onclick="addParam('tourneesOccas')" class="col-span-3 bg-slate-900 text-white p-2 rounded font-bold uppercase text-xs">Ajouter Occasionnelle</button>
-                        </div>
-                        <div id="list-tournees-occas"></div>
-                    </div>
-                </div>
-            </div>
-        </section>
+<!-- ══════ UTILISATEURS ══════ -->
+<section id="tab-users" class="tab-content">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div class="bg-white p-6 rounded-xl border shadow-sm">
+      <h3 class="font-black uppercase mb-4 text-xs">Nouveau compte</h3>
+      <div class="space-y-3">
+        <div class="grid grid-cols-2 gap-2"><input id="new-u-prenom" placeholder="Prénom" class="border p-2 rounded text-sm"><input id="new-u-nom" placeholder="Nom" class="border p-2 rounded text-sm"></div>
+        <input id="new-u-email" placeholder="Email"        class="w-full border p-2 rounded text-sm">
+        <input id="new-u-pass"  placeholder="Mot de passe" class="w-full border p-2 rounded text-sm">
+        <select id="new-u-role" class="w-full border p-2 rounded text-sm"><option value="read">Lecteur</option><option value="admin">Admin</option></select>
+        <button onclick="addUser()" class="w-full bg-slate-900 text-white font-black p-3 rounded-xl uppercase text-xs">Créer</button>
+      </div>
+    </div>
+    <div class="bg-white p-6 rounded-xl border shadow-sm"><h3 class="font-black text-slate-400 uppercase mb-4 text-xs">Comptes</h3><div id="list-users"></div></div>
+  </div>
+</section>
 
-        <!-- ═══════ UTILISATEURS ═══════ -->
-        <section id="tab-users" class="tab-content">
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div class="bg-white p-6 rounded-xl border shadow-sm">
-                    <h3 class="font-black uppercase mb-4 text-xs">Nouveau compte</h3>
-                    <div class="space-y-3">
-                        <div class="grid grid-cols-2 gap-2"><input id="new-u-prenom" placeholder="Prénom" class="border p-2 rounded text-sm"><input id="new-u-nom" placeholder="Nom" class="border p-2 rounded text-sm"></div>
-                        <input id="new-u-email" placeholder="Email" class="w-full border p-2 rounded text-sm">
-                        <input id="new-u-pass" placeholder="Mot de passe" class="w-full border p-2 rounded text-sm">
-                        <select id="new-u-role" class="w-full border p-2 rounded text-sm"><option value="read">Lecteur</option><option value="admin">Admin</option></select>
-                        <button onclick="addUser()" class="w-full bg-slate-900 text-white font-black p-3 rounded-xl uppercase text-xs">Créer</button>
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded-xl border shadow-sm"><h3 class="font-black text-slate-400 uppercase mb-4 text-xs">Comptes</h3><div id="list-users"></div></div>
-            </div>
-        </section>
+<!-- ══════ PROFIL ══════ -->
+<section id="tab-profil" class="tab-content">
+  <div class="max-w-md mx-auto bg-white p-8 rounded-xl border">
+    <h2 class="font-black text-xl mb-6 uppercase">Mon Profil</h2>
+    <div class="space-y-4">
+      <input type="text"     id="prof-prenom" placeholder="Prénom"               class="w-full border p-2 rounded">
+      <input type="text"     id="prof-nom"    placeholder="Nom"                  class="w-full border p-2 rounded">
+      <input type="password" id="prof-pass"   placeholder="Nouveau mot de passe" class="w-full border p-2 rounded">
+      <button onclick="currentUser.prenom=document.getElementById('prof-prenom').value;currentUser.nom=document.getElementById('prof-nom').value;if(document.getElementById('prof-pass').value)currentUser.pass=document.getElementById('prof-pass').value;sync();alert('Profil mis à jour !');renderAll();" class="w-full bg-slate-900 text-white p-3 rounded font-black uppercase text-xs">Sauvegarder</button>
+    </div>
+  </div>
+</section>
 
-        <!-- ═══════ PROFIL ═══════ -->
-        <section id="tab-profil" class="tab-content">
-            <div class="max-w-md mx-auto bg-white p-8 rounded-xl border">
-                <h2 class="font-black text-xl mb-6 uppercase">Mon Profil</h2>
-                <div class="space-y-4">
-                    <input type="text" id="prof-prenom" placeholder="Prénom" class="w-full border p-2 rounded">
-                    <input type="text" id="prof-nom" placeholder="Nom" class="w-full border p-2 rounded">
-                    <input type="password" id="prof-pass" placeholder="Nouveau mot de passe" class="w-full border p-2 rounded">
-                    <button onclick="currentUser.prenom=document.getElementById('prof-prenom').value; currentUser.nom=document.getElementById('prof-nom').value; if(document.getElementById('prof-pass').value) currentUser.pass=document.getElementById('prof-pass').value; sync(); alert('Profil mis à jour !'); renderAll();" class="w-full bg-slate-900 text-white p-3 rounded font-black uppercase text-xs">Sauvegarder</button>
-                </div>
-            </div>
-        </section>
-    </main>
-
+</main>
 <script>
-const BIN_ID = "69b528beaa77b81da9e33a14";
+/* ════════════════════════════════════════════════════
+   CONSTANTS & STATE
+════════════════════════════════════════════════════ */
+const BIN_ID  = "69b528beaa77b81da9e33a14";
 const API_KEY = "$2a$10$KM0Bk26gr5ZNVIpvSKTSIOs57V3dBxtizW1IjdbER1L/yjh24vaEq";
-const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
 let currentUser = null;
-let isMouseDown = false;
+let isMouseDown  = false;
 let currentMotif = "CA";
-let clipboard = null;
+let clipboard    = null;
+let synthChart   = null;
+
+const now = new Date();
 let state = {
-    annee: 2026, semaine: 1, moisConges: new Date().getMonth(), anneeConges: 2026,
-    data: { agents: [], agentRoles: {}, agentsArchived: [], camions: [], tournees: [], tourneesOccas: [], planning: {}, conges: {}, users: [] }
+  annee:now.getFullYear(), semaine:getISOWeek(now),
+  moisConges:now.getMonth(), anneeConges:now.getFullYear(),
+  moisMaint:now.getMonth(),  anneeMaint:now.getFullYear(),
+  data:{
+    agents:[], agentRoles:{}, agentCamions:{}, agentAutresJours:{},
+    agentsArchived:[], camions:[], camionsArchived:[],
+    tournees:[], tourneesOccas:[], planning:{},
+    conges:{}, maintenance:{}, users:[]
+  }
 };
 
 // Stats UI state
-let statCat = 'chauffeur'; // chauffeur | ripeur | poly
-let statSub = 'top';       // top | bottom | agent
+let statCat   = 'chauffeur';
+let statSub   = 'top';
 let statAgent = null;
+let statDays  = [1,2,3,4,5];
+let statFlux  = 'all'; // all | OM | CS
+
+// Synthese filters
+let synthAgentFilter  = 'all'; // all | chauffeur | ripeur | poly
+let synthTourneeFilter= [];    // [] = all
+let synthFluxFilter   = 'all';
+let synthPeriode      = {debut:'', fin:''};
 
 const JOURS_NOM = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+const NOM_MOIS  = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 
-/* ═══════════════════════════ LOAD / SYNC ═══════════════════════════ */
-async function load() {
-    try {
-        const res = await fetch(`${URL}/latest`, { headers: { "X-Master-Key": API_KEY } });
-        const json = await res.json();
-        if (json.record) state.data = json.record;
-        if (!state.data.agentRoles) state.data.agentRoles = {};
-        if (!state.data.agentsArchived) state.data.agentsArchived = [];
-        document.getElementById('status').innerText = "✅ Connecté";
-        initWeekSelector();
-        renderAll();
-    } catch(e) { document.getElementById('status').innerText = "❌ Erreur"; }
+/* ════ HELPERS ════ */
+function getISOWeek(d){
+  const date=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  date.setUTCDate(date.getUTCDate()+4-(date.getUTCDay()||7));
+  const yearStart=new Date(Date.UTC(date.getUTCFullYear(),0,1));
+  return Math.ceil((((date-yearStart)/86400000)+1)/7);
 }
-async function sync() {
-    if (!currentUser || currentUser.role !== 'admin') return;
-    document.getElementById('status').innerText = "⏳ Sauvegarde...";
-    await fetch(URL, { method:'PUT', headers:{"Content-Type":"application/json","X-Master-Key":API_KEY}, body: JSON.stringify(state.data) });
-    document.getElementById('status').innerText = "✅ Sauvegardé";
-}
+function closeModal(id){document.getElementById(id).classList.remove('active');}
 
-/* ═══════════════════════════ LOGIN ═══════════════════════════ */
-function handleLogin() {
-    const email = document.getElementById('login-email').value;
-    const pass  = document.getElementById('login-pass').value;
-    if (state.data.users.length === 0 && email === 'admin@gsc.fr' && pass === 'admin123') {
-        currentUser = { email, prenom:'Admin', nom:'GSC', role:'admin', pass:'admin123' };
-        state.data.users.push(currentUser);
-    } else {
-        currentUser = state.data.users.find(u => u.email === email && u.pass === pass);
-    }
-    if (currentUser) {
-        document.getElementById('login-overlay').style.display = 'none';
-        document.getElementById('user-display-name').innerText = `${currentUser.prenom} ${currentUser.nom}`;
-        if (currentUser.role === 'admin') document.body.classList.add('is-admin');
-        renderAll();
-    } else { document.getElementById('login-error').classList.remove('hidden'); }
-}
-
-/* ═══════════════════════════ WEEK SELECTOR ═══════════════════════════ */
-function initWeekSelector() {
-    const sel = document.getElementById('week-selector');
-    sel.innerHTML = "";
-    for (let i=1; i<=52; i++) {
-        let o = document.createElement('option'); o.value=i; o.innerText=`Semaine ${i}`;
-        if (i===state.semaine) o.selected=true;
-        sel.appendChild(o);
-    }
-}
-function changeSemaine(delta) {
-    let n = state.semaine + delta;
-    if (n<1) n=52; if (n>52) n=1;
-    state.semaine = n;
-    document.getElementById('week-selector').value = n;
-    renderPlanning();
-}
-function getDatesOfWeek(w, y) {
-    let simple = new Date(y, 0, 1 + (w-1)*7);
-    let dow = simple.getDay();
-    let start = simple;
-    if (dow<=4) start.setDate(simple.getDate() - simple.getDay() + 1);
-    else start.setDate(simple.getDate() + 8 - simple.getDay());
-    let days=[];
-    for (let i=0; i<6; i++) {
-        let d = new Date(start); d.setDate(d.getDate()+i);
-        const y2=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
-        days.push({ texte: d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}), iso:`${y2}-${m}-${day}`, court:`${day}/${m}/${String(y2).slice(-2)}` });
-    }
-    return days;
-}
-
-/* ═══════════════════════════ PDF ═══════════════════════════ */
-function exportPDF(elementId, fileName, tabType) {
-    const el = document.getElementById(elementId);
-    if (tabType==='planning') el.querySelectorAll('.col-dispo').forEach(e=>e.classList.add('no-export'));
-    const opt = { margin:5, filename:fileName+'.pdf', image:{type:'jpeg',quality:.98}, html2canvas:{scale:2}, jsPDF:{unit:'mm',format:'a3',orientation:'landscape'} };
-    html2pdf().set(opt).from(el).save().then(()=>{ el.querySelectorAll('.no-export').forEach(e=>e.classList.remove('no-export')); });
-}
-
-/* ═══════════════════════════ PLANNING ═══════════════════════════ */
-function renderPlanning() {
-    const isPaire = state.semaine % 2 === 0;
-    const weekKey = `${state.annee}_W${state.semaine}`;
-    const dates = getDatesOfWeek(state.semaine, state.annee);
-    document.getElementById('header-range').innerText = `${dates[0].court} au ${dates[5].court}`;
-    document.getElementById('header-semaine').innerText = state.semaine;
-    document.getElementById('header-mois-annee').innerText = new Date(dates[0].iso).toLocaleString('fr-FR',{month:'long',year:'numeric'});
-    document.getElementById('header-flux-type').innerText = isPaire ? "Semaine Paire" : "Semaine Impaire";
-    const body = document.getElementById('plan-body');
-    body.innerHTML = "";
-    const isLocked = currentUser.role !== 'admin';
-
-    const activeAgents = state.data.agents; // archived excluded
-    const chauffeurs = activeAgents.filter(a => (state.data.agentRoles[a]||'').includes('Chauffeur'));
-    const ripeurs    = activeAgents.filter(a => (state.data.agentRoles[a]||'').includes('Ripeur'));
-
-    dates.forEach((dateObj, dayIdx) => {
-        const perm  = state.data.tournees.filter(t => t.type===(isPaire?'paire':'impaire') && t.jour==(dayIdx+1));
-        const occas = (state.data.tourneesOccas||[]).filter(t => t.dateSpecifique===dateObj.iso);
-        const tourDuJour = [...perm, ...occas];
-        let agentCounts={}, camionCounts={};
-        tourDuJour.forEach(t => {
-            const c = state.data.planning[weekKey]?.[`${t.nom}_${dayIdx}`] || {};
-            [c.ch,c.r1,c.r2,c.autres].forEach(n=>{ if(n&&n!=='-') agentCounts[n]=(agentCounts[n]||0)+1; });
-            if(c.camion&&c.camion!=='-') camionCounts[c.camion]=(camionCounts[c.camion]||0)+1;
-        });
-        tourDuJour.forEach((t, tIdx) => {
-            const rowKey = `${t.nom}_${dayIdx}`;
-            const cell = state.data.planning[weekKey]?.[rowKey] || {};
-            const chkA = n => (n&&n!=='-'&&state.data.conges[n]?.[dateObj.iso]) ? 'is-conge' : (agentCounts[n]>1?'is-double':'');
-            const chkC = c => (c&&c!=='-'&&camionCounts[c]>1) ? 'is-double' : '';
-            const tr = document.createElement('tr'); tr.className="bg-white";
-            let dayCell = tIdx===0 ? `<td rowspan="${tourDuJour.length}" class="font-bold text-slate-600 bg-slate-50 border-r">${dateObj.texte}</td>` : "";
-            tr.innerHTML = `${dayCell}
-                <td class="font-black uppercase text-slate-900">${t.nom}</td>
-                <td class="p-0"><div class="${t.flux==='OM'?'flux-om':'flux-cs'}">${t.flux}</div></td>
-                <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','camion',this.value)" class="w-full p-1 border rounded ${chkC(cell.camion)}"><option value="-">-</option>${state.data.camions.map(c=>`<option ${cell.camion===c?'selected':''}>${c}</option>`).join('')}</select></td>
-                <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','ch',this.value)" class="w-full p-1 border rounded ${chkA(cell.ch)}"><option value="-">-</option>${chauffeurs.map(a=>`<option ${cell.ch===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r1',this.value)" class="w-full p-1 border rounded ${chkA(cell.r1)}"><option value="-">-</option>${ripeurs.map(a=>`<option ${cell.r1===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r2',this.value)" class="w-full p-1 border rounded ${chkA(cell.r2)}"><option value="-">-</option>${ripeurs.map(a=>`<option ${cell.r2===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','vidage',this.value)" class="w-full p-1 border rounded font-bold"><option value="-">-</option><option ${cell.vidage==='Dépôt'?'selected':''}>Dépôt</option><option ${cell.vidage==='DRIMM'?'selected':''}>DRIMM</option></select></td>
-                <td><input type="text" ${isLocked?'disabled':''} value="${cell.info||''}" onchange="updatePlan('${rowKey}','info',this.value)" class="w-full p-1 border rounded"></td>
-                <td><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','autres',this.value)" class="w-full p-1 border rounded ${chkA(cell.autres)}"><option value="-">-</option>${activeAgents.map(a=>`<option ${cell.autres===a?'selected':''}>${a}</option>`).join('')}</select></td>
-                ${tIdx===0?`<td rowspan="${tourDuJour.length}" class="col-dispo text-[9px] text-emerald-600 font-bold bg-emerald-50 border-l">${activeAgents.filter(a=>!agentCounts[a]&&!(state.data.conges[a]?.[dateObj.iso])).join(', ')}</td>`:''}`;
-            body.appendChild(tr);
-        });
-    });
-}
-function updatePlan(rk, f, v) {
-    const wk = `${state.annee}_W${state.semaine}`;
-    if (!state.data.planning[wk]) state.data.planning[wk]={};
-    if (!state.data.planning[wk][rk]) state.data.planning[wk][rk]={};
-    state.data.planning[wk][rk][f] = v;
-    sync(); renderPlanning();
-}
-
-/* ═══════════════════════════ CONGÉS ═══════════════════════════ */
-function renderConges() {
-    const container = document.getElementById('conges-wrapper');
-    const joursDansMois = new Date(state.anneeConges, state.moisConges+1, 0).getDate();
-    const nomsMois = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
-    document.getElementById('current-month-display').innerText = `${nomsMois[state.moisConges]} ${state.anneeConges}`;
-    let html = `<table class="w-full border-collapse bg-white" onmousedown="isMouseDown=true" onmouseup="isMouseDown=false;sync();"><thead><tr class="bg-slate-900 text-white"><th>Agent</th>`;
-    for (let j=1; j<=joursDansMois; j++) {
-        const d = new Date(state.anneeConges, state.moisConges, j);
-        const isWE = d.getDay()===0||d.getDay()===6;
-        html += `<th class="text-[8px] border p-1${isWE?' opacity-50':''}">${d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric'})}</th>`;
-    }
-    html += `</tr></thead><tbody>`;
-    state.data.agents.forEach(agent => {
-        html += `<tr><td class="font-bold border p-2 text-[10px] bg-slate-50 sticky left-0 z-10">${agent}</td>`;
-        for (let j=1; j<=joursDansMois; j++) {
-            const dIso = `${state.anneeConges}-${String(state.moisConges+1).padStart(2,'0')}-${String(j).padStart(2,'0')}`;
-            const dow = new Date(state.anneeConges, state.moisConges, j).getDay();
-            const isWE = dow===0||dow===6;
-            const motif = state.data.conges[agent]?.[dIso];
-            if (isWE) {
-                html += `<td class="selectable-cell border h-8 weekend-bg"></td>`;
-            } else {
-                html += `<td onmousedown="if(currentUser.role==='admin')toggleConge('${agent}','${dIso}',this)" onmouseenter="if(isMouseDown&&currentUser.role==='admin')toggleConge('${agent}','${dIso}',this)" class="selectable-cell border cursor-pointer h-8${motif?' cell-conge-active':''}">${motif||''}</td>`;
-            }
-        }
-        html += `</tr>`;
-    });
-    container.innerHTML = html + `</tbody></table>`;
-}
-function toggleConge(a, d, el) {
-    if (!state.data.conges[a]) state.data.conges[a]={};
-    if (state.data.conges[a][d]) { delete state.data.conges[a][d]; el.innerText=""; el.classList.remove('cell-conge-active'); }
-    else { state.data.conges[a][d]=currentMotif; el.innerText=currentMotif; el.classList.add('cell-conge-active'); }
-    renderPlanning();
-}
-function changeMoisConges(delta) {
-    state.moisConges += delta;
-    if (state.moisConges>11) { state.moisConges=0; state.anneeConges++; }
-    if (state.moisConges<0)  { state.moisConges=11; state.anneeConges--; }
-    renderConges();
-}
-function setMotif(m) {
-    currentMotif = m;
-    document.querySelectorAll('.motif-btn').forEach(b=>b.classList.toggle('active', b.dataset.motif===m));
-}
-
-/* ═══════════════════════════ CONFIG ═══════════════════════════ */
-function addParam(t) {
-    if (t==='tournees') {
-        const vidage = document.getElementById('in-vidage-perm').value;
-        state.data.tournees.push({ nom:document.getElementById('in-tournees').value, flux:document.getElementById('in-flux').value, type:document.getElementById('in-freq').value, jour:document.getElementById('in-jour').value, vidage });
-    } else if (t==='tourneesOccas') {
-        const vidage = document.getElementById('occ-vidage').value;
-        state.data.tourneesOccas.push({ nom:document.getElementById('occ-tournees').value, flux:document.getElementById('occ-flux').value, dateSpecifique:document.getElementById('occ-date').value, vidage });
-    } else if (t==='agents') {
-        const name = document.getElementById('in-agents').value.trim();
-        if (name) { state.data.agents.push(name); state.data.agentRoles[name]=document.getElementById('in-agent-role').value; }
-    } else state.data[t].push(document.getElementById(`in-${t}`).value);
-    renderAll(); sync();
-}
-function updateAgentRole(agent, role) { state.data.agentRoles[agent]=role; sync(); renderPlanning(); }
-
-function archiveAgent(i) {
-    const name = state.data.agents[i];
-    state.data.agents.splice(i,1);
-    if (!state.data.agentsArchived) state.data.agentsArchived=[];
-    state.data.agentsArchived.push(name);
-    renderAll(); sync();
-}
-function restoreAgent(i) {
-    const name = state.data.agentsArchived[i];
-    state.data.agentsArchived.splice(i,1);
-    state.data.agents.push(name);
-    renderAll(); sync();
-}
-function deleteAgentPermanent(i) {
-    if (!confirm("Supprimer définitivement cet agent et toutes ses données ?")) return;
-    state.data.agentsArchived.splice(i,1);
-    renderAll(); sync();
-}
-
-function renderAll() {
-    if (!currentUser) return;
-    renderPlanning(); renderConges(); renderUsers(); renderStats();
-
-    // Active agents list
-    document.getElementById('list-agents').innerHTML = state.data.agents.map((item,i) => `
-        <li class="flex justify-between items-center text-xs p-2 bg-slate-50 mb-1 border rounded">
-            <div class="font-bold">${item}</div>
-            <div class="flex gap-2 items-center">
-                <select onchange="updateAgentRole('${item}',this.value)" class="text-[9px] border rounded p-1">
-                    <option value="Chauffeur" ${state.data.agentRoles[item]==='Chauffeur'?'selected':''}>Chauffeur</option>
-                    <option value="Ripeur" ${state.data.agentRoles[item]==='Ripeur'?'selected':''}>Ripeur</option>
-                    <option value="Chauffeur / Ripeur" ${state.data.agentRoles[item]==='Chauffeur / Ripeur'?'selected':''}>Chauffeur / Ripeur</option>
-                </select>
-                <button onclick="archiveAgent(${i})" title="Archiver" class="text-amber-500 font-black text-xs admin-only px-1 border border-amber-200 rounded hover:bg-amber-50">↓ Archiver</button>
-            </div>
-        </li>`).join('');
-
-    // Archived agents list
-    document.getElementById('list-agents-archived').innerHTML = (state.data.agentsArchived||[]).length===0
-        ? `<li class="text-[10px] text-slate-300 italic p-1">Aucun agent archivé</li>`
-        : (state.data.agentsArchived||[]).map((item,i) => `
-        <li class="flex justify-between items-center text-xs p-2 bg-amber-50 mb-1 border border-amber-200 rounded opacity-70">
-            <div class="font-bold text-slate-500">${item} <span class="text-[9px] font-normal text-amber-600">(archivé)</span></div>
-            <div class="flex gap-2 items-center admin-only">
-                <button onclick="restoreAgent(${i})" class="text-emerald-600 font-bold text-[9px] border border-emerald-200 rounded px-1 hover:bg-emerald-50">↑ Réactiver</button>
-                <button onclick="deleteAgentPermanent(${i})" class="text-red-500 font-bold text-[9px]">✕</button>
-            </div>
-        </li>`).join('');
-
-    document.getElementById('list-camions').innerHTML = state.data.camions.map((item,i) => `<li class="flex justify-between text-xs p-2 bg-slate-50 mb-1 border rounded">${item} <button onclick="state.data.camions.splice(${i},1);renderAll();sync();" class="text-red-500 admin-only">✕</button></li>`).join('');
-
-    const tHTML = (t,i,list) => {
-        const bg = t.flux==='CS'?'background-color:#ffed00;border-color:#d4c700;':'background-color:#f1f1f1;border-color:#ccc;';
-        let dateTxt = t.dateSpecifique ? `[${new Date(t.dateSpecifique).toLocaleDateString('fr-FR')}] ` : `<b>${JOURS_NOM[t.jour-1]}</b> : `;
-        const vidageTxt = t.vidage ? ` <span style="font-weight:400;color:#64748b">— Vidage ${t.vidage}</span>` : '';
-        return `<div class="flex justify-between p-2 mb-1 border text-[11px] font-bold rounded shadow-sm" style="${bg}"><span>${dateTxt}${t.nom}${vidageTxt}</span><button onclick="state.data.${list}.splice(${i},1);renderAll();sync();" class="text-red-600 admin-only">✕</button></div>`;
-    };
-    document.getElementById('list-tournees-impaires').innerHTML = state.data.tournees.map((t,i)=>t.type==='impaire'?tHTML(t,i,'tournees'):'').join('');
-    document.getElementById('list-tournees-paires').innerHTML   = state.data.tournees.map((t,i)=>t.type==='paire'?tHTML(t,i,'tournees'):'').join('');
-    document.getElementById('list-tournees-occas').innerHTML    = (state.data.tourneesOccas||[]).map((t,i)=>tHTML(t,i,'tourneesOccas')).join('');
-}
-
-/* ═══════════════════════════ USERS ═══════════════════════════ */
-function renderUsers() {
-    document.getElementById('list-users').innerHTML = state.data.users.map((u,i) => `
-        <div class="flex justify-between items-center bg-slate-50 p-3 rounded border mb-2">
-            <div><p class="font-black text-sm">${u.prenom} ${u.nom}</p><p class="text-[10px] text-slate-400 font-bold uppercase">${u.email}</p></div>
-            <div class="flex gap-2">
-                <select onchange="updateUserRole(${i},this.value)" class="text-[10px] font-bold border rounded p-1"><option value="read" ${u.role==='read'?'selected':''}>Lecteur</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select>
-                <button onclick="removeUser(${i})" class="text-red-500 font-bold text-xs">✕</button>
-            </div>
-        </div>`).join('');
-}
-function updateUserRole(i,r) { state.data.users[i].role=r; sync(); }
-function removeUser(i) { if(state.data.users[i].email===currentUser.email) return; state.data.users.splice(i,1); renderUsers(); sync(); }
-function addUser() {
-    state.data.users.push({ prenom:document.getElementById('new-u-prenom').value, nom:document.getElementById('new-u-nom').value, email:document.getElementById('new-u-email').value, pass:document.getElementById('new-u-pass').value, role:document.getElementById('new-u-role').value });
-    renderUsers(); sync();
-}
-
-/* ═══════════════════════════ TAB NAV ═══════════════════════════ */
-function showTab(id) {
-    document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
+/* ════ LOAD / SYNC ════ */
+async function load(){
+  try{
+    const res=await fetch(`${API_URL}/latest`,{headers:{"X-Master-Key":API_KEY}});
+    const json=await res.json();
+    if(json.record) state.data=json.record;
+    // init missing fields
+    ['agentRoles','agentCamions','agentAutresJours'].forEach(k=>{if(!state.data[k])state.data[k]={};});
+    ['agentsArchived','camionsArchived'].forEach(k=>{if(!state.data[k])state.data[k]=[];});
+    if(!state.data.maintenance) state.data.maintenance={};
+    document.getElementById('status').innerText="✅ Connecté";
+    initWeekSelector();
     renderAll();
+  }catch(e){document.getElementById('status').innerText="❌ Erreur";}
 }
-window.onload = load;
+async function sync(){
+  if(!currentUser||currentUser.role!=='admin')return;
+  document.getElementById('status').innerText="⏳ Sauvegarde...";
+  await fetch(API_URL,{method:'PUT',headers:{"Content-Type":"application/json","X-Master-Key":API_KEY},body:JSON.stringify(state.data)});
+  document.getElementById('status').innerText="✅ Sauvegardé";
+}
 
-/* ═══════════════════════════ COPY/PASTE ═══════════════════════════ */
-function copyWeek() {
-    const wk = `${state.annee}_W${state.semaine}`;
-    clipboard = JSON.parse(JSON.stringify(state.data.planning[wk]||{}));
-    alert(`Semaine ${state.semaine} copiée !`);
+/* ════ LOGIN ════ */
+function handleLogin(){
+  const email=document.getElementById('login-email').value;
+  const pass=document.getElementById('login-pass').value;
+  if(state.data.users.length===0&&email==='admin@gsc.fr'&&pass==='admin123'){
+    currentUser={email,prenom:'Admin',nom:'GSC',role:'admin',pass:'admin123'};
+    state.data.users.push(currentUser);
+  } else {
+    currentUser=state.data.users.find(u=>u.email===email&&u.pass===pass);
+  }
+  if(currentUser){
+    document.getElementById('login-overlay').style.display='none';
+    document.getElementById('user-display-name').innerText=`${currentUser.prenom} ${currentUser.nom}`;
+    if(currentUser.role==='admin') document.body.classList.add('is-admin');
+    renderAll();
+  } else {document.getElementById('login-error').classList.remove('hidden');}
 }
-function openPasteModal() {
-    if (!clipboard) return alert("Presse-papier vide.");
-    document.getElementById('target-week-num').innerText = state.semaine;
-    document.getElementById('copy-modal').classList.add('active');
+
+/* ════ WEEK HELPERS ════ */
+function initWeekSelector(){
+  const sel=document.getElementById('week-selector');
+  sel.innerHTML="";
+  for(let i=1;i<=52;i++){
+    let o=document.createElement('option');o.value=i;o.innerText=`Semaine ${i}`;
+    if(i===state.semaine) o.selected=true;
+    sel.appendChild(o);
+  }
 }
-function pasteData(type) {
-    const wk = `${state.annee}_W${state.semaine}`;
-    if (!state.data.planning[wk]) state.data.planning[wk]={};
-    Object.keys(clipboard).forEach(rk => {
-        if (!state.data.planning[wk][rk]) state.data.planning[wk][rk]={};
-        const src=clipboard[rk], trg=state.data.planning[wk][rk];
-        if(type==='all'||type==='ch') trg.ch=src.ch;
-        if(type==='all'||type==='ripeurs') { trg.r1=src.r1; trg.r2=src.r2; }
-        if(type==='all'||type==='camion') trg.camion=src.camion;
-        if(type==='all'||type==='vidage') trg.vidage=src.vidage;
-        if(type==='all'||type==='info') trg.info=src.info;
-        if(type==='all'||type==='autres') trg.autres=src.autres;
+function changeSemaine(delta){
+  let n=state.semaine+delta;if(n<1)n=52;if(n>52)n=1;
+  state.semaine=n;document.getElementById('week-selector').value=n;renderPlanning();
+}
+function getDatesOfWeek(w,y){
+  let simple=new Date(y,0,1+(w-1)*7),dow=simple.getDay(),start=simple;
+  if(dow<=4) start.setDate(simple.getDate()-simple.getDay()+1);
+  else start.setDate(simple.getDate()+8-simple.getDay());
+  let days=[];
+  for(let i=0;i<6;i++){
+    let d=new Date(start);d.setDate(d.getDate()+i);
+    const y2=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+    days.push({texte:d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}),iso:`${y2}-${m}-${day}`,court:`${day}/${m}/${String(y2).slice(-2)}`});
+  }
+  return days;
+}
+
+/* ════ PDF EXPORT ════ */
+function exportPDF(elementId,fileName,tabType){
+  const el=document.getElementById(elementId);
+  if(tabType==='planning') el.querySelectorAll('.col-dispo').forEach(e=>e.style.display='none');
+  const opt={
+    margin:2,filename:fileName+'.pdf',
+    image:{type:'jpeg',quality:.98},
+    html2canvas:{scale:2,useCORS:true,scrollY:0,windowWidth:1400},
+    jsPDF:{unit:'mm',format:'a3',orientation:'landscape'},
+    pagebreak:{mode:'avoid-all'}
+  };
+  html2pdf().set(opt).from(el).save().then(()=>{
+    el.querySelectorAll('.col-dispo').forEach(e=>e.style.display='');
+  });
+}
+
+/* ════════════════════════════════════════════════════
+   PLANNING
+════════════════════════════════════════════════════ */
+function renderPlanning(){
+  const isPaire=state.semaine%2===0;
+  const weekKey=`${state.annee}_W${state.semaine}`;
+  const dates=getDatesOfWeek(state.semaine,state.annee);
+  document.getElementById('header-range').innerText=`${dates[0].court} au ${dates[5].court}`;
+  document.getElementById('header-semaine').innerText=state.semaine;
+  document.getElementById('header-mois-annee').innerText=new Date(dates[0].iso).toLocaleString('fr-FR',{month:'long',year:'numeric'});
+  document.getElementById('header-flux-type').innerText=isPaire?"Semaine Paire":"Semaine Impaire";
+  const body=document.getElementById('plan-body');
+  body.innerHTML="";
+  const isLocked=currentUser.role!=='admin';
+  const activeAgents=state.data.agents;
+  const chauffeurs=activeAgents.filter(a=>(state.data.agentRoles[a]||'').includes('Chauffeur'));
+  const ripeurs=activeAgents.filter(a=>(state.data.agentRoles[a]||'').includes('Ripeur'));
+  const activeCamions=state.data.camions; // only non-archived
+
+  dates.forEach((dateObj,dayIdx)=>{
+    const perm=state.data.tournees.filter(t=>t.type===(isPaire?'paire':'impaire')&&t.jour==(dayIdx+1));
+    const occas=(state.data.tourneesOccas||[]).filter(t=>t.dateSpecifique===dateObj.iso);
+    const tourDuJour=[...perm,...occas];
+    let agentCounts={},camionCounts={};
+    tourDuJour.forEach(t=>{
+      const c=state.data.planning[weekKey]?.[`${t.nom}_${dayIdx}`]||{};
+      [c.ch,c.r1,c.r2,c.autres].forEach(n=>{if(n&&n!=='-')agentCounts[n]=(agentCounts[n]||0)+1;});
+      if(c.camion&&c.camion!=='-') camionCounts[c.camion]=(camionCounts[c.camion]||0)+1;
     });
-    document.getElementById('copy-modal').classList.remove('active');
-    sync(); renderPlanning();
+    tourDuJour.forEach((t,tIdx)=>{
+      const rowKey=`${t.nom}_${dayIdx}`;
+      const cell=state.data.planning[weekKey]?.[rowKey]||{};
+      const chkA=n=>(n&&n!=='-'&&state.data.conges[n]?.[dateObj.iso])?'is-conge':(agentCounts[n]>1?'is-double':'');
+      const chkC=c=>{
+        if(!c||c==='-') return '';
+        if(state.data.maintenance?.[c]?.[dateObj.iso]) return 'is-maint-warn';
+        return camionCounts[c]>1?'is-double':'';
+      };
+      const isCS=t.flux==='CS';
+      const rowBg=isCS?'row-cs':'row-om';
+      const tr=document.createElement('tr');
+      if(tIdx===0&&dayIdx>0) tr.classList.add('day-sep');
+      tr.className+=' '+rowBg;
+
+      // Auto-fill: camion préférence for chauffeur
+      let autoCamion=cell.camion||'';
+      if(!autoCamion&&cell.ch&&cell.ch!=='-'){
+        autoCamion=state.data.agentCamions[cell.ch]||'';
+      }
+      // Auto-fill: autres missions from agentAutresJours
+      let autoAutres=cell.autres||'';
+      if(!autoAutres&&tIdx===0){
+        const jourNum=dayIdx+1;
+        const autoAgent=activeAgents.find(a=>{
+          const jours=state.data.agentAutresJours[a]||[];
+          return jours.includes(String(jourNum))||jours.includes(jourNum);
+        });
+        if(autoAgent) autoAutres=autoAgent;
+      }
+
+      const dayCell=tIdx===0
+        ?`<td rowspan="${tourDuJour.length}" class="day-cell plan-td border-r">${dateObj.texte}</td>`
+        :"";
+      const camionVal=cell.camion||autoCamion||'-';
+      const autresVal=cell.autres||autoAutres||'-';
+      tr.innerHTML=`${dayCell}
+        <td class="plan-td font-black uppercase text-slate-900 text-[11px]">${t.nom}</td>
+        <td class="plan-td p-0"><div class="${isCS?'flux-cell-cs':'flux-cell-om'}">${t.flux}</div></td>
+        <td class="plan-td ${chkC(camionVal)}"><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','camion',this.value)" class="plan-select ${chkC(camionVal)}"><option value="-">-</option>${activeCamions.map(c=>`<option ${camionVal===c?'selected':''}>${c}</option>`).join('')}</select></td>
+        <td class="plan-td ${chkA(cell.ch)}"><select ${isLocked?'disabled':''} onchange="handleChChange('${rowKey}',this.value,'${weekKey}')" class="plan-select ${chkA(cell.ch)}"><option value="-">-</option>${chauffeurs.map(a=>`<option ${cell.ch===a?'selected':''}>${a}</option>`).join('')}</select></td>
+        <td class="plan-td ${chkA(cell.r1)}"><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r1',this.value)" class="plan-select ${chkA(cell.r1)}"><option value="-">-</option>${ripeurs.map(a=>`<option ${cell.r1===a?'selected':''}>${a}</option>`).join('')}</select></td>
+        <td class="plan-td ${chkA(cell.r2)}"><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','r2',this.value)" class="plan-select ${chkA(cell.r2)}"><option value="-">-</option>${ripeurs.map(a=>`<option ${cell.r2===a?'selected':''}>${a}</option>`).join('')}</select></td>
+        <td class="plan-td"><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','vidage',this.value)" class="plan-select font-bold"><option value="-">-</option><option ${(cell.vidage||t.vidage||'-')==='Dépôt'?'selected':''}>Dépôt</option><option ${(cell.vidage||t.vidage||'-')==='DRIMM'?'selected':''}>DRIMM</option></select></td>
+        <td class="plan-td"><input type="text" ${isLocked?'disabled':''} value="${cell.info||''}" onchange="updatePlan('${rowKey}','info',this.value)" class="plan-input"></td>
+        <td class="plan-td ${chkA(autresVal)}"><select ${isLocked?'disabled':''} onchange="updatePlan('${rowKey}','autres',this.value)" class="plan-select ${chkA(autresVal)}"><option value="-">-</option>${activeAgents.map(a=>`<option ${autresVal===a?'selected':''}>${a}</option>`).join('')}</select></td>
+        ${tIdx===0?`<td rowspan="${tourDuJour.length}" class="plan-td col-dispo text-[9px] text-emerald-600 font-bold bg-emerald-50">${activeAgents.filter(a=>!agentCounts[a]&&!(state.data.conges[a]?.[dateObj.iso])).join(', ')}</td>`:''}`;
+      body.appendChild(tr);
+    });
+  });
 }
 
-/* ═══════════════════════════════════════════════════════════════
+function handleChChange(rowKey,val,weekKey){
+  if(!state.data.planning[weekKey]) state.data.planning[weekKey]={};
+  if(!state.data.planning[weekKey][rowKey]) state.data.planning[weekKey][rowKey]={};
+  state.data.planning[weekKey][rowKey].ch=val;
+  // auto-set camion preference if camion not manually set
+  const cell=state.data.planning[weekKey][rowKey];
+  if(!cell.camion||cell.camion==='-'){
+    const prefCamion=state.data.agentCamions[val]||'';
+    if(prefCamion) state.data.planning[weekKey][rowKey].camion=prefCamion;
+  }
+  sync();renderPlanning();
+}
+function updatePlan(rk,f,v){
+  const wk=`${state.annee}_W${state.semaine}`;
+  if(!state.data.planning[wk]) state.data.planning[wk]={};
+  if(!state.data.planning[wk][rk]) state.data.planning[wk][rk]={};
+  state.data.planning[wk][rk][f]=v;
+  sync();renderPlanning();
+}
+
+/* ════════════════════════════════════════════════════
+   CONGÉS
+════════════════════════════════════════════════════ */
+function renderConges(){
+  const container=document.getElementById('conges-wrapper');
+  const joursDansMois=new Date(state.anneeConges,state.moisConges+1,0).getDate();
+  document.getElementById('current-month-display').innerText=`${NOM_MOIS[state.moisConges]} ${state.anneeConges}`;
+  let html=`<table class="w-full border-collapse bg-white" onmousedown="isMouseDown=true" onmouseup="isMouseDown=false;sync();"><thead><tr class="bg-slate-900 text-white"><th class="plan-th text-left">Agent</th>`;
+  for(let j=1;j<=joursDansMois;j++){
+    const d=new Date(state.anneeConges,state.moisConges,j);
+    const isWE=d.getDay()===0||d.getDay()===6;
+    html+=`<th class="plan-th text-[8px] p-1${isWE?' opacity-50':''}">${d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric'})}</th>`;
+  }
+  html+=`</tr></thead><tbody>`;
+  state.data.agents.forEach(agent=>{
+    html+=`<tr><td class="plan-td font-bold bg-slate-50 sticky left-0 z-10 text-[10px]">${agent}</td>`;
+    for(let j=1;j<=joursDansMois;j++){
+      const dIso=`${state.anneeConges}-${String(state.moisConges+1).padStart(2,'0')}-${String(j).padStart(2,'0')}`;
+      const dow=new Date(state.anneeConges,state.moisConges,j).getDay();
+      const isWE=dow===0||dow===6;
+      const motif=state.data.conges[agent]?.[dIso];
+      if(isWE){html+=`<td class="selectable-cell plan-td weekend-bg"></td>`;}
+      else{html+=`<td onmousedown="if(currentUser.role==='admin')toggleConge('${agent}','${dIso}',this)" onmouseenter="if(isMouseDown&&currentUser.role==='admin')toggleConge('${agent}','${dIso}',this)" class="selectable-cell plan-td cursor-pointer h-8 text-center text-[10px] font-bold${motif?' cell-conge-active':''}">${motif||''}</td>`;}
+    }
+    html+=`</tr>`;
+  });
+  container.innerHTML=html+`</tbody></table>`;
+}
+function toggleConge(a,d,el){
+  if(!state.data.conges[a]) state.data.conges[a]={};
+  if(state.data.conges[a][d]){delete state.data.conges[a][d];el.innerText="";el.classList.remove('cell-conge-active');}
+  else{state.data.conges[a][d]=currentMotif;el.innerText=currentMotif;el.classList.add('cell-conge-active');}
+  renderPlanning();
+}
+function changeMoisConges(delta){
+  state.moisConges+=delta;
+  if(state.moisConges>11){state.moisConges=0;state.anneeConges++;}
+  if(state.moisConges<0){state.moisConges=11;state.anneeConges--;}
+  renderConges();
+}
+function setMotif(m){currentMotif=m;document.querySelectorAll('.motif-btn').forEach(b=>b.classList.toggle('active',b.dataset.motif===m));}
+
+/* ════════════════════════════════════════════════════
+   MAINTENANCE
+════════════════════════════════════════════════════ */
+function renderMaintenance(){
+  const container=document.getElementById('maint-wrapper');
+  const joursDansMois=new Date(state.anneeMaint,state.moisMaint+1,0).getDate();
+  document.getElementById('maint-month-display').innerText=`${NOM_MOIS[state.moisMaint]} ${state.anneeMaint}`;
+  let html=`<table class="w-full border-collapse bg-white" onmousedown="isMouseDown=true" onmouseup="isMouseDown=false;sync();"><thead><tr class="bg-slate-900 text-white"><th class="plan-th text-left">Véhicule</th>`;
+  for(let j=1;j<=joursDansMois;j++){
+    const d=new Date(state.anneeMaint,state.moisMaint,j);
+    const isWE=d.getDay()===0||d.getDay()===6;
+    html+=`<th class="plan-th text-[8px] p-1${isWE?' opacity-50':''}">${d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric'})}</th>`;
+  }
+  html+=`</tr></thead><tbody>`;
+  state.data.camions.forEach(cam=>{
+    html+=`<tr><td class="plan-td font-bold bg-slate-50 sticky left-0 z-10 text-[10px]">${cam}</td>`;
+    for(let j=1;j<=joursDansMois;j++){
+      const dIso=`${state.anneeMaint}-${String(state.moisMaint+1).padStart(2,'0')}-${String(j).padStart(2,'0')}`;
+      const dow=new Date(state.anneeMaint,state.moisMaint,j).getDay();
+      const isWE=dow===0||dow===6;
+      const inMaint=state.data.maintenance?.[cam]?.[dIso];
+      if(isWE){html+=`<td class="selectable-cell plan-td weekend-bg"></td>`;}
+      else{html+=`<td onmousedown="if(currentUser.role==='admin')toggleMaint('${cam}','${dIso}',this)" onmouseenter="if(isMouseDown&&currentUser.role==='admin')toggleMaint('${cam}','${dIso}',this)" class="selectable-cell plan-td cursor-pointer h-8 text-center text-[10px] font-bold${inMaint?' cell-maint-active':''}">${inMaint?'Maint':''}</td>`;}
+    }
+    html+=`</tr>`;
+  });
+  container.innerHTML=html+`</tbody></table>`;
+}
+function toggleMaint(cam,d,el){
+  if(!state.data.maintenance) state.data.maintenance={};
+  if(!state.data.maintenance[cam]) state.data.maintenance[cam]={};
+  if(state.data.maintenance[cam][d]){delete state.data.maintenance[cam][d];el.innerText="";el.classList.remove('cell-maint-active');}
+  else{state.data.maintenance[cam][d]=true;el.innerText="Maint";el.classList.add('cell-maint-active');}
+  renderPlanning();
+}
+function changeMoisMaint(delta){
+  state.moisMaint+=delta;
+  if(state.moisMaint>11){state.moisMaint=0;state.anneeMaint++;}
+  if(state.moisMaint<0){state.moisMaint=11;state.anneeMaint--;}
+  renderMaintenance();
+}
+
+/* ════════════════════════════════════════════════════
+   CONFIG SUB-TABS
+════════════════════════════════════════════════════ */
+function showCfgTab(name){
+  document.querySelectorAll('.cfg-tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.cfgtab===name));
+  document.querySelectorAll('.cfg-tab-content').forEach(c=>c.classList.add('hidden'));
+  document.getElementById(`cfg-${name}`).classList.remove('hidden');
+}
+
+/* ════════════════════════════════════════════════════
+   ADD PARAMS
+════════════════════════════════════════════════════ */
+function addParam(t){
+  if(t==='tournees'){
+    state.data.tournees.push({nom:document.getElementById('in-tournees').value,flux:document.getElementById('in-flux').value,type:document.getElementById('in-freq').value,jour:document.getElementById('in-jour').value,vidage:document.getElementById('in-vidage-perm').value});
+  } else if(t==='tourneesOccas'){
+    state.data.tourneesOccas.push({nom:document.getElementById('occ-tournees').value,flux:document.getElementById('occ-flux').value,dateSpecifique:document.getElementById('occ-date').value,vidage:document.getElementById('occ-vidage').value});
+  } else if(t==='agents'){
+    const name=document.getElementById('in-agents').value.trim();
+    if(name){state.data.agents.push(name);state.data.agentRoles[name]=document.getElementById('in-agent-role').value;}
+  } else if(t==='camions'){
+    const val=document.getElementById('in-camions').value.trim();
+    if(val&&!state.data.camions.includes(val)) state.data.camions.push(val);
+  }
+  renderAll();sync();
+}
+
+/* ════ AGENT MODALS ════ */
+function openEditAgent(i){
+  const name=state.data.agents[i];
+  document.getElementById('edit-a-index').value=i;
+  document.getElementById('edit-a-nom').value=name;
+  document.getElementById('edit-a-role').value=state.data.agentRoles[name]||'Chauffeur';
+  // Populate camion select
+  const camSel=document.getElementById('edit-a-camion');
+  camSel.innerHTML=`<option value="">— Aucun —</option>${state.data.camions.map(c=>`<option ${state.data.agentCamions[name]===c?'selected':''}>${c}</option>`).join('')}`;
+  // Check jours autres missions
+  const jours=state.data.agentAutresJours[name]||[];
+  document.querySelectorAll('.autres-jour-cb').forEach(cb=>{cb.checked=jours.includes(cb.value)||jours.includes(parseInt(cb.value));});
+  document.getElementById('edit-agent-modal').classList.add('active');
+}
+function saveAgentEdit(){
+  const i=parseInt(document.getElementById('edit-a-index').value);
+  const oldName=state.data.agents[i];
+  const newName=document.getElementById('edit-a-nom').value.trim();
+  const newRole=document.getElementById('edit-a-role').value;
+  const newCamion=document.getElementById('edit-a-camion').value;
+  const checkedJours=[...document.querySelectorAll('.autres-jour-cb:checked')].map(cb=>cb.value);
+  if(!newName) return;
+  state.data.agents[i]=newName;
+  if(newName!==oldName){
+    state.data.agentRoles[newName]=newRole;delete state.data.agentRoles[oldName];
+    state.data.agentCamions[newName]=newCamion;delete state.data.agentCamions[oldName];
+    state.data.agentAutresJours[newName]=checkedJours;delete state.data.agentAutresJours[oldName];
+  } else {
+    state.data.agentRoles[newName]=newRole;
+    state.data.agentCamions[newName]=newCamion;
+    state.data.agentAutresJours[newName]=checkedJours;
+  }
+  closeModal('edit-agent-modal');renderAll();sync();
+}
+
+/* ════ TOURNEE MODALS ════ */
+function openEditTournee(i){
+  const t=state.data.tournees[i];
+  document.getElementById('edit-t-index').value=i;
+  document.getElementById('edit-t-nom').value=t.nom;
+  document.getElementById('edit-t-flux').value=t.flux;
+  document.getElementById('edit-t-jour').value=t.jour;
+  document.getElementById('edit-t-freq').value=t.type;
+  document.getElementById('edit-t-vidage').value=t.vidage||'';
+  document.getElementById('edit-tournee-modal').classList.add('active');
+}
+function saveTourneeEdit(){
+  const i=parseInt(document.getElementById('edit-t-index').value);
+  const oldT=state.data.tournees[i];
+  const newVidage=document.getElementById('edit-t-vidage').value;
+  state.data.tournees[i]={
+    nom:document.getElementById('edit-t-nom').value,
+    flux:document.getElementById('edit-t-flux').value,
+    jour:document.getElementById('edit-t-jour').value,
+    type:document.getElementById('edit-t-freq').value,
+    vidage:newVidage
+  };
+  // Apply vidage change to planning rows where vidage was NOT manually set
+  if(oldT.vidage!==newVidage){
+    const tNom=state.data.tournees[i].nom;
+    Object.values(state.data.planning||{}).forEach(wkData=>{
+      Object.entries(wkData||{}).forEach(([rk,cell])=>{
+        const parts=rk.split('_');
+        const name=parts.slice(0,parts.length-1).join('_');
+        if(name===tNom && (!cell.vidage||cell.vidage===oldT.vidage||cell.vidage==='-')){
+          cell.vidage=newVidage||'-';
+        }
+      });
+    });
+  }
+  closeModal('edit-tournee-modal');renderAll();sync();
+}
+
+/* ════ ARCHIVE / RESTORE ════ */
+function archiveAgent(i){const n=state.data.agents[i];state.data.agents.splice(i,1);state.data.agentsArchived.push(n);renderAll();sync();}
+function restoreAgent(i){const n=state.data.agentsArchived[i];state.data.agentsArchived.splice(i,1);state.data.agents.push(n);renderAll();sync();}
+function deleteAgentPermanent(i){if(!confirm("Supprimer définitivement ?"))return;state.data.agentsArchived.splice(i,1);renderAll();sync();}
+function archiveCamion(i){const n=state.data.camions[i];state.data.camions.splice(i,1);state.data.camionsArchived.push(n);renderAll();sync();}
+function restoreCamion(i){const n=state.data.camionsArchived[i];state.data.camionsArchived.splice(i,1);state.data.camions.push(n);renderAll();sync();}
+function deleteCamionPermanent(i){if(!confirm("Supprimer définitivement ?"))return;state.data.camionsArchived.splice(i,1);renderAll();sync();}
+
+/* ════ GHOST TOURNEE CLEANUP ════ */
+function getGhostTournees(){
+  const configured=new Set([...(state.data.tournees||[]),...(state.data.tourneesOccas||[])].map(t=>t.nom));
+  const ghost=new Set();
+  Object.values(state.data.planning||{}).forEach(wk=>{
+    Object.keys(wk||{}).forEach(rk=>{
+      const parts=rk.split('_');const name=parts.slice(0,parts.length-1).join('_');
+      if(!configured.has(name)) ghost.add(name);
+    });
+  });
+  return [...ghost];
+}
+function deleteGhostTournee(name){
+  Object.values(state.data.planning||{}).forEach(wk=>{
+    Object.keys(wk||{}).forEach(rk=>{
+      const parts=rk.split('_');const n=parts.slice(0,parts.length-1).join('_');
+      if(n===name) delete wk[rk];
+    });
+  });
+  renderAll();sync();
+}
+
+/* ════ RENDER ALL ════ */
+function renderAll(){
+  if(!currentUser) return;
+  renderPlanning();renderConges();renderMaintenance();renderUsers();renderStats();renderConfigLists();
+}
+
+function renderConfigLists(){
+  // Agents actifs
+  document.getElementById('list-agents').innerHTML=state.data.agents.map((item,i)=>`
+    <li class="flex justify-between items-center text-xs p-2 bg-slate-50 mb-1 border rounded">
+      <div>
+        <span class="font-bold">${item}</span>
+        <span class="text-[9px] text-slate-400 ml-2">${state.data.agentRoles[item]||''}</span>
+        ${state.data.agentCamions[item]?`<span class="text-[9px] text-blue-400 ml-1">🚛 ${state.data.agentCamions[item]}</span>`:''}
+      </div>
+      <div class="flex gap-1 items-center admin-only">
+        <button onclick="openEditAgent(${i})" class="text-base px-1 hover:scale-110 transition-transform" title="Modifier">⚙️</button>
+        <button onclick="archiveAgent(${i})" class="text-amber-500 font-black text-[10px] px-2 py-1 border border-amber-200 rounded hover:bg-amber-50">↓</button>
+      </div>
+    </li>`).join('');
+
+  document.getElementById('list-agents-archived').innerHTML=(state.data.agentsArchived||[]).length===0
+    ?`<li class="text-[10px] text-slate-300 italic p-1">Aucun</li>`
+    :(state.data.agentsArchived||[]).map((item,i)=>`
+    <li class="flex justify-between items-center text-xs p-2 bg-amber-50 mb-1 border border-amber-100 rounded">
+      <span class="font-bold text-slate-500">${item} <span class="text-[9px] text-amber-400">(archivé)</span></span>
+      <div class="flex gap-1 admin-only">
+        <button onclick="restoreAgent(${i})" class="text-emerald-600 font-bold text-[9px] border border-emerald-200 rounded px-2 py-1">↑ Réactiver</button>
+        <button onclick="deleteAgentPermanent(${i})" class="text-red-400 font-bold text-[9px] ml-1">✕</button>
+      </div>
+    </li>`).join('');
+
+  // Camions
+  document.getElementById('list-camions').innerHTML=state.data.camions.map((item,i)=>`
+    <li class="flex justify-between text-xs p-2 bg-slate-50 mb-1 border rounded">
+      <span class="font-bold">${item}</span>
+      <button onclick="archiveCamion(${i})" class="text-amber-500 font-black text-[10px] px-2 py-1 border border-amber-200 rounded hover:bg-amber-50 admin-only">↓</button>
+    </li>`).join('');
+
+  document.getElementById('list-camions-archived').innerHTML=(state.data.camionsArchived||[]).length===0
+    ?`<li class="text-[10px] text-slate-300 italic p-1">Aucun</li>`
+    :(state.data.camionsArchived||[]).map((item,i)=>`
+    <li class="flex justify-between items-center text-xs p-2 bg-amber-50 mb-1 border border-amber-100 rounded">
+      <span class="font-bold text-slate-500">${item}</span>
+      <div class="flex gap-1 admin-only">
+        <button onclick="restoreCamion(${i})" class="text-emerald-600 font-bold text-[9px] border border-emerald-200 rounded px-2 py-1">↑ Réactiver</button>
+        <button onclick="deleteCamionPermanent(${i})" class="text-red-400 font-bold text-[9px] ml-1">✕</button>
+      </div>
+    </li>`).join('');
+
+  renderTourneeCalendar('impaire');
+  renderTourneeCalendar('paire');
+
+  // Ghosts
+  const ghosts=getGhostTournees();
+  document.getElementById('list-ghost-tournees').innerHTML=ghosts.length===0
+    ?`<p class="text-[10px] text-slate-300 italic">Aucune tournée fantôme détectée.</p>`
+    :ghosts.map(g=>`<div class="flex justify-between items-center p-2 bg-red-50 border border-red-100 rounded mb-1">
+      <span class="text-xs font-bold text-red-700">${g}</span>
+      <button onclick="deleteGhostTournee('${g}')" class="text-red-500 font-black text-[10px] border border-red-200 rounded px-2 py-1 hover:bg-red-100">Supprimer</button>
+    </div>`).join('');
+
+  // Occasionnelles
+  document.getElementById('list-tournees-occas').innerHTML=(state.data.tourneesOccas||[]).map((t,i)=>{
+    const bg=t.flux==='CS'?'background:#fef9c3;border-color:#fde047;':'background:#f1f5f9;border-color:#e2e8f0;';
+    const vid=t.vidage?` — Vidage ${t.vidage}`:'';
+    const dat=t.dateSpecifique?`[${new Date(t.dateSpecifique).toLocaleDateString('fr-FR')}] `:'';
+    return `<div class="flex justify-between p-2 mb-1 border text-[11px] font-bold rounded" style="${bg}"><span>${dat}${t.nom}${vid}</span><button onclick="state.data.tourneesOccas.splice(${i},1);renderAll();sync();" class="text-red-600 admin-only ml-2">✕</button></div>`;
+  }).join('');
+}
+
+function renderTourneeCalendar(type){
+  const el=document.getElementById(`tcal-${type}`);
+  if(!el) return;
+  const jours=['Lundi','Mardi','Mercredi','Jeudi','Vendredi'];
+  el.innerHTML=jours.map((j,idx)=>{
+    const tours=state.data.tournees.filter(t=>t.type===type&&t.jour==(idx+1));
+    const chips=tours.map(t=>{
+      const tIdx=state.data.tournees.indexOf(t);
+      const isCS=t.flux==='CS';
+      const vid=t.vidage?`<span class="opacity-50 font-normal"> · ${t.vidage}</span>`:'';
+      return `<div class="tcal-chip ${isCS?'tcal-chip-cs':'tcal-chip-om'}" onclick="openEditTournee(${tIdx})">
+        <span class="flex-1 truncate">${t.nom}${vid}</span>
+        <span onclick="event.stopPropagation();state.data.tournees.splice(${tIdx},1);renderAll();sync();" class="text-red-500 admin-only ml-1 text-[10px] hover:text-red-700">✕</span>
+      </div>`;
+    }).join('');
+    return `<div>
+      <div class="text-[9px] font-black uppercase text-slate-400 mb-2 text-center tracking-widest">${j}</div>
+      <div class="tcal-cell">${chips||'<span class="text-[9px] text-slate-300 italic p-1">—</span>'}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ════ USERS ════ */
+function renderUsers(){
+  document.getElementById('list-users').innerHTML=state.data.users.map((u,i)=>`
+    <div class="flex justify-between items-center bg-slate-50 p-3 rounded border mb-2">
+      <div><p class="font-black text-sm">${u.prenom} ${u.nom}</p><p class="text-[10px] text-slate-400 font-bold uppercase">${u.email}</p></div>
+      <div class="flex gap-2">
+        <select onchange="updateUserRole(${i},this.value)" class="text-[10px] font-bold border rounded p-1"><option value="read" ${u.role==='read'?'selected':''}>Lecteur</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select>
+        <button onclick="removeUser(${i})" class="text-red-500 font-bold text-xs">✕</button>
+      </div>
+    </div>`).join('');
+}
+function updateUserRole(i,r){state.data.users[i].role=r;sync();}
+function removeUser(i){if(state.data.users[i].email===currentUser.email)return;state.data.users.splice(i,1);renderUsers();sync();}
+function addUser(){
+  state.data.users.push({prenom:document.getElementById('new-u-prenom').value,nom:document.getElementById('new-u-nom').value,email:document.getElementById('new-u-email').value,pass:document.getElementById('new-u-pass').value,role:document.getElementById('new-u-role').value});
+  renderUsers();sync();
+}
+
+/* ════ TABS / COPY-PASTE ════ */
+function showTab(id){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  renderAll();
+}
+window.onload=load;
+
+function copyWeek(){
+  const wk=`${state.annee}_W${state.semaine}`;
+  clipboard=JSON.parse(JSON.stringify(state.data.planning[wk]||{}));
+  alert(`Semaine ${state.semaine} copiée !`);
+}
+function openPasteModal(){
+  if(!clipboard) return alert("Presse-papier vide.");
+  document.getElementById('target-week-num').innerText=state.semaine;
+  document.getElementById('copy-modal').classList.add('active');
+}
+function pasteData(type){
+  const wk=`${state.annee}_W${state.semaine}`;
+  if(!state.data.planning[wk]) state.data.planning[wk]={};
+  Object.keys(clipboard).forEach(rk=>{
+    if(!state.data.planning[wk][rk]) state.data.planning[wk][rk]={};
+    const src=clipboard[rk],trg=state.data.planning[wk][rk];
+    if(type==='all'||type==='ch') trg.ch=src.ch;
+    if(type==='all'||type==='ripeurs'){trg.r1=src.r1;trg.r2=src.r2;}
+    if(type==='all'||type==='camion') trg.camion=src.camion;
+    if(type==='all'||type==='vidage') trg.vidage=src.vidage;
+    if(type==='all'||type==='info')   trg.info=src.info;
+    if(type==='all'||type==='autres') trg.autres=src.autres;
+  });
+  closeModal('copy-modal');sync();renderPlanning();
+}
+
+/* ════════════════════════════════════════════════════
    STATS ENGINE
-═══════════════════════════════════════════════════════════════ */
-
-function setStatCat(cat) {
-    statCat = cat;
-    statSub = 'top';
-    statAgent = null;
-    document.querySelectorAll('.stat-cat-btn').forEach(b=>b.classList.toggle('active', b.dataset.cat===cat));
-    document.querySelectorAll('.stat-sub-btn').forEach(b=>b.classList.toggle('active', b.dataset.sub==='top'));
-    renderStats();
+════════════════════════════════════════════════════ */
+function setStatCat(cat){
+  statCat=cat;statSub='top';statAgent=null;statDays=[1,2,3,4,5];statFlux='all';
+  document.querySelectorAll('.stat-cat-btn').forEach(b=>b.classList.toggle('active',b.dataset.cat===cat));
+  const subRow=document.getElementById('stats-sub-row');
+  if(cat==='synthese'||cat==='poly'){
+    subRow.classList.add('hidden');
+    if(cat==='poly') statSub='agent';
+  } else {
+    subRow.classList.remove('hidden');
+    document.querySelectorAll('.stat-sub-btn').forEach(b=>b.classList.toggle('active',b.dataset.sub==='top'));
+  }
+  renderStats();
 }
-function setStatSub(sub) {
-    statSub = sub;
-    if (sub !== 'agent') statAgent = null;
-    document.querySelectorAll('.stat-sub-btn').forEach(b=>b.classList.toggle('active', b.dataset.sub===sub));
-    renderStats();
+function setStatSub(sub){
+  statSub=sub;if(sub!=='agent')statAgent=null;
+  document.querySelectorAll('.stat-sub-btn').forEach(b=>b.classList.toggle('active',b.dataset.sub===sub));
+  renderStats();
 }
-function setStatAgent(name) {
-    statAgent = (statAgent === name) ? null : name;
-    renderStats();
+function setStatAgent(name){statAgent=(statAgent===name)?null:name;renderStats();}
+function toggleStatDay(d){
+  if(statDays.includes(d)) statDays=statDays.filter(x=>x!==d);
+  else statDays.push(d);
+  if(statDays.length===0) statDays=[1,2,3,4,5];
+  renderStats();
 }
+function setStatFlux(f){statFlux=f;renderStats();}
 
-/* Build stat maps from planning data */
-function buildStatMaps() {
-    // perAgent[agent] = { ch: {tourneeName: count}, rip: {tourneeName: count} }
-    const perAgent = {};
-    const allAgents = [...state.data.agents, ...(state.data.agentsArchived||[])];
-    allAgents.forEach(a => { perAgent[a] = { ch:{}, rip:{} }; });
-
-    Object.values(state.data.planning||{}).forEach(weekData => {
-        Object.entries(weekData||{}).forEach(([rowKey, cell]) => {
-            const parts = rowKey.split('_');
-            const tName = parts.slice(0, parts.length-1).join('_');
-            if (cell.ch && cell.ch!=='-') {
-                if (!perAgent[cell.ch]) perAgent[cell.ch]={ch:{},rip:{}};
-                perAgent[cell.ch].ch[tName] = (perAgent[cell.ch].ch[tName]||0)+1;
-            }
-            [cell.r1, cell.r2].forEach(r => {
-                if (r && r!=='-') {
-                    if (!perAgent[r]) perAgent[r]={ch:{},rip:{}};
-                    perAgent[r].rip[tName] = (perAgent[r].rip[tName]||0)+1;
-                }
-            });
-        });
-    });
-    return perAgent;
+/* Navigate from synthese bar to detail agent */
+function goToDetailAgent(agentName,cat){
+  statCat=cat;statSub='agent';statAgent=agentName;statDays=[1,2,3,4,5];statFlux='all';
+  document.querySelectorAll('.stat-cat-btn').forEach(b=>b.classList.toggle('active',b.dataset.cat===cat));
+  document.getElementById('stats-sub-row').classList.remove('hidden');
+  document.querySelectorAll('.stat-sub-btn').forEach(b=>b.classList.toggle('active',b.dataset.sub==='agent'));
+  renderStats();
 }
 
-/* Get all unique tournee names from config + planning */
-function getAllTourneeNames() {
-    const fromConfig = [
-        ...(state.data.tournees||[]).map(t=>t.nom),
-        ...(state.data.tourneesOccas||[]).map(t=>t.nom)
-    ];
-    const fromPlanning = [];
-    Object.values(state.data.planning||{}).forEach(wk => {
-        Object.keys(wk||{}).forEach(rk => {
-            const parts = rk.split('_');
-            fromPlanning.push(parts.slice(0,parts.length-1).join('_'));
-        });
-    });
-    return [...new Set([...fromConfig,...fromPlanning])].filter(Boolean).sort();
+function getTourneeFlux(tName){
+  const t=[...(state.data.tournees||[]),...(state.data.tourneesOccas||[])].find(x=>x.nom===tName);
+  return t?t.flux:null;
+}
+function getTourneeJour(tName){
+  const t=(state.data.tournees||[]).find(x=>x.nom===tName);
+  return t?parseInt(t.jour):null;
 }
 
-/* Render stat bar (monochrome) */
-function bar(val, max, cls='') {
-    const pct = max>0 ? Math.round(val/max*100) : 0;
-    return `<div class="stat-bar-bg mt-1"><div class="stat-bar-fill${cls?' '+cls:''}" style="width:${pct}%"></div></div>`;
-}
-
-/* Rank dot */
-function rankDot(idx) {
-    const cls = idx===0?'rank-1':idx===1?'rank-2':idx===2?'rank-3':'rank-n';
-    return `<span class="rank-dot ${cls}">${idx+1}</span>`;
-}
-
-function renderStats() {
-    if (!currentUser) return;
-    const perAgent = buildStatMaps();
-    const allTournees = getAllTourneeNames();
-
-    // Determine which agents belong to this category
-    let agents = [];
-    if (statCat === 'chauffeur') {
-        agents = [...state.data.agents, ...(state.data.agentsArchived||[])].filter(a => {
-            const r = state.data.agentRoles[a]||'';
-            return r==='Chauffeur' || r==='Chauffeur / Ripeur';
-        });
-    } else if (statCat === 'ripeur') {
-        agents = [...state.data.agents, ...(state.data.agentsArchived||[])].filter(a => {
-            const r = state.data.agentRoles[a]||'';
-            return r==='Ripeur' || r==='Chauffeur / Ripeur';
-        });
-    } else { // poly
-        agents = [...state.data.agents, ...(state.data.agentsArchived||[])].filter(a =>
-            state.data.agentRoles[a]==='Chauffeur / Ripeur'
-        );
-    }
-
-    // Build agent picker
-    const picker = document.getElementById('stats-agent-picker');
-    if (statSub === 'agent') {
-        picker.classList.remove('hidden');
-        picker.innerHTML = agents.map(a =>
-            `<button class="agent-pill${statAgent===a?' active':''}" onclick="setStatAgent('${a}')">${a}</button>`
-        ).join('');
-    } else {
-        picker.classList.add('hidden');
-    }
-
-    const content = document.getElementById('stats-content');
-
-    /* ── MODE : détail agent ── */
-    if (statSub === 'agent') {
-        if (!statAgent) {
-            content.innerHTML = `<div class="text-center py-20 text-slate-300 font-black uppercase text-sm">Sélectionnez un agent ci-dessus</div>`;
-            return;
+function buildStatMaps(){
+  const perAgent={};
+  const allA=[...state.data.agents,...(state.data.agentsArchived||[])];
+  allA.forEach(a=>{perAgent[a]={ch:{},rip:{}};});
+  Object.values(state.data.planning||{}).forEach(wkData=>{
+    Object.entries(wkData||{}).forEach(([rowKey,cell])=>{
+      const parts=rowKey.split('_');const tName=parts.slice(0,parts.length-1).join('_');
+      if(cell.ch&&cell.ch!=='-'){
+        if(!perAgent[cell.ch]) perAgent[cell.ch]={ch:{},rip:{}};
+        perAgent[cell.ch].ch[tName]=(perAgent[cell.ch].ch[tName]||0)+1;
+      }
+      [cell.r1,cell.r2].forEach(r=>{
+        if(r&&r!=='-'){
+          if(!perAgent[r]) perAgent[r]={ch:{},rip:{}};
+          perAgent[r].rip[tName]=(perAgent[r].rip[tName]||0)+1;
         }
-        const map = statCat==='ripeur' ? (perAgent[statAgent]?.rip||{}) :
-                    statCat==='chauffeur' ? (perAgent[statAgent]?.ch||{}) :
-                    null; // poly handled separately
-
-        if (statCat === 'poly') {
-            // Show both ch and rip for this agent across all tournees
-            const chMap = perAgent[statAgent]?.ch||{};
-            const ripMap = perAgent[statAgent]?.rip||{};
-            const maxVal = Math.max(...allTournees.map(t=>(chMap[t]||0)+(ripMap[t]||0)),1);
-            const rows = allTournees.map(t => ({ t, ch:chMap[t]||0, rip:ripMap[t]||0 }));
-            rows.sort((a,b)=>(b.ch+b.rip)-(a.ch+a.rip));
-            content.innerHTML = `
-            <div class="stat-card max-w-2xl">
-                <div class="font-black text-base uppercase mb-1">${statAgent}</div>
-                <div class="text-[10px] text-slate-400 font-bold uppercase mb-5">Participation par tournée — conduit & ripé</div>
-                <div class="space-y-4">
-                    ${rows.map(({t,ch,rip}) => {
-                        const total=ch+rip;
-                        const isZero = total===0;
-                        return `<div class="${isZero?'zero-row':''}">
-                            <div class="flex justify-between mb-1">
-                                <span class="text-xs font-bold text-slate-700">${t}</span>
-                                <span class="text-[10px] font-black text-slate-400">${total===0?'—':`${ch?ch+'× ch':''}${ch&&rip?' · ':''}${rip?rip+'× rip':''}`}</span>
-                            </div>
-                            ${total>0 ? `<div class="flex rounded-full overflow-hidden h-2 w-full bg-slate-100">
-                                <div style="width:${Math.round(ch/maxVal*100)}%" class="stat-bar-fill"></div>
-                                <div style="width:${Math.round(rip/maxVal*100)}%" class="stat-bar-fill accent"></div>
-                            </div>
-                            <div class="flex gap-3 mt-0.5">
-                                <span class="text-[8px] text-slate-400 font-bold">■ conduit</span>
-                                <span class="text-[8px] text-slate-300 font-bold">■ ripé</span>
-                            </div>` : `<div class="stat-bar-bg"><div class="stat-bar-fill" style="width:0%"></div></div>`}
-                        </div>`;
-                    }).join('')}
-                </div>
-            </div>`;
-            return;
-        }
-
-        const rows = allTournees.map(t => ({ t, val: map[t]||0 }));
-        rows.sort((a,b)=>b.val-a.val);
-        const maxVal = rows[0]?.val||1;
-        content.innerHTML = `
-        <div class="stat-card max-w-2xl">
-            <div class="font-black text-base uppercase mb-1">${statAgent}</div>
-            <div class="text-[10px] text-slate-400 font-bold uppercase mb-5">
-                Participation par tournée — ${statCat==='chauffeur'?'en tant que chauffeur':'en tant que ripeur'}
-            </div>
-            <div class="space-y-3">
-                ${rows.map(({t,val}) => `
-                <div class="${val===0?'zero-row':''}">
-                    <div class="flex justify-between mb-0.5">
-                        <span class="text-xs font-bold text-slate-700">${t}</span>
-                        <span class="text-[11px] font-black text-slate-500">${val===0?'—':val+'×'}</span>
-                    </div>
-                    ${bar(val, maxVal)}
-                </div>`).join('')}
-            </div>
-        </div>`;
-        return;
-    }
-
-    /* ── MODE : top / bottom ── */
-    if (!agents.length) {
-        content.innerHTML = `<div class="text-center py-20 text-slate-300 font-black uppercase text-sm">Aucun agent dans cette catégorie</div>`;
-        return;
-    }
-
-    // For each agent, build sorted top-3
-    const cards = agents.map(agent => {
-        let entries;
-        if (statCat==='chauffeur') {
-            entries = Object.entries(perAgent[agent]?.ch||{});
-        } else if (statCat==='ripeur') {
-            entries = Object.entries(perAgent[agent]?.rip||{});
-        } else {
-            // poly: merge ch + rip
-            const ch = perAgent[agent]?.ch||{};
-            const rip = perAgent[agent]?.rip||{};
-            const merged = {};
-            [...Object.keys(ch),...Object.keys(rip)].forEach(k => {
-                merged[k] = { ch: ch[k]||0, rip: rip[k]||0 };
-            });
-            entries = Object.entries(merged).map(([k,v])=>[k,v.ch+v.rip, v]);
-        }
-
-        // Sort
-        if (statSub==='top') entries.sort((a,b)=>b[1]-a[1]);
-        else entries.sort((a,b)=>a[1]-b[1]);
-
-        const top3 = entries.slice(0,3);
-        const maxVal = Math.max(...(statSub==='top'?entries.slice(0,3):entries).map(e=>e[1]||0),1);
-        const totalInterventions = entries.reduce((s,e)=>s+(typeof e[1]==='number'?e[1]:0),0);
-
-        const isArchived = (state.data.agentsArchived||[]).includes(agent);
-
-        return `
-        <div class="stat-card flex flex-col gap-4${isArchived?' opacity-60 border-dashed':''}">
-            <div class="flex items-start justify-between">
-                <div>
-                    <div class="font-black text-sm uppercase tracking-tight">${agent}${isArchived?' <span class="text-[9px] text-amber-500 font-bold">(archivé)</span>':''}</div>
-                    <div class="text-[10px] text-slate-400 font-bold mt-0.5">${state.data.agentRoles[agent]||''}</div>
-                </div>
-                <div class="text-right">
-                    <div class="text-xl font-black text-slate-700">${totalInterventions}</div>
-                    <div class="text-[9px] text-slate-400 font-bold uppercase">${statCat==='chauffeur'?'conduites':statCat==='ripeur'?'ripages':'total'}</div>
-                </div>
-            </div>
-            <div>
-                <div class="text-[9px] font-black uppercase text-slate-400 mb-3">
-                    ${statSub==='top'?'3 tournées les + réalisées':'3 tournées les - réalisées'}
-                </div>
-                ${top3.length===0
-                    ? `<p class="text-[11px] text-slate-300 font-bold">Aucune donnée</p>`
-                    : top3.map(([tName, val], idx) => {
-                        const displayVal = typeof val==='number' ? val : (val?.ch||0)+(val?.rip||0);
-                        return `
-                        <div class="flex items-center gap-3 mb-3">
-                            ${rankDot(idx)}
-                            <div class="flex-1 min-w-0">
-                                <div class="flex justify-between mb-0.5">
-                                    <span class="text-[11px] font-bold text-slate-700 truncate">${tName}</span>
-                                    <span class="text-[11px] font-black text-slate-500 ml-2">${displayVal}×</span>
-                                </div>
-                                ${bar(displayVal, maxVal, idx===0?'':(idx===1?'accent':'light'))}
-                            </div>
-                        </div>`;
-                    }).join('')}
-            </div>
-        </div>`;
+      });
     });
-
-    content.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">${cards.join('')}</div>`;
+  });
+  return perAgent;
 }
 
+function getAllTourneeNames(dayFilter){
+  const fromConf=[...(state.data.tournees||[]),...(state.data.tourneesOccas||[])].map(t=>t.nom);
+  let all=[...new Set(fromConf)].filter(Boolean);
+  if(dayFilter&&dayFilter.length<5){
+    all=all.filter(name=>{
+      const t=state.data.tournees.find(x=>x.nom===name);
+      if(!t) return true;
+      return dayFilter.includes(parseInt(t.jour));
+    });
+  }
+  return all.sort();
+}
+
+function bar(val,max,cls=''){
+  const pct=max>0?Math.round(val/max*100):0;
+  return `<div class="stat-bar-bg mt-1"><div class="stat-bar-fill${cls?' '+cls:''}" style="width:${pct}%"></div></div>`;
+}
+function rankDot(idx){
+  const cls=idx===0?'rank-1':idx===1?'rank-2':idx===2?'rank-3':'rank-n';
+  return `<span class="rank-dot ${cls}">${idx+1}</span>`;
+}
+function donutSVG(ch,rip){
+  const total=ch+rip||1,pct=ch/total,r=32,cx=40,cy=40,circ=2*Math.PI*r,dash=pct*circ;
+  return `<div class="donut-wrap"><svg width="80" height="80" viewBox="0 0 80 80">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#e2e8f0" stroke-width="9"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#1e293b" stroke-width="9" stroke-dasharray="${dash} ${circ-dash}"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#94a3b8" stroke-width="9" stroke-dasharray="${circ-dash} ${dash}" stroke-dashoffset="${-dash}"/>
+  </svg><div class="donut-label"><span style="color:#1e293b;font-size:10px">${ch}</span><span style="color:#94a3b8;font-size:10px">${rip}</span></div></div>`;
+}
+
+/* ════ RENDER STATS ════ */
+function renderStats(){
+  if(!currentUser) return;
+  const perAgent=buildStatMaps();
+  let agents=[];
+  if(statCat==='chauffeur') agents=[...state.data.agents,...(state.data.agentsArchived||[])].filter(a=>{const r=state.data.agentRoles[a]||'';return r==='Chauffeur'||r==='Chauffeur / Ripeur';});
+  else if(statCat==='ripeur') agents=[...state.data.agents,...(state.data.agentsArchived||[])].filter(a=>{const r=state.data.agentRoles[a]||'';return r==='Ripeur'||r==='Chauffeur / Ripeur';});
+  else if(statCat==='poly') agents=[...state.data.agents,...(state.data.agentsArchived||[])].filter(a=>state.data.agentRoles[a]==='Chauffeur / Ripeur');
+  else agents=[...state.data.agents,...(state.data.agentsArchived||[])];
+
+  // UI Controls
+  const picker=document.getElementById('stats-agent-picker');
+  const dayF=document.getElementById('stats-day-filter');
+  const fluxF=document.getElementById('stats-flux-filter');
+  const synthF=document.getElementById('stats-synthese-filters');
+
+  if(statCat==='synthese'){
+    picker.classList.add('hidden');dayF.classList.add('hidden');fluxF.classList.add('hidden');synthF.classList.remove('hidden');
+    renderSynthese(perAgent);
+    return;
+  }
+  synthF.classList.add('hidden');
+
+  if(statSub==='agent'||(statCat==='poly')){
+    picker.classList.remove('hidden');
+    picker.innerHTML=agents.map(a=>`<button class="agent-pill${statAgent===a?' active':''}" onclick="setStatAgent('${a}')">${a}</button>`).join('');
+  } else {picker.classList.add('hidden');}
+
+  if((statSub==='agent'||statCat==='poly')&&statAgent){
+    dayF.classList.remove('hidden');
+    dayF.innerHTML=`<span class="text-[9px] font-black uppercase text-slate-400 mr-2">Jours :</span>`+
+      [1,2,3,4,5].map(d=>`<button class="stat-day-btn${statDays.includes(d)?' active':''}" onclick="toggleStatDay(${d})">${JOURS_NOM[d-1].slice(0,3)}</button>`).join('');
+    fluxF.classList.remove('hidden');
+    fluxF.innerHTML=`<span class="text-[9px] font-black uppercase text-slate-400 mr-2">Flux :</span>`+
+      ['all','OM','CS'].map(f=>`<button class="stat-flux-btn${statFlux===f?' active':''}" onclick="setStatFlux('${f}')">${f==='all'?'Tous':f}</button>`).join('');
+  } else {dayF.classList.add('hidden');fluxF.classList.add('hidden');}
+
+  const content=document.getElementById('stats-content');
+
+  /* ─── POLY (detail only) ─── */
+  if(statCat==='poly'){
+    if(!statAgent){content.innerHTML=`<div class="text-center py-20 text-slate-300 font-black uppercase text-sm">Sélectionnez un agent ci-dessus</div>`;return;}
+    renderPolyDetail(perAgent,statAgent,content);
+    return;
+  }
+
+  /* ─── DETAIL AGENT ─── */
+  if(statSub==='agent'){
+    if(!statAgent){content.innerHTML=`<div class="text-center py-20 text-slate-300 font-black uppercase text-sm">Sélectionnez un agent ci-dessus</div>`;return;}
+    renderDetailAgent(perAgent,statAgent,content);
+    return;
+  }
+
+  /* ─── TOP / BOTTOM ─── */
+  if(!agents.length){content.innerHTML=`<div class="text-center py-20 text-slate-300 font-black uppercase text-sm">Aucun agent dans cette catégorie</div>`;return;}
+  const allT=getAllTourneeNames();
+  const cards=agents.map(agent=>{
+    const isArchived=(state.data.agentsArchived||[]).includes(agent);
+    const entries=allT.map(t=>[t,statCat==='chauffeur'?(perAgent[agent]?.ch[t]||0):(perAgent[agent]?.rip[t]||0)]);
+    if(statSub==='top') entries.sort((a,b)=>b[1]-a[1]);
+    else entries.sort((a,b)=>a[1]-b[1]);
+    const top3=entries.slice(0,3);
+    const maxV=Math.max(...entries.map(e=>e[1]),1);
+    const total=entries.reduce((s,e)=>s+e[1],0);
+    return `<div class="stat-card flex flex-col gap-4${isArchived?' opacity-60 border-dashed':''}">
+      <div class="flex items-start justify-between">
+        <div>
+          <div class="font-black text-sm uppercase tracking-tight">${agent}${isArchived?' <span class="text-[9px] text-amber-400">(archivé)</span>':''}</div>
+          <div class="text-[10px] text-slate-400 font-bold mt-0.5">${state.data.agentRoles[agent]||''}</div>
+        </div>
+        <div class="text-right"><div class="text-xl font-black text-slate-700">${total}</div><div class="text-[9px] text-slate-400 font-bold uppercase">${statCat==='chauffeur'?'conduites':'ripages'}</div></div>
+      </div>
+      <div>
+        <div class="text-[9px] font-black uppercase text-slate-400 mb-3">${statSub==='top'?'3 tournées les + réalisées':'3 tournées les — réalisées'}</div>
+        ${top3.map(([tName,val],idx)=>`
+        <div class="flex items-center gap-3 mb-3">${rankDot(idx)}
+          <div class="flex-1 min-w-0">
+            <div class="flex justify-between mb-0.5">
+              <span class="text-[11px] font-bold text-slate-700 truncate">${tName}</span>
+              <span class="text-[11px] font-black text-slate-500 ml-2">${val}×</span>
+            </div>
+            ${bar(val,maxV,idx===0?'':(idx===1?'accent':'light'))}
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  });
+  content.innerHTML=`<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">${cards.join('')}</div>`;
+}
+
+/* ─── Detail agent (chauffeur / ripeur) ─── */
+function renderDetailAgent(perAgent,agentName,content){
+  const map=statCat==='chauffeur'?perAgent[agentName]?.ch||{}:perAgent[agentName]?.rip||{};
+  const allT=getAllTourneeNames(statDays);
+  // Filter by flux
+  const rows=allT
+    .filter(t=>statFlux==='all'||getTourneeFlux(t)===statFlux)
+    .map(t=>({t,flux:getTourneeFlux(t),jour:getTourneeJour(t),total:map[t]||0}));
+  rows.sort((a,b)=>(a.jour||99)-(b.jour||99)||a.t.localeCompare(b.t));
+  const maxV=Math.max(...rows.map(r=>r.total),1);
+
+  // Group by day
+  const grouped={};
+  rows.forEach(r=>{
+    const k=r.jour?JOURS_NOM[(r.jour-1)]:'Autres';
+    if(!grouped[k]) grouped[k]=[];
+    grouped[k].push(r);
+  });
+  const omTotal=rows.filter(r=>r.flux==='OM').reduce((s,r)=>s+r.total,0);
+  const csTotal=rows.filter(r=>r.flux==='CS').reduce((s,r)=>s+r.total,0);
+
+  let html=`<div class="stat-card max-w-3xl">
+    <div class="font-black text-sm uppercase mb-1">${agentName}</div>
+    <div class="text-[10px] text-slate-400 font-bold uppercase mb-4">Participation par tournée — ${statCat==='chauffeur'?'en tant que chauffeur':'en tant que ripeur'}</div>
+    <div class="grid grid-cols-[1fr_80px_80px_80px] gap-x-3 mb-2 px-1">
+      <span class="text-[9px] font-black uppercase text-slate-400">Tournée</span>
+      <span class="text-[9px] font-black uppercase text-slate-400 text-center">OM</span>
+      <span class="text-[9px] font-black uppercase text-slate-400 text-center">CS</span>
+      <span class="text-[9px] font-black uppercase text-slate-400 text-center">Total</span>
+    </div>`;
+
+  Object.entries(grouped).forEach(([dayName,dayRows])=>{
+    html+=`<div class="day-group-header">${dayName}</div>`;
+    dayRows.forEach(({t,flux,total})=>{
+      const omV=flux==='OM'?total:0,csV=flux==='CS'?total:0;
+      html+=`<div class="grid grid-cols-[1fr_80px_80px_80px] gap-x-3 items-center py-2 border-b last:border-0 ${total===0?'zero-row':''}">
+        <div>
+          <span class="text-xs font-bold text-slate-700">${t}</span>
+          ${total>0?bar(total,maxV):'<div class="stat-bar-bg mt-1"><div class="stat-bar-fill" style="width:0%"></div></div>'}
+        </div>
+        <span class="text-center font-black text-sm text-slate-600">${omV||'—'}</span>
+        <span class="text-center font-black text-sm text-slate-600">${csV||'—'}</span>
+        <span class="text-center font-black text-sm ${total>0?'text-slate-900':'text-slate-300'}">${total}</span>
+      </div>`;
+    });
+  });
+
+  html+=`<div class="flex gap-6 mt-5 pt-4 border-t">
+    <div class="text-center"><div class="text-xs font-black text-slate-500 uppercase">OM total</div><div class="text-xl font-black text-slate-700">${omTotal}</div></div>
+    <div class="text-center"><div class="text-xs font-black text-slate-500 uppercase">CS total</div><div class="text-xl font-black text-slate-700">${csTotal}</div></div>
+    <div class="text-center"><div class="text-xs font-black text-slate-500 uppercase">Grand total</div><div class="text-xl font-black text-slate-900">${omTotal+csTotal}</div></div>
+  </div></div>`;
+  content.innerHTML=html;
+}
+
+/* ─── Poly detail ─── */
+function renderPolyDetail(perAgent,agentName,content){
+  const chMap=perAgent[agentName]?.ch||{};
+  const ripMap=perAgent[agentName]?.rip||{};
+  const allT=getAllTourneeNames(statDays);
+  const rows=allT
+    .filter(t=>statFlux==='all'||getTourneeFlux(t)===statFlux)
+    .map(t=>({t,flux:getTourneeFlux(t),jour:getTourneeJour(t),ch:chMap[t]||0,rip:ripMap[t]||0}));
+  rows.sort((a,b)=>(a.jour||99)-(b.jour||99)||a.t.localeCompare(b.t));
+  const maxV=Math.max(...rows.map(r=>r.ch+r.rip),1);
+
+  const grouped={};
+  rows.forEach(r=>{const k=r.jour?JOURS_NOM[(r.jour-1)]:'Autres';if(!grouped[k])grouped[k]=[];grouped[k].push(r);});
+  const totalCh=rows.reduce((s,r)=>s+r.ch,0);
+  const totalRip=rows.reduce((s,r)=>s+r.rip,0);
+
+  let html=`<div class="stat-card max-w-3xl">
+    <div class="font-black text-sm uppercase mb-1">${agentName}</div>
+    <div class="text-[10px] text-slate-400 font-bold uppercase mb-4">Participation — conduites & ripées</div>
+    <div class="grid grid-cols-[1fr_80px_80px_80px] gap-x-3 mb-2 px-1">
+      <span class="text-[9px] font-black uppercase text-slate-400">Tournée</span>
+      <span class="text-[9px] font-black uppercase text-slate-400 text-center">Conduit</span>
+      <span class="text-[9px] font-black uppercase text-slate-400 text-center">Ripé</span>
+      <span class="text-[9px] font-black uppercase text-slate-400 text-center">Total</span>
+    </div>`;
+
+  Object.entries(grouped).forEach(([dayName,dayRows])=>{
+    html+=`<div class="day-group-header">${dayName}</div>`;
+    dayRows.forEach(({t,flux,ch,rip})=>{
+      const total=ch+rip;
+      html+=`<div class="grid grid-cols-[1fr_80px_80px_80px] gap-x-3 items-center py-2 border-b last:border-0 ${total===0?'zero-row':''}">
+        <div>
+          <span class="text-xs font-bold text-slate-700">${t}</span>
+          ${total>0?`<div class="flex mt-1.5 rounded overflow-hidden h-2 bg-slate-100 w-full">
+            <div style="width:${Math.round(ch/maxV*100)}%" class="stat-bar-fill"></div>
+            <div style="width:${Math.round(rip/maxV*100)}%" class="stat-bar-fill accent"></div>
+          </div><div class="flex gap-3 mt-0.5"><span class="text-[8px] text-slate-500 font-bold">■ conduit</span><span class="text-[8px] text-slate-300 font-bold">■ ripé</span></div>`:''}
+        </div>
+        <span class="text-center font-black text-sm text-slate-700">${ch||'—'}</span>
+        <span class="text-center font-black text-sm text-slate-400">${rip||'—'}</span>
+        <span class="text-center font-black text-sm ${total>0?'text-slate-900':'text-slate-300'}">${total}</span>
+      </div>`;
+    });
+  });
+  html+=`<div class="flex gap-6 mt-5 pt-4 border-t">
+    <div class="text-center"><div class="text-xs font-black text-slate-500 uppercase">■ Conduites</div><div class="text-xl font-black text-slate-800">${totalCh}</div></div>
+    <div class="text-center"><div class="text-xs font-black text-slate-400 uppercase">■ Ripages</div><div class="text-xl font-black text-slate-500">${totalRip}</div></div>
+    <div class="text-center"><div class="text-xs font-black text-slate-500 uppercase">Total</div><div class="text-xl font-black text-slate-900">${totalCh+totalRip}</div></div>
+  </div></div>`;
+  content.innerHTML=html;
+}
+
+/* ─── SYNTHÈSE ─── */
+function renderSynthese(perAgent){
+  const content=document.getElementById('stats-content');
+  const allA=[...state.data.agents,...(state.data.agentsArchived||[])];
+
+  // Filters UI
+  const allTournees=[...(state.data.tournees||[]),...(state.data.tourneesOccas||[])].map(t=>t.nom);
+  const uniqueT=[...new Set(allTournees)];
+  document.getElementById('stats-synthese-filters').innerHTML=`
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div>
+        <label class="text-[9px] font-black uppercase text-slate-400 block mb-1">Type d'agent</label>
+        <div class="flex gap-1 flex-wrap">
+          ${['all','chauffeur','ripeur','poly'].map(v=>`<button onclick="synthAgentFilter='${v}';renderStats()" class="stat-flux-btn${synthAgentFilter===v?' active':''} text-[9px] px-2 py-1">${v==='all'?'Tous':v==='chauffeur'?'Chauffeurs':v==='ripeur'?'Ripeurs':'Poly'}</button>`).join('')}
+        </div>
+      </div>
+      <div>
+        <label class="text-[9px] font-black uppercase text-slate-400 block mb-1">Flux</label>
+        <div class="flex gap-1">
+          ${['all','OM','CS'].map(f=>`<button onclick="synthFluxFilter='${f}';renderStats()" class="stat-flux-btn${synthFluxFilter===f?' active':''} text-[9px] px-2 py-1">${f==='all'?'Tous':f}</button>`).join('')}
+        </div>
+      </div>
+      <div>
+        <label class="text-[9px] font-black uppercase text-slate-400 block mb-1">Période (semaine début)</label>
+        <input type="number" min="1" max="52" placeholder="Semaine début" value="${synthPeriode.debut}" onchange="synthPeriode.debut=this.value;renderStats()" class="border p-1 rounded text-xs w-full">
+      </div>
+      <div>
+        <label class="text-[9px] font-black uppercase text-slate-400 block mb-1">Période (semaine fin)</label>
+        <input type="number" min="1" max="52" placeholder="Semaine fin" value="${synthPeriode.fin}" onchange="synthPeriode.fin=this.value;renderStats()" class="border p-1 rounded text-xs w-full">
+      </div>
+    </div>`;
+
+  // Filter agents
+  let agentsToShow=allA;
+  if(synthAgentFilter==='chauffeur') agentsToShow=allA.filter(a=>{const r=state.data.agentRoles[a]||'';return r==='Chauffeur'||r==='Chauffeur / Ripeur';});
+  else if(synthAgentFilter==='ripeur') agentsToShow=allA.filter(a=>{const r=state.data.agentRoles[a]||'';return r==='Ripeur'||r==='Chauffeur / Ripeur';});
+  else if(synthAgentFilter==='poly') agentsToShow=allA.filter(a=>state.data.agentRoles[a]==='Chauffeur / Ripeur');
+
+  // Build data filtered by periode & flux
+  const debut=synthPeriode.debut?parseInt(synthPeriode.debut):1;
+  const fin=synthPeriode.fin?parseInt(synthPeriode.fin):52;
+  const filteredPlanning={};
+  Object.entries(state.data.planning||{}).forEach(([wk,data])=>{
+    const match=wk.match(/_W(\d+)$/);if(!match) return;
+    const w=parseInt(match[1]);
+    if(w>=debut&&w<=fin) filteredPlanning[wk]=data;
+  });
+  // Count ch / rip per agent
+  const chCount={},ripCount={};
+  Object.values(filteredPlanning).forEach(wkData=>{
+    Object.entries(wkData||{}).forEach(([rk,cell])=>{
+      const parts=rk.split('_');const tName=parts.slice(0,parts.length-1).join('_');
+      const flux=getTourneeFlux(tName);
+      if(synthFluxFilter!=='all'&&flux!==synthFluxFilter) return;
+      if(cell.ch&&cell.ch!=='-') chCount[cell.ch]=(chCount[cell.ch]||0)+1;
+      [cell.r1,cell.r2].forEach(r=>{if(r&&r!=='-') ripCount[r]=(ripCount[r]||0)+1;});
+    });
+  });
+
+  if(!agentsToShow.length){content.innerHTML=`<div class="stat-card text-center py-20 text-slate-300 font-black uppercase text-sm">Aucun agent</div>`;return;}
+
+  content.innerHTML=`<div class="stat-card"><canvas id="synthese-chart" height="100"></canvas></div>`;
+  setTimeout(()=>{
+    const labels=agentsToShow;
+    const chData=labels.map(a=>chCount[a]||0);
+    const ripData=labels.map(a=>ripCount[a]||0);
+    if(synthChart) synthChart.destroy();
+    const ctx=document.getElementById('synthese-chart');
+    synthChart=new Chart(ctx,{
+      type:'bar',
+      data:{
+        labels,
+        datasets:[
+          {label:'Conduit',data:chData,backgroundColor:'#334155',borderRadius:4,borderSkipped:false},
+          {label:'Ripé',data:ripData,backgroundColor:'#94a3b8',borderRadius:4,borderSkipped:false}
+        ]
+      },
+      options:{
+        responsive:true,
+        plugins:{
+          legend:{position:'top',labels:{font:{weight:'bold',size:12},padding:20}},
+          tooltip:{enabled:true},
+          datalabels:{display:false}
+        },
+        scales:{x:{stacked:true,grid:{display:false},ticks:{font:{weight:'700',size:11}}},y:{stacked:true,beginAtZero:true,ticks:{font:{size:11}}}},
+        onClick:(evt,elements)=>{
+          if(!elements.length) return;
+          const el=elements[0];
+          const agentName=labels[el.index];
+          const cat=el.datasetIndex===0?'chauffeur':'ripeur';
+          goToDetailAgent(agentName,cat);
+        }
+      }
+    });
+    // Add clickable labels on bars
+    // (handled via Chart.js onClick above for interactivity)
+  },50);
+}
+
+/* ════ WEEK SELECTOR INIT ════ */
+function initWeekSelector(){
+  const sel=document.getElementById('week-selector');
+  sel.innerHTML="";
+  for(let i=1;i<=52;i++){
+    let o=document.createElement('option');o.value=i;o.innerText=`Semaine ${i}`;
+    if(i===state.semaine) o.selected=true;
+    sel.appendChild(o);
+  }
+}
 </script>
 </body>
 </html>
